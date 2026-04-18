@@ -1,0 +1,24 @@
+{% load tree %}
+
+{% if node.isolation_parent %}
+    <li>
+        {% if node.isolation %}
+            {{ node.isolation|multiply:0.001|floatformat:3 }} km
+            &rightarrow;
+            {{ node.isolation_offset|floatformat:0 }} m
+        {% else %}
+            unknown distance
+        {% endif %}
+        from
+        <a href="{{ node.isolation_parent.get_absolute_url }}">
+            {{ node.isolation_parent }}
+        </a>
+    </li>
+    {% render_isolation_lineage node.isolation_parent %}
+{% else %}
+    {% if node.isolation %}
+        (unknown) ({{ node.isolation|multiply:0.001|floatformat:3 }} km)
+    {% else %}
+        (not in the database)
+    {% endif %}
+{% endif %}

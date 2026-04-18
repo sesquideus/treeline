@@ -1,0 +1,19 @@
+{% load tree %}
+
+{% if node.prominence_parent %}
+    <li>
+        {{ node.prominence|floatformat:1 }} m
+        &#x2198;
+        <a href="{{ node.key_col.get_absolute_url }}">
+            {{ node.key_col }}
+        </a>
+        &#x2197;
+        <a href="{{ node.prominence_parent.get_absolute_url }}">
+            {{ node.prominence_parent }}
+        </a>
+    </li>
+    {% render_summit_lineage node.prominence_parent %}
+{% elif node.island_high_point %}
+{% else %}
+    (unknown) ({{ node.prominence|floatformat:1 }} m)
+{% endif %}

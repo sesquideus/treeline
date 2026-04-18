@@ -1,0 +1,68 @@
+{% extends 'core/base.html' %}
+
+{% load static tree countries %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+{% endblock headextra %}
+
+{% block title %}
+    &#x26F0; {{ mountain.point.name }}
+    ({{ mountain.point.altitude }} m)
+{% endblock title %}
+
+{% block pagetitle %}
+    &#x26F0; <b>{{ mountain.point.name }} {{ mountain.point|flags }}</b>
+    ({{ mountain.point.altitude }} m)
+    <a href="{{ mountain.admin_change_url }}">&#x1F589;</a>
+{% endblock pagetitle %}
+
+{% block page %}
+    <table>
+        {% for name in mountain.point.names.all %}
+            <tr>
+                <td>{{ name }}</td>
+                <td>{{ name.language.code }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <h3>
+        Prominence lineage
+    </h3>
+    <ul class="mountains">
+        {% render_summit_lineage mountain %}
+    </ul>
+
+    <h3>
+        Encirclement lineage
+    </h3>
+    <ul class="mountains">
+        {% render_encirclement_lineage mountain %}
+    </ul>
+
+    <h3>
+        Isolation
+    </h3>
+    <ul>
+        {% render_isolation_lineage mountain %}
+    </ul>
+
+    <h3>
+        Parent peak for
+    </h3>
+    <table class="mountains">
+        {% for child in mountain.prominence_children.all %}
+            <tr>
+                <td>{{ child.prominence|floatformat:1 }}</td>
+                <td>
+                    <a href="{{ child.get_absolute_url }}">{{ child }}</a>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <div id="map">
+    </div>
+{% endblock page %}

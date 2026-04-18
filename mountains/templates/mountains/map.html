@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="origin" />
+  <title>Summit Map</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+<script>
+const geojson = {{ geojson|safe }};
+
+const summitStyle = new ol.style.Style({
+  image: new ol.style.Circle({
+    radius: 6,
+    fill: new ol.style.Fill({ color: '#c0392b' }),
+    stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
+  })
+});
+
+const colStyle = new ol.style.Style({
+  image: new ol.style.Circle({
+    radius: 5,
+    fill: new ol.style.Fill({ color: '#8e44ad' }),
+    stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
+  })
+});
+
+const lineStyle = new ol.style.Style({
+  stroke: new ol.style.Stroke({
+    color: 'rgba(52, 152, 219, 0.7)',
+    width: 3.5,
+    lineDash: [6, 1],
+  })
+});
+
+function styleFor(feature) {
+  switch (feature.get('type')) {
+    case 'summit': return summitStyle;
+    case 'col':    return colStyle;
+    default:       return lineStyle;
+  }
+}
+
+const vectorLayer = new ol.layer.Vector({
+  source: new ol.source.Vector({
+    features: new ol.format.GeoJSON().readFeatures(geojson, {
+      featureProjection: 'EPSG:3857',
+    }),
+  }),
+  style: styleFor,
+});
+
+const map = new ol.Map({
+  target: 'map',
+  layers: [
+    new ol.layer.Tile({ source: new ol.source.OSM() }),
+    vectorLayer,
+  ],
+  view: new ol.View({
+    center: ol.proj.fromLonLat([10, 47]),  // adjust to your data
+    zoom: 5,
+  }),
+});
+
+// Fit view to data extent once loaded
+vectorLayer.getSource().once('change', function() {
+  const extent = vectorLayer.getSource().getExtent();
+  if (extent && isFinite(extent[0])) {
+    map.getView().fit(extent, { padding: [40, 40, 40, 40] });
+  }
+});
+
+// Popup on click
+const popup = document.createElement('div');
+popup.style.cssText = 'background:#fff;padding:6px 10px;border-radius:4px;font:14px sans-serif;pointer-events:none;';
+document.body.appendChild(popup);
+
+const overlay = new ol.Overlay({ element: popup, positioning: 'bottom-center', offset: [0, -10] });
+map.addOverlay(overlay);
+
+map.on('click', function(e) {
+  const feature = map.forEachFeatureAtPixel(e.pixel, f => f);
+  if (feature && feature.get('name')) {
+    overlay.setPosition(e.coordinate);
+    popup.textContent = feature.get('name');
+  } else {
+    overlay.setPosition(undefined);
+  }
+});
+</script>
+</body>
+</html>

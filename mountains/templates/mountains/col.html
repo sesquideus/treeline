@@ -1,0 +1,34 @@
+{% extends 'core/base.html' %}
+
+{% load static %}
+
+{% block pagetitle %}
+    Col <b>{{ col.point.name }}</b> ({{ col.point.altitude }} m)
+    <a href="{{ col.admin_change_url }}">&#x1F589;</a>
+{% endblock pagetitle %}
+
+{% block page %}
+    {% for note in col.point.notes.all %}
+        <p>
+            {{ note }}
+        </p>
+    {% endfor %}
+
+    <h3>
+        {% with lower=col.key_for.all.0 upper=lower.prominence_parent %}
+            Key col for <b>{{ lower }}</b>
+            &#x2198;
+            {{ lower.prominence|floatformat:1 }} m
+            &#x2197;
+            <b>{{ lower.prominence_parent }}</b>
+        {% endwith %}
+    </h3>
+
+    <h3>
+        Prominence lineage
+    </h3>
+
+    <h3>
+        Encirclement lineage
+    </h3>
+{% endblock page %}
