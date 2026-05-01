@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import models
 
 from core.models import AdminModel
@@ -16,3 +15,6 @@ class Note(AdminModel):
 
     point = models.ForeignKey('NamedPoint', on_delete=models.CASCADE,
                               related_name='notes')
+
+    def __str__(self):
+        return self.text

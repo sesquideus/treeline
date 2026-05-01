@@ -1,0 +1,27 @@
+{% load tree %}
+
+<h3>
+    Nearest highest peak for
+</h3>
+<table class="lineage">
+    {% for child in mountain.isolation_children.all %}
+        <tr>
+            <td>
+                {{ child.isolation_vector.az|floatformat:2 }}°
+            </td>
+            <td>
+                <span class="arrow" style="transform: rotate({{ child.isolation_vector.az }}deg);">&uparrow;</span>
+            </td>
+            <td class="altitude">{{ child.isolation.m|distance }}</td>
+            <td>
+                <a class="mountain" href="{{ child.get_absolute_url }}">{{ child }}</a>
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="99" class="empty">
+                no peaks in the database
+            </td>
+        </tr>
+    {% endfor %}
+</table>

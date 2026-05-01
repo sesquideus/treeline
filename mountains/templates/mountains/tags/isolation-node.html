@@ -1,0 +1,19 @@
+{% load tree %}
+
+{% for summit in nodes %}
+    <li class="tree-node">
+        {% if summit.isolation %}
+            &#x2196;
+            <span class="distance">{{ summit.isolation.km|floatformat:3 }} km</span>
+        {% endif %}
+            <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.name }}</a>
+            ({{ summit.point.altitude }} m)
+            {% with children=children_map|get_item:summit.pk %}
+                {% if children %}
+                    <ul class="mountains">
+                        {% isolation_tree children children_map %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+    </li>
+{% endfor %}

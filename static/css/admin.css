@@ -1,0 +1,7 @@
+/* static/css/admin_custom.css */
+.field-prominence { text-align: right; }
+.field-isolation { text-align: right; }
+
+.distance-val {
+    font-variant-numeric: tabular-nums;
+}

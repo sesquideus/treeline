@@ -1,0 +1,32 @@
+{% load static %}
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta name="description" content="Treeline Definitive Mountain Database" />
+        <meta name="referer" content="origin">
+        <meta name="keywords" content="mountains, prominence, database" />
+        <meta name="author" content="Martin Odokienko" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=1" />
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <title>
+            {% block title %}{% endblock title %} | TreeLine
+        </title>
+        <link rel="stylesheet" type="text/css" href="{% static "css/reset.css" %}" />
+        <link rel="stylesheet" type="text/css" href="{% static "css/main.css" %}" />
+        <link rel="icon" type="image/png" href="{% static "icon.png" %}" />
+        {% block headextra %}
+            {% comment %}
+                Include extra static files here
+            {% endcomment %}
+        {% endblock headextra %}
+    </head>
+    <body>
+        <div class="entire">
+            {% include 'core/header.html' %}
+            {% block submenu %}{% endblock submenu %}
+            {% block page %}Nothing here{% endblock page %}
+            {% include 'core/footer.html' %}
+        </div>
+    </body>
+</html>

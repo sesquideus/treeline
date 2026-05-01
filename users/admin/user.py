@@ -16,11 +16,8 @@ class UserAdmin(DjangoUserAdmin):
         ('Position', {
             'fields': [
                 ('latitude', 'longitude', 'altitude'),
-                ('location', 'timezone'),
+                ('timezone',),
             ],
-        }),
-        ('Stations', {
-            'fields': ['visible_subnetworks', 'show_all_stations'],
         }),
     )
 

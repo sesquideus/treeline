@@ -79,8 +79,8 @@
         if (type === 'isolation_point') return isolationPointStyle;
 
         const coords = denseCoords(feature.getGeometry().getCoordinates());
-        if (type === 'isolation_line_first')  return segmentStyles(coords, GREEN, YELLOW);
-        if (type === 'isolation_line_second') return segmentStyles(coords, YELLOW, PURPLE);
+        if (type === 'isolation_line_first')  return segmentStyles(coords, GREEN, PURPLE);
+        if (type === 'isolation_line_second') return segmentStyles(coords, PURPLE, YELLOW);
         return [];
     }
 

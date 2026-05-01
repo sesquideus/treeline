@@ -6,6 +6,9 @@ from core.templatetags.countries import flag
 
 
 class NamedPoint(AdminModel):
+    """
+    A named point somewhere on the surface of the Earth. Base for all more advanced objects.
+    """
     name = models.CharField(max_length=64, unique=True)
 
     latitude = models.FloatField()

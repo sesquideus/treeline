@@ -1,13 +1,14 @@
 {% load tree %}
 
 {% for summit in nodes %}
-    <li>
-        <a href="{% url 'mountain' summit.id %}">&#x26F0; {{ summit.point.name }}</a>
-        ({{ summit.point.altitude }} m) <b>{{ summit.prominence|floatformat:1 }} m</b>
+    <li class="tree-node">
+        <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.name }}</a>
+        ({{ summit.point.altitude }} m) &#x2198;
+        <span class="prominence">{{ summit.prominence|floatformat:1 }} m</span>
         {% if summit.island_high_point %}
             (island high point)
         {% elif summit.key_col %}
-            via <a href="{% url 'col' summit.key_col.id %}">&#x2323; {{ summit.key_col }}</a>
+            via <a class="col" href="{% url 'col' summit.key_col.id %}">{{ summit.key_col }}</a>
         {% else %}
             via unknown col
         {% endif %}
@@ -15,7 +16,7 @@
         {% with children=children_map|get_item:summit.pk %}
             {% if children %}
                 <ul class="mountains">
-                    {% render_summit_tree children children_map %}
+                    {% prominence_tree children children_map %}
                 </ul>
             {% endif %}
         {% endwith %}

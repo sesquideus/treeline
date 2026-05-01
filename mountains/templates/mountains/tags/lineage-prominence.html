@@ -1,19 +1,38 @@
 {% load tree %}
 
 {% if node.prominence_parent %}
-    <li>
-        {{ node.prominence|floatformat:1 }} m
-        &#x2198;
-        <a href="{{ node.key_col.get_absolute_url }}">
-            {{ node.key_col }}
-        </a>
-        &#x2197;
-        <a href="{{ node.prominence_parent.get_absolute_url }}">
-            {{ node.prominence_parent }}
-        </a>
-    </li>
-    {% render_summit_lineage node.prominence_parent %}
+    <tr>
+        <td class="prominence">
+            {% if node.prominence %}
+                {{ node.prominence|altitude }}
+            {% endif %}
+        </td>
+        <td>
+            &#x2198;
+        </td>
+        <td>
+            <a class="col" href="{{ node.key_col.get_absolute_url }}">
+                {{ node.key_col.point.name }}
+            </a>
+        </td>
+        <td class="altitude">
+            {{ node.key_col.point.altitude|floatformat:1 }} m
+        </td>
+        <td>
+            &#x2197;
+        </td>
+        <td>
+            <a class="mountain" href="{{ node.prominence_parent.get_absolute_url }}">{{ node.prominence_parent }}</a>
+        </td>
+        <td>
+            {% if node.prominence_parent.pk == encirclement_parent_pk %}
+                <abbr title="encirclement parent">&#x25CE;</abbr>
+            {% endif %}
+        </td>
+    </tr>
+    {% render_summit_lineage node.prominence_parent encirclement_parent_pk %}
 {% elif node.island_high_point %}
+
 {% else %}
     (unknown) ({{ node.prominence|floatformat:1 }} m)
 {% endif %}

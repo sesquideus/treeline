@@ -8,10 +8,10 @@ django = "*"
 geopy = "*"
 psycopg2-binary = "*"
 python-decouple = "*"
-decouple = "*"
+pytz = "*"
 
 [dev-packages]
+django-debug-toolbar = "*"
 
 [requires]
 python_version = "3.14"
-python_full_version = "3.14.3"

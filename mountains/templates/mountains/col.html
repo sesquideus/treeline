@@ -1,34 +1,50 @@
-{% extends 'core/base.html' %}
+{% extends 'core/text-page.html' %}
 
-{% load static %}
+{% load static countries %}
 
-{% block pagetitle %}
-    Col <b>{{ col.point.name }}</b> ({{ col.point.altitude }} m)
-    <a href="{{ col.admin_change_url }}">&#x1F589;</a>
-{% endblock pagetitle %}
+{% block page_title %}
+    &#x2323; <b>{{ col.point.name }}</b> ({{ col.point.altitude }} m)
+    {{ col.point|flags }}
+    <a class="edit" href="{{ col.admin_change_url }}">&#x1F589;</a>
+{% endblock page_title %}
 
-{% block page %}
+{% block title %}
+    {{ col.point.name }} ({{ col.point.altitude }} m)
+{% endblock title %}
+
+{% block page_content %}
     {% for note in col.point.notes.all %}
         <p>
             {{ note }}
         </p>
     {% endfor %}
 
-    <h3>
-        {% with lower=col.key_for.all.0 upper=lower.prominence_parent %}
+    {% with lower=col.key_for.all.0 upper=lower.prominence_parent %}
+        <h3>
             Key col for <b>{{ lower }}</b>
-            &#x2198;
-            {{ lower.prominence|floatformat:1 }} m
-            &#x2197;
-            <b>{{ lower.prominence_parent }}</b>
-        {% endwith %}
-    </h3>
+        </h3>
+        {{ lower }}
+        &#x2198;
+        {{ lower.prominence|floatformat:1 }} m
+        &#x2197;
+        <b>{{ lower.prominence_parent }}</b>
 
-    <h3>
-        Prominence lineage
-    </h3>
+        <h3>
+            Sister cols
+        </h3>
+        <table class="lineage">
+            {% for peak in lower.prominence_parent.prominence_children.all %}
+                <tr>
+                    <td>
+                        <a class="col" href="{{ peak.key_col.get_absolute_url }}">{{ peak.key_col }}</a>
+                    </td>
+                    <td>&rightarrow;</td>
+                    <td>
+                        <a class="mountain" href="{% url 'summit-detail' peak.pk %}">{{ peak }}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endwith %}
 
-    <h3>
-        Encirclement lineage
-    </h3>
-{% endblock page %}
+{% endblock page_content %}

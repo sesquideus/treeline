@@ -15,3 +15,8 @@ def flag(code):
 @register.filter
 def flags(point):
     return mark_safe(''.join([flag(country.code) for country in point.country.all()]))
+
+
+@register.simple_tag()
+def flaglet(code: str):
+    return mark_safe(f'<img class="flag" src="https://flagpedia.net/data/flags/mini/{code}.png" alt="{code}"/>')

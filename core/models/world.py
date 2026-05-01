@@ -22,6 +22,7 @@ class Language(models.Model):
 
     iso639_1 = models.SlugField(max_length=2, unique=True)
     iso639_3 = models.SlugField(max_length=3, unique=True, null=True, blank=True) # FixMe for now can be empty
+    country_code = models.SlugField(max_length=2)
 
     name = models.CharField(max_length=64, unique=True)
     english_name = models.CharField(max_length=64, unique=True)

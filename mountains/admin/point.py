@@ -2,11 +2,12 @@ from django.contrib import admin
 
 from core.admin import ModelAdmin
 from .note import NoteInline
-from ..models import PointName, NamedPoint
+from ..models import PointName, NamedPoint, Note
 
 
 class PointNameInline(admin.TabularInline):
     model = PointName
+    extra = 3
 
 
 @admin.register(NamedPoint)
@@ -27,6 +28,14 @@ class NamedPointAdmin(ModelAdmin):
         }),
     )
 
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for obj in instances:
+            if isinstance(obj, Note) and not obj.pk:
+                obj.author = request.user
+            obj.save()
+        formset.save_m2m()
+
 
 class NamedPointInline(admin.TabularInline):
     model = NamedPoint
@@ -35,4 +44,5 @@ class NamedPointInline(admin.TabularInline):
 @admin.register(PointName)
 class PointNameAdmin(admin.ModelAdmin):
     pass
+
 

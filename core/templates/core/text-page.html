@@ -1,0 +1,12 @@
+{% extends 'core/base.html' %}
+
+{% block page %}
+    <div class="page text-page">
+        <h1>
+            {% block page_title %}
+            {% endblock page_title %}
+        </h1>
+        {% block page_content %}
+        {% endblock page_content %}
+    </div>
+{% endblock page %}

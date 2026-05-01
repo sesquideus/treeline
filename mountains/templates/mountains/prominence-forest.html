@@ -1,0 +1,13 @@
+{% extends 'core/text-page.html' %}
+{% load static tree %}
+
+{% block title %}Prominence forest{% endblock title %}
+{% block page_title %}Prominence forest{% endblock page_title %}
+
+{% block page_content %}
+    <div class="data">
+        <ul>
+            {% prominence_tree roots mountain_map %}
+        </ul>
+    </div>
+{% endblock page_content %}

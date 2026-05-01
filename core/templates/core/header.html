@@ -1,0 +1,13 @@
+{% load static %}
+
+<div class="header">
+    {% comment %}{% include 'mountains/logo.svg' %}{% endcomment %}
+    <nav>
+        {% for item in main_menu %}
+            <a href="{% url item.url_name %}"
+                {% if request.resolver_match.url_name == item.url_name %}
+                 class="active"
+                {% endif %}>{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+</div>

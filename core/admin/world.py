@@ -7,7 +7,7 @@ from core.models import Country, Language
 
 @admin.register(Language)
 class LanguageAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name', 'english_name']
+    list_display = ['iso639_1', 'country_code', 'name', 'english_name']
 
 
 @admin.register(Country)

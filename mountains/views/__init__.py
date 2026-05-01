@@ -1,60 +1,37 @@
 import json
 import math
-from collections import OrderedDict
 
-from django.db.models import F, Prefetch
 from django.shortcuts import render, get_object_or_404
-from django.views.generic import ListView, DetailView
-from vincenty import vincenty
 
-from .models import Summit, Col
-
-
-class ListView(ListView):
-    model = Summit
-    context_object_name = 'mountains'
-    template_name = 'mountains/mountain-list.html'
-
-    def get_queryset(self):
-        mountains = Summit.objects.select_related('key_col__point', 'point')
-
-        self.mountain_map = {}
-        for mountain in mountains:
-            self.mountain_map.setdefault(mountain.prominence_parent_id, []).append(mountain)
-
-        for key, value in self.mountain_map.items():
-            self.mountain_map[key] = sorted(value, key=lambda m: (m.prominence() or 0), reverse=True)
-
-        self.roots = self.mountain_map.get(None, [])
-        return mountains
+from core.functions.world import distance
+from .summit import ProminenceForestView, IsolationForestView, MountainDetailView, SummitDetailGeoJSON
+from .col import ColView
+from ..models import Summit
 
 
-    def get_context_data(self, object_list=None, **kwargs):
-        return super().get_context_data(object_list=object_list, **kwargs) | {
-            'roots': self.roots,
-            'mountain_map': self.mountain_map,
+def build_line(peak, col, parent, kind: str):
+    name = f"{peak.point.name} ({peak.point.altitude} m) \u2198 {peak.prominence():.1f} m \u2198 {col.point.name} ({col.point.altitude:.1f} m) \u2197 {parent.point.name}"
+    if kind == 'down':
+        p1, p2 = peak, col
+    else:
+        p1, p2 = col, parent
+
+    return {
+        'type': 'Feature',
+        'geometry': {
+            'type': 'LineString',
+            'coordinates': [
+                [p1.point.longitude, p1.point.latitude],
+                [p2.point.longitude, p2.point.latitude],
+            ]
+        },
+        'properties': {
+            'type': f'prominence_line_{kind}',
+            'from': p1.point.name,
+            'to': p2.point.name,
+            'name': name,
         }
-
-
-class MountainView(DetailView):
-    model = Summit
-    context_object_name = 'mountain'
-    template_name = 'mountains/mountain.html'
-
-    def get_queryset(self):
-        return super().get_queryset().select_related('point').prefetch_related(
-            Prefetch('prominence_children',
-                     queryset=Summit.objects.with_prominence().select_related('key_col__point').order_by('-prominence'))
-        )
-
-
-class ColView(DetailView):
-    model = Col
-    context_object_name = 'col'
-    template_name = 'mountains/col.html'
-
-    def get_queryset(self):
-        return super().get_queryset().select_related('point')
+    }
 
 
 def summit_map(request):
@@ -65,6 +42,7 @@ def summit_map(request):
 
     features = []
     seen_cols = set()
+
 
     for s in summits:
         features.append({
@@ -98,23 +76,8 @@ def summit_map(request):
         # Line: summit → col → prominence parent
         parent = s.prominence_parent
         if col and col.point.latitude and col.point.longitude and parent and parent.point.latitude and parent.point.longitude:
-            features.append({
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'LineString',
-                    'coordinates': [
-                        [s.point.longitude, s.point.latitude],
-                        [col.point.longitude, col.point.latitude],
-                        [parent.point.longitude, parent.point.latitude],
-                    ]
-                },
-                'properties': {
-                    'type': 'prominence_line',
-                    'from': s.point.name,
-                    'to': parent.point.name,
-                    'name': f"{s.point.name} \u2198 {s.key_col.point.name} \u2197 {s.prominence_parent.point.name}",
-                }
-            })
+            features.append(build_line(s, col, parent, 'down'))
+            features.append(build_line(s, col, parent, 'up'))
 
     geojson = json.dumps({'type': 'FeatureCollection', 'features': features})
     return render(request, 'mountains/map.html', {'geojson': geojson})
@@ -136,13 +99,13 @@ def isolation_map(request):
                 'coordinates': [s.point.longitude, s.point.latitude],
             },
             'properties': {
-                'name': s.point.name,
+                'name': f"{s.point.name} ({s.point.altitude} m)",
                 'type': 'summit',
             }
         })
 
         if s.isolation_latitude and s.isolation_longitude:
-            distance = vincenty(
+            dist = distance(
                 (s.point.latitude, s.point.longitude),
                 (s.isolation_latitude, s.isolation_longitude),
             )
@@ -150,10 +113,10 @@ def isolation_map(request):
                 iso_label = (
                     f"{s.isolation_name or 'near'} "
                     f"{s.isolation_parent.point.name} "
-                    f"({distance} km)"
+                    f"({dist.km:.3} km)"
                 )
             else:
-                iso_label = f"{distance} km"
+                iso_label = f"{dist} km"
 
             features.append({
                 'type': 'Feature',
@@ -206,29 +169,6 @@ def isolation_map(request):
     return render(request, 'mountains/isolation_map.html', {'geojson': geojson})
 
 
-def isolation_circle(lat, lon, radius, steps=64):
-    """Return a GeoJSON Polygon approximating a geodesic circle."""
-    coords = []
-    R = 6371000  # Earth radius in km
-    lat_r = math.radians(lat)
-    lon_r = math.radians(lon)
-    d = radius / R  # angular distance
-
-    for i in range(steps + 1):
-        bearing = math.radians(i * 360 / steps)
-        lat2 = math.asin(
-            math.sin(lat_r) * math.cos(d) +
-            math.cos(lat_r) * math.sin(d) * math.cos(bearing)
-        )
-        lon2 = lon_r + math.atan2(
-            math.sin(bearing) * math.sin(d) * math.cos(lat_r),
-            math.cos(d) - math.sin(lat_r) * math.sin(lat2)
-        )
-        coords.append([math.degrees(lon2), math.degrees(lat2)])
-
-    return {'type': 'Polygon', 'coordinates': [coords]}
-
-
 def summit_detail_map(request, pk):
     s = get_object_or_404(
         Summit.objects.select_related(
@@ -253,7 +193,7 @@ def summit_detail_map(request, pk):
     # Isolation: line from isolation position to summit, plus isolation circle
     if s.isolation_latitude and s.isolation_longitude:
         iso_coords = [s.isolation_longitude, s.isolation_latitude]
-        distance = vincenty(
+        dist = distance(
             (s.point.latitude, s.point.longitude),
             (s.isolation_latitude, s.isolation_longitude),
         ) * 1000
@@ -262,7 +202,7 @@ def summit_detail_map(request, pk):
             if s.isolation_parent and s.isolation_parent.point
             else 'Unknown'
         )
-        iso_label = f"{s.isolation_name or parent_name} of {s.point.name} ({distance} km)"
+        iso_label = f"{s.isolation_name or parent_name} of {s.point.name} ({dist} km)"
 
         features.append({
             'type': 'Feature',
@@ -294,8 +234,8 @@ def summit_detail_map(request, pk):
         # Isolation circle — approximated as a GeoJSON polygon
         features.append({
             'type': 'Feature',
-            'geometry': isolation_circle(s.point.latitude, s.point.longitude, distance),
-            'properties': {'type': 'isolation_circle', 'name': f'Isolation radius: {distance} km'},
+            'geometry': isolation_circle(s.point.latitude, s.point.longitude, dist),
+            'properties': {'type': 'isolation_circle', 'name': f'Isolation radius: {dist} km'},
         })
 
     # Prominence: summit → key col → prominence parent

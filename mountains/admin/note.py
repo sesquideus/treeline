@@ -11,3 +11,8 @@ class NoteAdmin(admin.ModelAdmin):
 class NoteInline(admin.TabularInline):
     model = Note
     extra = 1
+
+    readonly_fields = (
+        'author',
+    )
+

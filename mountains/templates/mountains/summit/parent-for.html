@@ -1,0 +1,33 @@
+{% load tree %}
+
+<h3>
+    Parent peak for
+</h3>
+<table class="lineage">
+    {% for child in mountain.prominence_children.all %}
+        <tr>
+            <td>&#x2198;</td>
+            <td>
+                {% if child.key_col %}
+                    <a class="col" href="{% url 'col' pk=child.key_col.pk %}">
+                        {{ child.key_col.point.name }}
+                    </a>
+                {% else %}
+                    <span class="error">key col undefined</span>
+                {% endif %}
+            </td>
+            <td class="altitude">{{ child.key_col.point.altitude|altitude }}</td>
+            <td>&#x2197;</td>
+            <td class="altitude">{{ child.prominence|altitude }}</td>
+            <td>
+                <a class="mountain" href="{{ child.get_absolute_url }}">{{ child }}</a>
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="99" class="empty">
+                no peaks in the database
+            </td>
+        </tr>
+    {% endfor %}
+</table>

@@ -1,0 +1,175 @@
+html, body {
+    width: 100%;
+    min-height: 100%;
+    padding: 0;
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 11pt;
+    line-height: 125%;
+}
+
+div.header {
+    background-color: black;
+    width: 100%;
+    min-height: 2.5em;
+}
+
+div.header nav {
+    color: white;
+    font-size: 15pt;
+    font-weight: 600;
+    display: flex;
+}
+
+div.header nav a {
+    display: block;
+    padding: 0.6em 0.8em;
+    height: 100%;
+}
+
+div.header nav a, div.header nav a:visited {
+    text-decoration: none;
+    color: white;
+}
+
+h1 {
+    font-size: 180%;
+    padding-top: 0.3em;
+    padding-bottom: 0.6em;
+}
+
+h2 {
+    font-size: 140%;
+}
+
+h3 {
+    font-size: 125%;
+    padding-top: 0.6em;
+    padding-bottom: 0.4em;
+}
+
+ul {
+    padding-left: 1.5rem;
+    border-left: 1px solid hsla(0, 0%, 90%, 100%);
+}
+
+ul li.node {
+    padding-left: 1em;
+}
+
+img.flag {
+    display: inline-block;
+    height: 1.2em;
+    border: 1px solid hsla(0, 0%, 0%, 10%);
+}
+
+span.prominence {
+    font-weight: 600;
+}
+
+a.mountain, a.col {
+    text-decoration: none;
+}
+
+a.mountain {
+    color: orangered;
+}
+
+a.mountain::before {
+    content: "\26F0\00A0";
+}
+
+a.col {
+    color: darkblue;
+}
+
+a.col::before {
+    font-weight: bold;
+    content: "\222A\00A0";
+}
+
+abbr {
+    text-decoration: none;
+}
+
+span.error {
+    color: red;
+}
+
+span.arrow {
+    display: inline-block;
+}
+
+table.lineage {
+    line-height: 120%;
+}
+
+table.lineage tr {
+
+}
+
+table.lineage tr td {
+    padding: 0.3em 0.5em;
+}
+
+table.lineage tr:nth-child(even) {
+    background-color: hsla(0, 0%, 80%, 0.3);
+}
+
+td.altitude { text-align: right; }
+td.prominence { text-align: right; }
+td.distance { text-align: right; }
+td.azimuth { text-align: right; }
+
+td.empty {
+    color: grey;
+}
+
+a.edit, a.edit:visited {
+    text-decoration: none;
+    color: saddlebrown;
+}
+
+div.page {
+    display: flex;
+    height: calc(100vh - 60px);  /* or whatever height suits your page */
+    position: relative;
+    padding: 1em;
+}
+
+div.text-page {
+    display: block;
+}
+
+div.map-page {
+    overflow-y: auto;  /* scroll if content is taller than the viewport */
+    padding: 0;
+}
+
+div.map-page div.data {
+    min-width: 700px;
+    padding: 1rem;
+}
+
+div#map {
+    background: repeating-linear-gradient(
+        135deg,
+        #f0f0f0,
+        #f0f0f0 20px,
+        #d0d0d0 20px,
+        #d0d0d0 40px
+    );
+    flex: 1;  /* takes all remaining space */
+}
+
+#map-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    font: 14px sans-serif;
+}

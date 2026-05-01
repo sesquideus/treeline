@@ -1,0 +1,84 @@
+<svg width="100px" viewBox="0 0 680 260" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Treeline logomark</title>
+  <desc>Three mountain peaks with a treeline and a yellow prominence line connecting two summits through a col</desc>
+
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .peak-hi  { fill: #B5D4F4; }
+      .peak-mid { fill: #85B7EB; }
+      .peak-lo  { fill: #378ADD; }
+      .trees    { fill: #27500A; }
+      .trees-lo { fill: #3B6D11; }
+    }
+    .peak-hi  { fill: #0C447C; }
+    .peak-mid { fill: #185FA5; }
+    .peak-lo  { fill: #378ADD; }
+    .trees    { fill: #173404; }
+    .trees-lo { fill: #27500A; }
+  </style>
+
+  <!-- Left peak -->
+  <polygon class="peak-lo"  points="170,210 255,45 340,210" stroke="none"/>
+  <!-- Left snow: apex shared, sides at y=108 -->
+  <polygon fill="#f0f4f8" opacity="0.92" points="255,45 222.5,108 287.5,108" stroke="none"/>
+
+  <!-- Mid peak -->
+  <polygon class="peak-mid" points="270,210 360,65 450,210" stroke="none"/>
+  <!-- Mid snow: sides at y=122 -->
+  <polygon fill="#f0f4f8" opacity="0.92" points="360,65 324.6,122 395.4,122" stroke="none"/>
+
+  <!-- Right peak -->
+  <polygon class="peak-hi"  points="370,210 440,110 510,210" stroke="none"/>
+  <!-- Right snow: sides at y=156 -->
+  <polygon fill="#f0f4f8" opacity="0.92" points="440,110 407.8,156 472.2,156" stroke="none"/>
+
+  <!-- Prominence line: left summit → col → mid summit -->
+  <polyline
+    points="255,45 300,188 360,65"
+    fill="none"
+    stroke="#EF9F27"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+    opacity="0.9"
+  />
+  <circle cx="255" cy="45"  r="5" fill="#EF9F27" opacity="0.95"/>
+  <circle cx="360" cy="65"  r="5" fill="#EF9F27" opacity="0.95"/>
+  <circle cx="300" cy="188" r="4" fill="none" stroke="#EF9F27" stroke-width="2" opacity="0.85"/>
+
+  <!-- Treeline -->
+  <polygon class="trees"    points="134,210 141,193 148,210"/>
+  <polygon class="trees-lo" points="146,210 153,190 160,210"/>
+  <polygon class="trees"    points="158,210 165,194 172,210"/>
+  <polygon class="trees-lo" points="170,210 177,191 184,210"/>
+  <polygon class="trees"    points="182,210 189,193 196,210"/>
+  <polygon class="trees-lo" points="194,210 201,189 208,210"/>
+  <polygon class="trees"    points="206,210 213,193 220,210"/>
+  <polygon class="trees-lo" points="218,210 225,190 232,210"/>
+  <polygon class="trees"    points="230,210 237,194 244,210"/>
+  <polygon class="trees-lo" points="242,210 249,191 256,210"/>
+  <polygon class="trees"    points="254,210 261,193 268,210"/>
+  <polygon class="trees-lo" points="266,210 273,190 280,210"/>
+  <polygon class="trees"    points="278,210 285,194 292,210"/>
+  <polygon class="trees-lo" points="290,210 297,189 304,210"/>
+  <polygon class="trees"    points="302,210 309,193 316,210"/>
+  <polygon class="trees-lo" points="314,210 321,190 328,210"/>
+  <polygon class="trees"    points="326,210 333,194 340,210"/>
+  <polygon class="trees-lo" points="338,210 345,191 352,210"/>
+  <polygon class="trees"    points="350,210 357,193 364,210"/>
+  <polygon class="trees-lo" points="362,210 369,190 376,210"/>
+  <polygon class="trees"    points="374,210 381,194 388,210"/>
+  <polygon class="trees-lo" points="386,210 393,191 400,210"/>
+  <polygon class="trees"    points="398,210 405,193 412,210"/>
+  <polygon class="trees-lo" points="410,210 417,190 424,210"/>
+  <polygon class="trees"    points="422,210 429,194 436,210"/>
+  <polygon class="trees-lo" points="434,210 441,191 448,210"/>
+  <polygon class="trees"    points="446,210 453,193 460,210"/>
+  <polygon class="trees-lo" points="458,210 465,191 472,210"/>
+  <polygon class="trees"    points="470,210 477,194 484,210"/>
+  <polygon class="trees-lo" points="482,210 489,191 496,210"/>
+  <polygon class="trees"    points="494,210 501,193 508,210"/>
+  <polygon class="trees-lo" points="506,210 513,191 520,210"/>
+  <polygon class="trees"    points="518,210 525,194 532,210"/>
+  <polygon class="trees-lo" points="530,210 537,191 544,210"/>
+
+</svg>
