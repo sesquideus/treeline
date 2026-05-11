@@ -13,10 +13,10 @@
             via unknown col
         {% endif %}
 
-        {% with children=children_map|get_item:summit.pk %}
+        {% with children=tree|get_item:summit.pk %}
             {% if children %}
                 <ul class="mountains">
-                    {% prominence_tree children children_map %}
+                    {% prominence_tree children tree %}
                 </ul>
             {% endif %}
         {% endwith %}

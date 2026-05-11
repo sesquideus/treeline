@@ -5,11 +5,11 @@ const circleStyle = new ol.style.Style({
 
 function styleFor(feature) {
     switch (feature.get('type')) {
-        case 'summit':                return triangle('#c0392b', 8);
+        case 'summit':                return summit('#c0392b', 8);
         case 'isolation_point':       return dot('#f1c40f');
         case 'isolation_parent':      return dot('#8e44ad');
         case 'col':                   return colMarker();
-        case 'prominence_parent':     return triangle('#2980b9');
+        case 'prominence_parent':     return summit('#2980b9');
         case 'encirclement_parent':   return dot('#e67e22');
         case 'isolation_circle':      return circleStyle;
         case 'isolation_line_first':  return gradientLine(feature, GREEN, YELLOW);

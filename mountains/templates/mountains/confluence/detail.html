@@ -1,0 +1,26 @@
+{% extends 'core/text-page.html' %}
+
+{% load static tree cairn %}
+
+{% block title %}
+    Confluence
+{% endblock title %}
+
+{% block page_title %}
+    Confluence {{ confluence.point.name }}
+{% endblock page_title %}
+
+{% block page_content %}
+    <h3>
+        Full ridge
+    </h3>
+    <table>
+        {% for col in confluence.cols.all %}
+            <tr>
+                <td>
+                    {% object_link col 'col' %}
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock page_content %}

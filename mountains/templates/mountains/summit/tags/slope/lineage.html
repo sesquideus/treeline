@@ -1,0 +1,24 @@
+{% load tree cairn %}
+
+{% if node.slope_parent %}
+    <tr>
+        <td class="altitude">
+            {{ node.ascent_to_slope_parent|floatformat:1 }}
+        </td>
+        <td class="distance">
+            {{ node.distance_to_slope_parent|floatformat:3 }}
+        </td>
+        <td class="slope">
+            {{ node.slope_to_parent|multiply:1000|floatformat:2 }}
+        </td>
+        <td>
+            &#x2197;
+        </td>
+        <td>
+            {% object_link node.slope_parent 'mountain' %}
+        </td>
+    </tr>
+    {% render_slope_lineage node.slope_parent %}
+{% else %}
+    {% comment %}This is not unknown, but does not exist!{% endcomment%}
+{% endif %}

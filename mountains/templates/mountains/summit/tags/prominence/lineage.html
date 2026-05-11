@@ -1,8 +1,8 @@
-{% load tree %}
+{% load tree cairn %}
 
 {% if node.prominence_parent %}
     <tr>
-        <td class="prominence">
+        <td class="prominence altitude">
             {% if node.prominence %}
                 {{ node.prominence|altitude }}
             {% endif %}
@@ -16,7 +16,7 @@
             </a>
         </td>
         <td class="altitude">
-            {{ node.key_col.point.altitude|floatformat:1 }} m
+            {{ node.key_col.point.altitude|floatformat:1 }}
         </td>
         <td>
             &#x2197;
@@ -30,7 +30,7 @@
             {% endif %}
         </td>
     </tr>
-    {% render_summit_lineage node.prominence_parent encirclement_parent_pk %}
+    {% render_prominence_lineage node.prominence_parent encirclement_parent_pk %}
 {% elif node.island_high_point %}
 
 {% else %}

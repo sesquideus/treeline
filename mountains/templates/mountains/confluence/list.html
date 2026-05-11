@@ -1,0 +1,23 @@
+{% extends 'core/text-page.html' %}
+
+{% load static tree cairn %}
+
+{% block title %}
+    Confluences
+{% endblock title %}
+
+{% block page_title %}
+    List of confluences
+{% endblock page_title %}
+
+{% block page_content %}
+    <table>
+        {% for confluence in confluences %}
+            <tr>
+                <td>
+                    {% object_link confluence 'confluence' %}
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock page_content %}

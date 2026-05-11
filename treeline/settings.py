@@ -31,19 +31,22 @@ INTERNAL_IPS = config('INTERNAL_IPS', cast=Csv())
 
 # Application definition
 
-INSTALLED_APPS = [
+INSTALLED_APPS = ([
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
     "debug_toolbar",
+] + [
+    'cairn',
 ] + [
     'core',
     'mountains',
     'users',
-]
+])
 
 MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",
@@ -83,7 +86,7 @@ WSGI_APPLICATION = 'treeline.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
         'NAME': 'treeline',
         'USER': 'kvik',
         'PASSWORD': config('DB_PASSWORD'),

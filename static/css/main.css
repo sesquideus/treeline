@@ -100,8 +100,40 @@ span.arrow {
     display: inline-block;
 }
 
-table.lineage {
+table {
     line-height: 120%;
+    width: 100%;
+}
+
+table tr {
+
+}
+
+table.alternating tr:nth-child(even) {
+    background-color: hsla(0, 0%, 80%, 0.3);
+}
+
+tr th {
+    background-color: dimgray;
+    color: white;
+    font-weight: 500;
+}
+
+td, th {
+    padding: 0.3em 0.5em;
+}
+
+th.orderable {
+    color: white;
+}
+
+th.orderable a, th.orderable a:visited {
+    color: white;
+    text-decoration: none;
+}
+
+table.lineage {
+    width: 100%;
 }
 
 table.lineage tr {
@@ -116,12 +148,33 @@ table.lineage tr:nth-child(even) {
     background-color: hsla(0, 0%, 80%, 0.3);
 }
 
+tr.ultra {
+    background-color: hsla(260, 90%, 90%, 43%);
+}
+
+tr.up {
+    background-color: hsla(120, 50%, 80%, 40%);
+}
+
+tr.down {
+    background-color: hsla(10, 50%, 80%, 40%);
+}
+
 td.altitude { text-align: right; }
 td.prominence { text-align: right; }
 td.distance { text-align: right; }
 td.azimuth { text-align: right; }
+td.number { text-align: right; }
+td.angle { text-align: right; }
+td.slope { text-align: right; }
+
+td.angle::after { content: "°"; }
+td.slope::after { content: " m / km"; }
+td.distance::after { content: " km"; }
+td.altitude::after { content: " m"; }
 
 td.empty {
+    text-align: center;
     color: grey;
 }
 

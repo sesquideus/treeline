@@ -6,13 +6,17 @@
 <table class="lineage">
     {% for child in mountain.isolation_children.all %}
         <tr>
-            <td>
-                {{ child.isolation_vector.az|floatformat:2 }}°
-            </td>
+            <td class="angle">{{ child.isolation_vector.az|floatformat:2 }}</td>
             <td>
                 <span class="arrow" style="transform: rotate({{ child.isolation_vector.az }}deg);">&uparrow;</span>
             </td>
-            <td class="altitude">{{ child.isolation.m|distance }}</td>
+            <td class="altitude">
+                {% if child.isolation %}
+                    {{ child.isolation.m|distance }}
+                {% else %}
+                    &mdash;
+                {% endif %}
+            </td>
             <td>
                 <a class="mountain" href="{{ child.get_absolute_url }}">{{ child }}</a>
             </td>

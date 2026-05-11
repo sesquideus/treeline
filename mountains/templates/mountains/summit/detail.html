@@ -58,37 +58,23 @@
                         </span>
                         {{ offset.dist|distance }}
                         {{ mountain.isolation_name }} of
-                        {{ parent.point.name }} ({{ mountain.isolation.km|floatformat:3 }} km)
+                        {{ parent.point.name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
                     {% else %}
                         (data not available)
                     {% endif %}
                 {% endwith %}
             </table>
 
-            <h3>
-                Prominence lineage
-            </h3>
-            <table class="lineage">
-                {% render_summit_lineage mountain mountain.compute_encirclement_parent.pk %}
-            </table>
+            {% include "mountains/summit/blocks/prominence-lineage.html" %}
+            {% include "mountains/summit/blocks/slope-lineage.html" %}
+            {% include "mountains/summit/blocks/horizon-lineage.html" %}
+            {% include "mountains/summit/blocks/isolation-lineage.html" %}
 
-            <h3>
-                Encirclement lineage
-            </h3>
-            {{ mountain.compute_encirclement_parent }}
-            <ul class="mountains">
-                {% render_encirclement_lineage mountain %}
-            </ul>
 
-            <h3>
-                Isolation lineage
-            </h3>
-            <table class="lineage">
-                {% render_isolation_lineage mountain %}
-            </table>
-
-            {% include "mountains/summit/parent-for.html" %}
-            {% include "mountains/summit/isolation-for.html" %}
+            {% include "mountains/summit/blocks/parent-for.html" %}
+            {% include "mountains/summit/blocks/isolation-for.html" %}
+            {% include "mountains/summit/blocks/slope-to.html" %}
+            {% include "mountains/summit/blocks/horizon-to.html" %}
         </div>
         <div id="map"></div>
         <div id="map-controls">

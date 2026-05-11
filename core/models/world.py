@@ -6,6 +6,7 @@ from core.models import AdminModel
 class Country(AdminModel):
     class Meta:
         verbose_name_plural = 'Countries'
+        ordering = ['name']
 
     code = models.SlugField(max_length=3, unique=True)
     name = models.CharField(max_length=30)

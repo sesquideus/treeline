@@ -1,0 +1,68 @@
+{% extends 'core/map-page.html' %}
+
+{% load static tree countries cairn %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
+{% block title %}
+    &#x26F0; list
+{% endblock title %}
+
+{% block page_title %}
+    <h1>
+        List of mountains
+    </h1>
+{% endblock page_title %}
+
+{% block page_content %}
+    <div class="page map-page">
+        <div class="data">
+            <table class="sortable alternating">
+                <thead>
+                    <tr>
+                        <th>country</th>
+                        {% th_orderable 'name' 'name' %}
+                        {% th_orderable 'altitude' 'altitude' %}
+                        {% th_orderable 'key-col' 'key col' %}
+                        {% th_orderable 'key-col-alt' 'key col altitude' %}
+                        {% th_orderable 'parent' 'parent' %}
+                        {% th_orderable 'prominence' 'prominence' %}
+                        {% th_orderable 'isolation' 'isolation' %}
+                        {% th_orderable 'nhn' 'NHN' long="nearest higher neighbour" %}
+                        {% th_orderable 'slope' 'slope' %}
+                        {% th_orderable 'slope-parent' 'slope parent' %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mountain in mountains %}
+                        <tr>
+                            <td>
+                                {% for country in mountain.point.countries.all %}
+                                    {% flaglet country.code %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% object_link mountain 'mountain' %}
+                            </td>
+                            <td class="altitude">{{ mountain.point.altitude|altitude }}</td>
+                            <td class="link">{% object_link mountain.key_col 'col' %}</td>
+                            <td class="altitude">{{ mountain.key_col.point.altitude|altitude }}</td>
+                            <td class="link">{% object_link mountain.prominence_parent 'mountain' %}</td>
+                            <td class="altitude">{{ mountain.prominence|altitude }}</td>
+
+                            <td class="distance">{{ mountain.compute_isolation.m|distance }}</td>
+                            <td class="link">{% object_link mountain.isolation_parent 'mountain' %}</td>
+                            <td class="angle" style="color: {{ mountain.slope_to_parent|slope_colour }}">{{ mountain.slope_to_parent|slope }}</td>
+                            <td class="link">{% object_link mountain.slope_parent 'mountain' %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock page_content %}

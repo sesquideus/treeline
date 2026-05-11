@@ -1,3 +1,5 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -12,13 +14,9 @@
 <body>
 <div id="map"></div>
 <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+<script src="{% static 'js/map.js' %}"></script>
 <script>
     const geojson = {{ geojson|safe }};
-
-    const SEGMENTS = 20;
-    const GREEN  = [39, 174, 96];
-    const YELLOW = [241, 196, 15];
-    const PURPLE = [142, 68, 173];
 
     function interpolateColor(c1, c2, t) {
         const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
@@ -35,7 +33,7 @@
                 geometry: new ol.geom.LineString([coords[i], coords[i + 1]]),
                 stroke: new ol.style.Stroke({
                     color: interpolateColor(colorStart, colorEnd, t),
-                    width: 4,
+                    width: 2,
                 })
             }));
         }
@@ -57,14 +55,6 @@
         return dense;
     }
 
-    const summitStyle = new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: 6,
-            fill: new ol.style.Fill({ color: '#c0392b' }),
-            stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
-        })
-    });
-
     const isolationPointStyle = new ol.style.Style({
         image: new ol.style.Circle({
             radius: 4,
@@ -75,12 +65,12 @@
 
     function styleFor(feature) {
         const type = feature.get('type');
-        if (type === 'summit')          return summitStyle;
-        if (type === 'isolation_point') return isolationPointStyle;
+        if (type === 'summit')          return summit('#FF0000', 8);
+        if (type === 'isolation_point') return ilp('#2040FF', 5);
 
         const coords = denseCoords(feature.getGeometry().getCoordinates());
-        if (type === 'isolation_line_first')  return segmentStyles(coords, GREEN, PURPLE);
-        if (type === 'isolation_line_second') return segmentStyles(coords, PURPLE, YELLOW);
+        if (type === 'isolation_line_first')  return segmentStyles(coords, BLUE, BLUE);
+        if (type === 'isolation_line_second') return segmentStyles(coords, BLUE, YELLOW);
         return [];
     }
 

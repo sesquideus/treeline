@@ -8,10 +8,10 @@
         {% endif %}
             <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.name }}</a>
             ({{ summit.point.altitude }} m)
-            {% with children=children_map|get_item:summit.pk %}
+            {% with children=tree|get_item:summit.pk %}
                 {% if children %}
                     <ul class="mountains">
-                        {% isolation_tree children children_map %}
+                        {% isolation_tree children tree %}
                     </ul>
                 {% endif %}
             {% endwith %}

@@ -1,0 +1,39 @@
+{% extends 'core/text-page.html' %}
+{% load static tree %}
+
+{% block title %}Horizon forest{% endblock title %}
+{% block page_title %}Horizon forest{% endblock page_title %}
+
+{% block page_content %}
+    <div class="data">
+        <p>
+            Another well-defined measure of a mountain's dominance in its vicinity
+            is the highest visible with respect to the local horizon.
+            For every other peak in the database we compute the vertical angle &beta;,
+            filter out those for which it is positive, and mark the one with
+            the highest value as the local parent.
+            and find the one for which it is largest
+        </p>
+        <p>
+            Compared to <a href="{% url 'isolation-tree' %}">isolation</a>,
+            this forms many isolated trees &ndash; isolated dominant peaks often
+            have a completely clean horizon and all other peaks, if any, are below
+            the tangential plane. Horizon measure therefore does not result
+            in a complete hierarchy (unless negative angles are also allowed,
+            but this does not make much sense for very remote islands).
+        </p>
+        <p>
+            Also unlike plain <a href="{% url 'slope-tree' %}">slope</a>,
+            this hierarchy is not that shallow and results in fewer surprises.
+        </p>
+        <p>
+            By default, children are sorted in descending order by angle:
+            peaks for which the angle is high are likely to be minor sub-summits,
+            while peaks that are just enough far away to reach a small but positive
+            values are likely relatively important, independent summits.
+        </p>
+        <ul>
+            {% horizon_tree roots tree %}
+        </ul>
+    </div>
+{% endblock page_content %}

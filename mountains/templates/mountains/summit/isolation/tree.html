@@ -5,7 +5,9 @@
 {% block page_title %}Isolation tree{% endblock page_title %}
 
 {% block page_content %}
-    <ul>
-        {% isolation_tree roots mountain_map %}
-    </ul>
+    <div class="data">
+        <ul>
+            {% isolation_tree roots tree %}
+        </ul>
+    </div>
 {% endblock page_content %}

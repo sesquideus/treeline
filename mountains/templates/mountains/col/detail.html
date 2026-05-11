@@ -1,6 +1,6 @@
 {% extends 'core/text-page.html' %}
 
-{% load static countries %}
+{% load static countries tree cairn %}
 
 {% block page_title %}
     &#x2323; <b>{{ col.point.name }}</b> ({{ col.point.altitude }} m)
@@ -23,11 +23,16 @@
         <h3>
             Key col for <b>{{ lower }}</b>
         </h3>
-        {{ lower }}
+        {% object_link lower 'mountain' %}
         &#x2198;
         {{ lower.prominence|floatformat:1 }} m
         &#x2197;
-        <b>{{ lower.prominence_parent }}</b>
+        <b>{% object_link lower.prominence_parent 'mountain' %}</b>
+
+        <h3>
+            Confluence
+        </h3>
+        {% object_link col.confluence 'confluence' %}
 
         <h3>
             Sister cols
@@ -36,12 +41,36 @@
             {% for peak in lower.prominence_parent.prominence_children.all %}
                 <tr>
                     <td>
-                        <a class="col" href="{{ peak.key_col.get_absolute_url }}">{{ peak.key_col }}</a>
+                        {% object_link peak.key_col 'col' %}
                     </td>
                     <td>&rightarrow;</td>
                     <td>
-                        <a class="mountain" href="{% url 'summit-detail' peak.pk %}">{{ peak }}</a>
+                        {% object_link peak 'mountain' %}
                     </td>
+                </tr>
+            {% endfor %}
+        </table>
+
+        <h3>
+            Friend cols
+        </h3>
+        <p>
+            Friend cols have the same key confluence and therefore form a natural ridge.
+        </p>
+        <table class="lineage">
+            {% for col in friend_cols %}
+                <tr>
+                    <td>
+                        {% object_link col 'col' %}
+                    </td>
+                    <td>
+                        {% object_link col.key_for.all.0 'mountain' %}
+                    </td>
+                    <td>&rightarrow;</td>
+                    <td>
+                        {% object_link col.key_for.all.0.prominence_parent 'mountain' %}
+                    </td>
+
                 </tr>
             {% endfor %}
         </table>

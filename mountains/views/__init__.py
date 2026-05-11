@@ -1,12 +1,16 @@
 import json
-import math
 
 from django.shortcuts import render, get_object_or_404
 
 from core.functions.world import distance
-from .summit import ProminenceForestView, IsolationForestView, MountainDetailView, SummitDetailGeoJSON
-from .col import ColView
 from ..models import Summit
+
+from .summit import (ProminenceForestView, IsolationForestView, MountainDetailView, SlopeTreeView, HorizonTreeView,
+                     SummitDetailGeoJSON)
+from .col import ColView
+from . import confluence
+from .statistics import StatisticsView
+
 
 
 def build_line(peak, col, parent, kind: str):
@@ -111,8 +115,7 @@ def isolation_map(request):
             )
             if s.isolation_parent:
                 iso_label = (
-                    f"{s.isolation_name or 'near'} "
-                    f"{s.isolation_parent.point.name} "
+                    f"{s.isolation_name} of {s.isolation_parent.point.name} "
                     f"({dist.km:.3} km)"
                 )
             else:

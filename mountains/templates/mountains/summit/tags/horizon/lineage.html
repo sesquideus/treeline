@@ -1,0 +1,24 @@
+{% load tree cairn %}
+
+{% if node.horizon_parent %}
+    <tr>
+        <td class="distance">
+            {{ node.distance_to_horizon_parent|floatformat:3 }}
+        </td>
+        <td class="angle">{{ node.angle_to_horizon_parent|degrees|floatformat:2 }}</td>
+        <td>
+            &#x2197;
+        </td>
+        <td>
+            {% object_link node.horizon_parent 'mountain' %}
+        </td>
+        <td>
+            {% if node.horizon_parent.horizon_parent is None %}
+                <abbr title="peak has no horizon parent">&#x1F451;</abbr>
+            {% endif %}
+        </td>
+    </tr>
+    {% render_horizon_lineage node.horizon_parent %}
+{% else %}
+    {% comment %}This is not unknown, but does not exist!{% endcomment%}
+{% endif %}

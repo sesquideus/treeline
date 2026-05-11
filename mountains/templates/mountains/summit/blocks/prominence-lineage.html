@@ -1,0 +1,8 @@
+{% load tree %}
+
+<h3>
+    Prominence lineage
+</h3>
+<table class="lineage">
+    {% render_prominence_lineage mountain mountain.compute_encirclement_parent.pk %}
+</table>

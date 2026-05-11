@@ -1,19 +1,58 @@
+from django.contrib.gis.db.models.functions import Distance
 from django.core.exceptions import ValidationError
-from django.db.models import Q, F
+from django.contrib.gis.db import models
+from django.db.models import Q, F, Value
 from django.urls import reverse
 from geographiclib.geodesic import Geodesic
 
 from core.functions.world import distance
 
-from django.db import models
-
 from core.models import AdminModel
 
 
-class SummitManager(models.Manager):
+class SummitQuerySet(models.QuerySet):
+    def with_point(self):
+        return self.select_related('point')
+
     def with_prominence(self):
-        return self.annotate(
-            prominence=F('point__altitude') - F('key_col__point__altitude'),
+        return (self.select_related('point', 'prominence_parent__point', 'key_col__point')
+            .annotate(
+                prominence=F('point__altitude') - F('key_col__point__altitude'),
+            )
+        )
+
+    def with_isolation(self):
+        return self.select_related('point', 'isolation_parent__point').annotate(
+            isolation=Distance('point__location', 'nearest_highest_point')
+        )
+
+    def with_countries(self):
+        return self.prefetch_related('point__countries')
+
+    def with_slope_parent(self):
+        return self.select_related('slope_parent__point')
+
+    def with_confluence(self):
+        return self.prefetch_related('key_col__confluence__point')
+
+    def with_ultras(self):
+        return self.with_prominence().annotate(
+            ultra=Q(prominence__gte=1500),
+        )
+
+    def with_complete(self):
+        return self.with_prominence().annotate(
+            has_point=Q(point__isnull=False),
+            has_key_col=Q(key_col__isnull=False) & Q(key_col__point__altitude__isnull=False),
+            has_prominence_parent=Q(prominence_parent__point__isnull=False),
+            has_isolation=Q(isolation_parent__point__isnull=False) & Q(isolation_latitude__isnull=False) & Q(isolation_longitude__isnull=False),
+        ).annotate(
+            complete=Q(has_point=True) & Q(has_key_col=True) & Q(has_prominence_parent=True) & Q(has_isolation=True)
+        )
+
+    def only_complete(self):
+        return self.with_complete().filter(
+            complete=True,
         )
 
 class Summit(AdminModel):
@@ -47,13 +86,21 @@ class Summit(AdminModel):
     isolation_name = models.CharField(null=True, blank=True, max_length=64)
     isolation_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='isolation_data')
+    nearest_highest_point = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     isolation_latitude = models.FloatField(null=True, blank=True,
                                            help_text='The exact latitude of the nearest highest point')
     isolation_longitude = models.FloatField(null=True, blank=True,
                                             help_text='The exact longitude of the nearest highest point')
     # Obviously no altitude: this is equal to the altitude of this summit
 
-    objects = SummitManager()
+    slope_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
+                                     related_name='slope_children',
+                                     help_text='The summit with highest ratio of elevation change over distance')
+    horizon_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
+                                       related_name='horizon_children',
+                                       help_text='The summit that is the highest point above the local horizon')
+
+    objects = SummitQuerySet.as_manager()
 
     def _check_key_col_altitude(self):
         if not (self.key_col and self.key_col.point and self.point):
@@ -82,8 +129,8 @@ class Summit(AdminModel):
                 )
             })
 
-        my_prominence = self.prominence()
-        parent_prominence = self.prominence_parent.prominence()
+        my_prominence = self.compute_prominence()
+        parent_prominence = self.prominence_parent.compute_prominence()
         if my_prominence is not None and parent_prominence is not None:
             if parent_prominence <= my_prominence:
                 raise ValidationError({
@@ -124,6 +171,22 @@ class Summit(AdminModel):
             visited.add(current.pk)
             current = current.prominence_parent
 
+    def _check_slope_cycle(self):
+        if not self.slope_parent:
+            return
+        visited = set()
+        current = self.slope_parent
+        while current is not None:
+            if current.pk == self.pk:
+                raise ValidationError({
+                    'slope_parent': 'This would create a cycle in the slope hierarchy.'
+                })
+            if current.pk in visited:
+                break
+            visited.add(current.pk)
+            current = current.slope_parent
+
+
     def clean(self):
         super().clean()
         self._check_key_col_altitude()
@@ -163,7 +226,7 @@ class Summit(AdminModel):
 
         return None
 
-    def prominence(self):
+    def compute_prominence(self):
         if self.island_high_point:
             return self.point.altitude
         if self.key_col:
@@ -171,7 +234,7 @@ class Summit(AdminModel):
         else:
             return None
 
-    def isolation(self):
+    def compute_isolation(self):
         if self.point and self.isolation_latitude and self.isolation_longitude:
             return distance(
                 (self.point.latitude, self.point.longitude),
@@ -236,16 +299,42 @@ class Summit(AdminModel):
             )
         return None
 
+    def slope_to_parent(self):
+        if self.slope_parent and self.slope_parent.point:
+            return self.point.slope_to(self.slope_parent.point)
+        return None
+
+    def distance_to_slope_parent(self):
+        if self.slope_parent and self.slope_parent.point:
+            return self.point.distance_to(self.slope_parent.point)
+        return None
+
+    def ascent_to_slope_parent(self):
+        if self.slope_parent and self.slope_parent.point:
+            return self.slope_parent.point.altitude - self.point.altitude
+        return None
+
+    def distance_to_horizon_parent(self):
+        if self.horizon_parent and self.horizon_parent.point:
+            return self.point.distance_to(self.horizon_parent.point)
+        return None
+
+    def angle_to_horizon_parent(self):
+        if self.horizon_parent and self.horizon_parent.point:
+            return self.point.angle_to(self.horizon_parent.point)
+        return None
+
 
     def to_dict(self):
-        isolation = self.isolation()
+        prominence = self.compute_prominence()
+        isolation = self.compute_isolation()
         return {
             'pk': self.pk,
             'name': self.point.name if self.point else None,
             'alt': self.point.altitude if self.point else None,
             'lat': self.point.latitude if self.point else None,
             'lon': self.point.longitude if self.point else None,
-            'prom': self.prominence(),
+            'prom': prominence,
             'ilp': {
                 'name': self.isolation_name,
                 'dist': isolation.m if isolation is not None else None,

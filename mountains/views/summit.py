@@ -1,17 +1,21 @@
 import math
+from abc import abstractmethod, ABC
 from typing import Any
 
+from cairn.views import OrderableListView
 from django.db.models import F, Prefetch
 from django.http import JsonResponse
 from django.views.generic import ListView, DetailView
 from django.views.generic.detail import BaseDetailView
 
 from core.functions.world import distance
+from core.models import Country
 from ..models import Summit
 
 
 def isolation_circle(lat, lon, radius, steps=256) -> dict[str, Any]:
     """Return a GeoJSON Polygon approximating a geodesic circle."""
+    # FixMe: make this proper with Vincenty formula (r, a)
     coords = []
     R = 6371000  # Earth radius in km
     lat_r = math.radians(lat)
@@ -174,49 +178,100 @@ def build_summit_features(s):
     return features
 
 
-class ProminenceForestView(ListView):
+class SummitTreeView(ListView, ABC):
     model = Summit
     context_object_name = 'mountains'
-    template_name = 'mountains/prominence-forest.html'
+    reverse = True
 
-    def get_queryset(self):
-        mountains = Summit.objects.with_prominence().select_related('key_col__point', 'point')
+    @staticmethod
+    def sort_function(summit):
+        return summit
 
-        self.mountain_map = {}
-        for mountain in mountains:
-            self.mountain_map.setdefault(mountain.prominence_parent_id, []).append(mountain)
+    @staticmethod
+    def parent_fk(summit):
+        return summit
 
-        for key, value in self.mountain_map.items():
-            self.mountain_map[key] = sorted(value, key=lambda m: (m.prominence or 0), reverse=True)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.summits = []
+        self.roots = []
+        self.tree = {}
 
-        self.roots = self.mountain_map.get(None, [])
-        return mountains
+    def preprocess(self):
+        pass
 
+    def process(self):
+        self.summits = self.get_queryset()
+
+        self.preprocess()
+
+        for mountain in self.summits:
+            self.tree.setdefault(self.parent_fk(mountain), []).append(mountain)
+
+        for key, value in self.tree.items():
+            self.tree[key] = sorted(value, key=self.sort_function, reverse=self.reverse)
+
+        self.roots = self.tree.get(None, [])
 
     def get_context_data(self, object_list=None, **kwargs):
+        # Inject the preprocessing step here
+        self.process()
+
         return super().get_context_data(object_list=object_list, **kwargs) | {
             'roots': self.roots,
-            'mountain_map': self.mountain_map,
+            'tree': self.tree,
         }
 
 
-class IsolationForestView(ListView):
-    model = Summit
-    context_object_name = 'mountains'
-    template_name = 'mountains/isolation-forest.html'
+class ProminenceForestView(SummitTreeView):
+    template_name = 'mountains/summit/prominence/tree.html'
+
+    @staticmethod
+    def sort_function(summit):
+        return summit.prominence or 0
+
+    @staticmethod
+    def parent_fk(summit):
+        return summit.prominence_parent_id
 
     def get_queryset(self):
-        mountains = Summit.objects.select_related('isolation_parent__point', 'point')
+        return Summit.objects.with_prominence().select_related('key_col__point', 'point')
 
-        self.tree = {}
-        for mountain in mountains:
-            self.tree.setdefault(mountain.isolation_parent_id, []).append(mountain)
 
-        for key, value in self.tree.items():
-            self.tree[key] = sorted(value, key=lambda m: (m.isolation() or 0), reverse=True)
+class IsolationForestView(SummitTreeView):
+    template_name = 'mountains/summit/isolation/tree.html'
 
-        self.roots = self.tree.get(None, [])
-        return mountains
+    @staticmethod
+    def sort_function(summit):
+        return summit.compute_isolation() or 0
+
+    @staticmethod
+    def parent_fk(summit):
+        return summit.isolation_parent_id
+
+    def get_queryset(self):
+        return Summit.objects.select_related('isolation_parent__point', 'point')
+
+
+
+class SlopeTreeView(SummitTreeView):
+    template_name = 'mountains/summit/slope/tree.html'
+    reverse = False
+
+    @staticmethod
+    def sort_function(summit):
+        return summit.point.slope_to(summit.slope_parent.point) if summit.slope_parent else -math.inf
+
+    @staticmethod
+    def parent_fk(summit):
+        return summit.slope_parent_id
+
+    def preprocess(self):
+        for mountain in self.summits:
+            mountain.slope = mountain.point.slope_to(mountain.slope_parent.point) if mountain.slope_parent else None
+
+    def get_queryset(self):
+        return Summit.objects.select_related('slope_parent__point', 'point')
 
     def get_context_data(self, object_list=None, **kwargs):
         return super().get_context_data(object_list=object_list, **kwargs) | {
@@ -225,16 +280,94 @@ class IsolationForestView(ListView):
         }
 
 
+class HorizonTreeView(SummitTreeView):
+    template_name = 'mountains/summit/horizon/tree.html'
+
+    @staticmethod
+    def sort_function(summit):
+        return summit.point.angle_to(summit.horizon_parent.point) if summit.horizon_parent else -90
+
+    @staticmethod
+    def parent_fk(summit):
+        return summit.horizon_parent_id
+
+    def preprocess(self):
+        for mountain in self.summits:
+            mountain.hhp_angle = mountain.point.angle_to(mountain.horizon_parent.point) if mountain.horizon_parent else None
+
+    def get_queryset(self):
+        return Summit.objects.select_related('horizon_parent__point', 'point')
+
+
 class MountainDetailView(DetailView):
     model = Summit
     context_object_name = 'mountain'
-    template_name = 'mountains/summit.html'
+    template_name = 'mountains/summit/detail.html'
 
     def get_queryset(self):
-        return Summit.objects.with_prominence().select_related('point').prefetch_related(
+        return Summit.objects.with_prominence().with_isolation().with_slope_parent().prefetch_related(
             Prefetch('prominence_children',
                      queryset=Summit.objects.with_prominence().select_related('key_col__point').order_by('-prominence'))
         )
+
+    def get_context_data(self, object_list=None, **kwargs):
+        context = super().get_context_data(object_list=object_list, **kwargs)
+        summits = Summit.objects.all().exclude(id=self.object.id).select_related('point')
+
+        for s in summits:
+            s.slope = self.object.point.slope_to(s.point)
+            s.hhp_angle = self.object.point.angle_to(s.point)
+            s.dh = s.point.altitude - self.object.point.altitude
+            s.distance = s.point.distance_to(self.object.point)
+
+        return context | {
+            'by_slope': sorted(summits, key=lambda x: x.slope, reverse=True)[:20],
+            'by_horizon': sorted(summits, key=lambda x: x.hhp_angle, reverse=True)[:20],
+        }
+
+class MountainListView(OrderableListView):
+    model = Summit
+    context_object_name = 'mountains'
+    template_name = 'mountains/summit/list.html'
+
+    ORDERING = {
+        'name': 'point__name',
+        'altitude': 'point__altitude',
+        'prominence': 'prominence',
+        'key-col': 'key_col__point__name',
+        'key-col-alt': 'key_col__point__altitude',
+        'nhn': 'isolation_parent__point__name',
+        'isolation': 'isolation',
+    }
+
+    def get_queryset(self, *, countries=None):
+        countries = Country.objects.filter(code='sk')
+        qs = Summit.objects.with_prominence().with_isolation().with_slope_parent().with_countries()
+
+        if self.ordering:
+            if self.ordering[0] == '-':
+                ordering = self.ordering[1:]
+                qs = qs.order_by(F(ordering).desc(nulls_last=True))
+            else:
+                ordering = self.ordering
+                qs = qs.order_by(F(ordering).asc(nulls_last=True))
+
+        if countries is not None:
+            qs = qs.filter(point__countries__in=countries)
+
+        return qs
+
+
+class SlopeToView(DetailView):
+    model = Summit
+    context_object_name = 'mountains'
+
+    def get_context_data(self, object_list=None, **kwargs):
+        context = super().get_context_data(object_list=object_list, **kwargs)
+        return context | {
+            'summits': Summit.objects.all()
+        }
+
 
 class SummitDetailGeoJSON(BaseDetailView):
     model = Summit

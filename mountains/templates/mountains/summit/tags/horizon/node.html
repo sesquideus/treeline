@@ -1,0 +1,22 @@
+{% load tree cairn %}
+
+{% for summit in nodes %}
+    <li class="tree-node">
+        {% if summit.hhp_angle %}
+            <span style="color: hsla({{ summit.hhp_angle|degrees|floatformat:2 }}, 100%, 40%, 100%);">
+                {{ summit.hhp_angle|degrees|floatformat:2 }}°
+            </span>
+        {% else %}
+            &#x1F451;
+        {% endif %}
+        {% object_link summit 'mountain' %}
+
+        {% with children=tree|get_item:summit.pk %}
+            {% if children %}
+                <ul class="mountains">
+                    {% horizon_tree children tree %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </li>
+{% endfor %}

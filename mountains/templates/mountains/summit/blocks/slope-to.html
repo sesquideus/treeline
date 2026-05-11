@@ -1,0 +1,61 @@
+{% load tree cairn %}
+
+<h3>
+    <abbr title="Slope is a measure of the peak's independence. A geodesic line is drawn to every other (higher) summit.
+        Slope is the measure of how quickly one has to rise along this line to reach the other summit,
+        or the ratio of height difference to distance.
+        However, this does not account for the curvature of the Earth!
+        The reason is that for many island high points the highest point on the horizon is the sea,
+        and for many important peaks it could be a lower peak at a considerable distance.
+        Therefore the unit is never an angle, but a dimensionless ratio (for convenience reported in m/km or &permil;)
+
+        Whiel isolation is mathematically robust and always well defined, it gives surprising results when chained:
+        slowly rising ranges often form long chains, even if there is a close high mountain nearby.
+        For instance, eastern Carpathians in Slovakia no longer chain to High Tatras, but slowly make
+        their way through Ukraine to Southern Carpathians, Turkey and Iran straight to the Himalayas.
+        The tree is very deep and long chains with lots of tiny subpeaks are formed very quickly.
+
+        The **slope parent** is the peak for which this measure is highest.
+        This might be different from the true highest point on the horizon, in two ways:
+        either the curvature of the surface is already too large and there are closer but less dominant peaks,
+        or in rare cases, the peak is convex and the highest point above the horizon is not its summit.
+        Determining this is possible, but computationally much more difficult and probably better left
+        to specialized tools. On the other hand, determining the slope from the databse is straightforward
+        and can be done automatically as long as the database is complete enough.">Slope</abbr>
+</h3>
+{% for summit in by_slope %}
+    {{ mountain.slope }}
+{% endfor %}
+
+<table>
+    <thead>
+        <tr>
+            <th>peak</th>
+            <th>&uparrow;</th>
+            <th>&leftrightarrow;</th>
+            <th>&#x2197;</th>
+        </tr>
+    </thead>
+    {% for summit in by_slope %}
+        <tr class="{% if summit.slope > 0 %}up{% else %}down{% endif %}">
+            <td class="summit">
+                {% object_link summit 'mountain' %}
+            </td>
+            <td class="altitude">
+                {{ summit.dh|floatformat:1 }}
+            </td>
+            <td class="distance">
+                {{ summit.distance|floatformat:3 }}
+            </td>
+            <td class="slope">
+                {{ summit.slope|multiply:1000|floatformat:3 }}
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="99" class="empty">
+                no peaks in the database
+            </td>
+        </tr>
+    {% endfor %}
+</table>

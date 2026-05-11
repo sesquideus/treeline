@@ -1,0 +1,5 @@
+{% if obj %}
+    <a href="{{ obj.get_absolute_url }}" class="{{ cls }}">{{ obj }}</a>
+{% else %}
+    <span class="empty">&mdash;</span>
+{% endif %}

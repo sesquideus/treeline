@@ -1,0 +1,53 @@
+{% load tree cairn %}
+
+{% if node.isolation_parent %}
+    <tr>
+        <td class="distance">
+            {% if node.compute_isolation %}
+                {{ node.compute_isolation.m|distance }}
+            {% else %}
+                ?
+            {% endif %}
+        </td>
+        <td>
+            &rightarrow;
+        </td>
+        <td>
+            {% if node.isolation_name %}{{ node.isolation_name }} of{% endif %}
+        </td>
+        <td>
+            {% object_link node.isolation_parent 'mountain' %}
+        </td>
+        {% if node.compute_isolation is not None %}
+            <td class="distance">
+                {{ node.isolation_offset_vector.dist|distance }}
+            </td>
+            <td class="azimuth">
+                ({{ node.isolation_offset_vector.az|floatformat:0 }}°)
+            </td>
+        {% else %}
+            <td>
+                unknown distance
+            </td>
+        {% endif %}
+        <td>
+            from summit
+        </td>
+        <td>
+
+        </td>
+    </tr>
+    {% render_isolation_lineage node.isolation_parent %}
+{% else %}
+    <tr>
+        {% if node.isolation %}
+            <td colspan="99">
+                (unknown) ({{ node.isolation|multiply:0.001|floatformat:3 }})
+            </td>
+        {% else %}
+            <td colspan="99" class="empty">
+                isolation unknown
+            </td>
+        {% endif %}
+    </tr>
+{% endif %}

@@ -1,0 +1,37 @@
+{% extends 'core/text-page.html' %}
+
+{% load static tree cairn %}
+
+{% block page_title %}Statistics{% endblock page_title %}
+{% block title %}Statistics{% endblock title %}
+
+{% block page_content %}
+
+    <h2>Summits</h2>
+    {{ summits }} summits in the database, {{ summitsc }} with complete data
+    {{ ultras }} ultras
+
+    <table>
+        <thead>
+            <tr>
+                <th>summit</th>
+                <th>prominence</th>
+                <th>prominence parent</th>
+                <th>key col</th>
+                <th>isolation parent</th>
+            </tr>
+        </thead>
+        {% for summit in most_prominent %}
+            <tr class="{% if summit.ultra %}ultra{% endif %}">
+                <td>{% object_link summit 'mountain' %}</td>
+                <td class="altitude">{{ summit.prominence|altitude }}</td>
+                <td>{% object_link summit.prominence_parent 'mountain' %}</td>
+                <td>{% object_link summit.key_col 'col' %}</td>
+                <td>{% object_link summit.isolation_parent 'mountain' %}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <h2>Cols</h2>
+    {{ cols }} cols in the database.
+{% endblock page_content %}

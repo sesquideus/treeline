@@ -7,7 +7,6 @@ const YELLOW = [241, 196, 15];
 const RED    = [192, 57, 43];
 const BLUE   = [43, 57, 192];
 const PURPLE = [142, 68, 173];
-const ORANGE = [230, 126, 34];
 
 function interpolateColor(c1, c2, t) {
     return `rgb(${Math.round(c1[0]+(c2[0]-c1[0])*t)},${Math.round(c1[1]+(c2[1]-c1[1])*t)},${Math.round(c1[2]+(c2[2]-c1[2])*t)})`;
@@ -51,13 +50,25 @@ function dot(color, radius=6) {
         })
     });
 }
-function triangle(color, radius=6) {
+
+function summit(color, radius=6) {
     return new ol.style.Style({
         image: new ol.style.RegularShape({
             points: 3,
             radius,
             fill: new ol.style.Fill({ color }),
             stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
+        })
+    });
+}
+
+function ilp(color, radius=6) {
+    return new ol.style.Style({
+        image: new ol.style.RegularShape({
+            points: 4,
+            radius,
+            fill: new ol.style.Fill({ color }),
+            stroke: new ol.style.Stroke({ color: '#fff', width: 0.5 }),
         })
     });
 }
