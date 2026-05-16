@@ -52,11 +52,12 @@ function segmentStyles(coords, c1, c2) {
 }
 
 const dot = (color, radius=6) => new ol.style.Style({
-  image: new ol.style.Circle({
-    radius,
-    fill: new ol.style.Fill({ color }),
-    stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
-  })
+    image: new ol.style.RegularShape({
+        points: 4,
+        radius,
+        fill: new ol.style.Fill({ color }),
+        stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
+    })
 });
 
 const circleStyle = new ol.style.Style({

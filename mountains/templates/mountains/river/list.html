@@ -1,0 +1,58 @@
+{% extends 'core/text-page.html' %}
+
+{% load static tree countries cairn %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
+{% block title %}
+    &#x224B; list
+{% endblock title %}
+
+{% block page_title %}
+    <h1>
+        List of rivers
+    </h1>
+{% endblock page_title %}
+
+{% block page_content %}
+    <table class="sortable alternating">
+        <thead>
+            <tr>
+                <th>country</th>
+                {% th_orderable 'name' 'name' %}
+                {% th_orderable 'prominence' 'prominence' %}
+                {% th_orderable 'parent' 'parent' %}
+                {% th_orderable 'drop' 'drop' %}
+                {% th_orderable 'slope' 'slope' %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for river in rivers %}
+                <tr>
+                    <td>
+                        {% for country in river.source.countries.all %}
+                            {% flaglet country.code %}
+                        {% endfor %}
+                    </td>
+                    <td class="link">{% object_link river 'river' %}</td>
+                    <td class="altitude">{{ river.source.altitude|altitude }}</td>
+                    <td class="link">{% object_link river.summit 'mountain' %}</td>
+                    <td class="link">{% object_link river.parent 'river' %}</td>
+                    <td class="altitude">{{ river.mouth_altitude|altitude }}</td>
+
+                    <td class="distance">{{ river.displacement.m|distance }}</td>
+                    <td class="link">{% object_link mountain.isolation_parent 'mountain' %}</td>
+                    <td class="slope" style="color: {{ mountain.slope_to_parent|slope_colour }};">{{ mountain.slope_to_parent|slope }}</td>
+                    <td class="link">{% object_link mountain.slope_parent 'mountain' %}</td>
+                    <td class="angle" style="color: {{ mountain.angle_to_horizon_parent|angle_colour }};">{{ mountain.angle_to_horizon_parent|angle_above_horizon }}</td>
+                    <td class="link">{% object_link mountain.horizon_parent 'mountain' %}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock page_content %}

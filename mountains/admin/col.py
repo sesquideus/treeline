@@ -1,14 +1,16 @@
 from django.contrib import admin
 
-from core.admin import ModelAdmin
-from ..models import Col
+from cairn.admin import ModelAdmin
+from django.utils.safestring import mark_safe
+
+from ..models import Col, NamedPoint
 
 
 @admin.register(Col)
 class ColAdmin(ModelAdmin):
     list_display = ['point',
-                    'point__latitude', 'point__longitude', 'point__altitude',
-                    'confluence_link']
+                    'point_latitude', 'point_longitude', 'point_altitude',
+                    'confluence_river_link']
     fieldsets = (
         ('Identity', {
             'fields': (
@@ -17,10 +19,30 @@ class ColAdmin(ModelAdmin):
         }),
         ('Confluence', {
             'fields': (
-                'confluence',
+                'confluence_river',
             )
         }),
     )
+    search_fields = ['point__name']
 
-    def confluence_link(self, obj):
-        return self.related_link(obj.confluence)
+    def point_latitude(self, obj):
+        if obj.point.location:
+            return f"{obj.point.location.y:+.6f}°"
+        else:
+            return mark_safe("&mdash;")
+
+    def point_longitude(self, obj):
+        if obj.point.location:
+            return f"{obj.point.location.x:+.6f}°"
+        else:
+            return mark_safe("&mdash;")
+
+    def point_altitude(self, obj):
+        return f"{obj.point.altitude:+.1f} m"
+
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'point':
+            kwargs['queryset'] = NamedPoint.objects.select_related('col')
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)

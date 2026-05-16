@@ -3,7 +3,7 @@ from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.db.models import Q
 
-from core.models import AdminModel
+from cairn.models import AdminModel
 
 
 class User(AdminModel, AbstractUser):

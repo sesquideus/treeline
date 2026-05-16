@@ -3,8 +3,10 @@ import math
 from django.utils.safestring import mark_safe
 from django.contrib.gis.db import models
 
+from cairn.models import AdminModel
+
 from core.functions.world import distance
-from core.models import AdminModel, Language, Country
+from core.models import Language, Country
 from core.templatetags.countries import flag
 
 
@@ -12,41 +14,46 @@ class NamedPoint(AdminModel):
     """
     A named point somewhere on the surface of the Earth. Base for all more advanced objects.
     """
-    name = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=64, null=True, blank=True, unique=True)
 
     location = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
-    altitude = models.FloatField()
+    altitude = models.FloatField(null=False, blank=False)
 
     countries = models.ManyToManyField(Country)
     source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return f"{self.name} ({self.altitude} m)"
+        if self.name is not None:
+            return f"{self.name}"
+        return "(unnamed)"
+
+    def full_name(self):
+        if self.name is not None:
+            return f"{self.name} ({self.altitude:.1f})"
+        return "(unnamed)"
 
     def flags(self):
         return mark_safe(' '.join([flag(country.code) for country in self.countries.all()]))
 
     def distance_to(self, point):
         return distance(
-            (self.latitude, self.longitude),
-            (point.latitude, point.longitude),
+            (self.location.y, self.location.x),
+            (point.location.y, point.location.x),
         ).km
 
     def slope_to(self, other):
         dist = distance(
-            (self.latitude, self.longitude),
-            (other.latitude, other.longitude),
+            (self.location.y, self.location.x),
+            (other.location.y, other.location.x),
         ).m
         dh = other.altitude - self.altitude
         return dh / dist
 
-    def angle_to(self, other, refraction=0.14):
+    def angle_to(self, other, refraction=0.0):
         r = 6371000 * (1 + refraction)
         dist = distance(
-            (self.latitude, self.longitude),
-            (other.latitude, other.longitude),
+            (self.location.y, self.location.x),
+            (other.location.y, other.location.x),
         ).m
         beta = dist / r
         return math.atan(((r + other.altitude) * math.cos(beta) - (r + self.altitude)) / ((r + other.altitude) * math.sin(beta)))

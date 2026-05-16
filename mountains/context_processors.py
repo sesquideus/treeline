@@ -3,10 +3,16 @@ MAIN_MENU = [
     {'label': 'Isolation tree',     'url_name': 'isolation-tree'},
     {'label': 'Slope tree',         'url_name': 'slope-tree'},
     {'label': 'Horizon forest',     'url_name': 'horizon-forest'},
+
     {'label': 'Prominence map',     'url_name': 'map-prominence'},
     {'label': 'Isolation map',      'url_name': 'map-isolation'},
     {'label': 'Statistics',         'url_name': 'statistics'},
-    {'label': 'Admin',              'url_name': 'admin:index'},
+
+    {'label': 'List of mountains',  'url_name': 'mountain-list'},
+    {'label': 'List of cols',       'url_name': 'col-list'},
+
+    {'label': 'Compare',            'cls': 'compare', 'url_name': 'summit-compare'},
+    {'label': 'Admin',              'cls': 'admin', 'url_name': 'admin:index'},
 ]
 
 def main_menu(request):

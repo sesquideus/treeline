@@ -1,0 +1,95 @@
+{% extends 'core/map-page.html' %}
+
+{% load cairn static tree countries %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
+{% block title %}
+    Comparing &#x26F0; {{ s1.point.name }} and {{ s2.point.name }}
+{% endblock title %}
+
+{% block page_title %}
+    {% if s1 and s2 %}
+        Comparison of {% object_link s1 'mountain' attr='name' %} and {% object_link s2 'mountain' attr='name' %}
+    {% else %}
+        Compare mountains
+    {% endif %}
+{% endblock page_title %}
+
+{% block page_content %}
+    <form class="compare" method="get" action="">
+        {{ form.as_p }}
+        <input type="submit" value="Compare">
+    </form>
+
+    {% if s1 and s2 %}
+        <h2>
+            Distance
+        </h2>
+
+        <table class="comparison">
+            <thead>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="distance">{{ distance|multiply:1000|distance }}</td>
+                    <td class="slope">{{ slope|slope }}</td>
+                    <td class="angle">{{ angle|angle_above_horizon }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>
+            Lowest connecting col
+        </h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>altitude difference</th>
+                    <th>distance</th>
+                </tr>
+            </thead>
+            <tr>
+                <td class="link">
+                    {% object_link sep_col 'col' attr='name' %}
+                </td>
+                <td class="altitude">
+                    {{ sep_col.point.altitude }}
+                </td>
+                <td class="confluence">
+                    {% object_link sep_col.confluence_river %}
+                </td>
+            </tr>
+            {% include 'mountains/summit/blocks/peak-col.html' with summit=s1 col=sep_col %}
+            {% include 'mountains/summit/blocks/peak-col.html' with summit=s2 col=sep_col %}
+        </table>
+
+        <h2>
+            Common ancestor
+        </h2>
+        <table>
+            <tr>
+                <td class="link">
+                    {% object_link lca 'mountain' %}
+                </td>
+            </tr>
+        </table>
+    {% endif %}
+{% endblock page_content %}
+
+{% block init_map %}
+    {% if s1 and s2 %}
+        <script>
+            initSummitMap(
+                "{% url 'summit-detail-geojson' s1.pk %}",
+                "{% url 'prominence-lineage-json' s1.pk %}",
+                [{{ s1.point.longitude }}, {{ s1.point.latitude }}],
+            );
+        </script>
+    {% endif %}
+{% endblock init_map %}

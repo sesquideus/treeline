@@ -1,13 +1,15 @@
 from django.contrib.gis.db.models.functions import Distance
 from django.core.exceptions import ValidationError
 from django.contrib.gis.db import models
-from django.db.models import Q, F, Value
+from django.db.models import Q, F, Value, CharField, Prefetch, ExpressionWrapper, FloatField
+from django.db.models.functions import Concat, Coalesce, ATan, Cos, Sin
 from django.urls import reverse
 from geographiclib.geodesic import Geodesic
 
-from core.functions.world import distance
+from cairn.models import AdminModel
 
-from core.models import AdminModel
+from core.functions.world import distance
+from mountains.models.col import Col
 
 
 class SummitQuerySet(models.QuerySet):
@@ -15,7 +17,22 @@ class SummitQuerySet(models.QuerySet):
         return self.select_related('point')
 
     def with_prominence(self):
-        return (self.select_related('point', 'prominence_parent__point', 'key_col__point')
+        return (self
+            .select_related('point')
+            .prefetch_related(
+                Prefetch(
+                    'prominence_parent',
+                    queryset=Summit.objects.with_point().annotate(
+                        prominence=ExpressionWrapper(F('point__altitude') - F('key_col__point__altitude'), output_field=FloatField()),
+                    )
+                )
+            )
+            .prefetch_related(
+                Prefetch(
+                    'key_col',
+                    queryset=Col.objects.with_point().with_full_name().prefetch_related('key_for__point')
+                )
+            )
             .annotate(
                 prominence=F('point__altitude') - F('key_col__point__altitude'),
             )
@@ -23,14 +40,28 @@ class SummitQuerySet(models.QuerySet):
 
     def with_isolation(self):
         return self.select_related('point', 'isolation_parent__point').annotate(
-            isolation=Distance('point__location', 'nearest_highest_point')
+            isolation=Distance('point__location', 'nearest_higher_point')
         )
 
     def with_countries(self):
         return self.prefetch_related('point__countries')
 
     def with_slope_parent(self):
-        return self.select_related('slope_parent__point')
+        return self.select_related('slope_parent__point').annotate(
+            dh=F('slope_parent__point__altitude') - F('point__altitude'),
+            dd=Distance('slope_parent__point__location', 'point__location'),
+            slope=F('dh') / F('dd'),
+        )
+
+    def with_horizon_parent(self):
+        r = 6371000.0
+        return self.select_related('horizon_parent__point').annotate(
+            beta=Distance('horizon_parent__point__location', 'point__location') / Value(r),
+            angle=ATan(
+                ((Value(r) + F('horizon_parent__point__altitude')) * Cos(F('beta')) - (Value(r) + F('point__altitude'))) /
+                ((Value(r) + F('horizon_parent__point__altitude')) * Sin(F('beta')))
+            )
+        )
 
     def with_confluence(self):
         return self.prefetch_related('key_col__confluence__point')
@@ -40,12 +71,20 @@ class SummitQuerySet(models.QuerySet):
             ultra=Q(prominence__gte=1500),
         )
 
+    def with_full_name(self):
+        return self.annotate(
+            full_name=Coalesce(
+                F('point__name'),
+                Concat(Value('unnamed ('), F('point__location'), Value(')'), output_field=CharField()),
+            )
+        )
+
     def with_complete(self):
         return self.with_prominence().annotate(
             has_point=Q(point__isnull=False),
             has_key_col=Q(key_col__isnull=False) & Q(key_col__point__altitude__isnull=False),
             has_prominence_parent=Q(prominence_parent__point__isnull=False),
-            has_isolation=Q(isolation_parent__point__isnull=False) & Q(isolation_latitude__isnull=False) & Q(isolation_longitude__isnull=False),
+            has_isolation=Q(isolation_parent__point__isnull=False) & Q(nearest_higher_point__isnull=False),
         ).annotate(
             complete=Q(has_point=True) & Q(has_key_col=True) & Q(has_prominence_parent=True) & Q(has_isolation=True)
         )
@@ -70,12 +109,11 @@ class Summit(AdminModel):
         ]
 
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False)
-    key_col = models.ForeignKey('Col', null=True, blank=True, on_delete=models.PROTECT,
-                                related_name='key_for')
-    encirclement_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.PROTECT,
-                                            related_name='encirclement_children')
+
     prominence_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.PROTECT,
                                           related_name='prominence_children')
+    key_col = models.ForeignKey('Col', null=True, blank=True, on_delete=models.PROTECT,
+                                related_name='key_for')
     prominence_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='prominence_data')
     island_high_point = models.BooleanField(default=False)
@@ -86,11 +124,7 @@ class Summit(AdminModel):
     isolation_name = models.CharField(null=True, blank=True, max_length=64)
     isolation_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='isolation_data')
-    nearest_highest_point = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
-    isolation_latitude = models.FloatField(null=True, blank=True,
-                                           help_text='The exact latitude of the nearest highest point')
-    isolation_longitude = models.FloatField(null=True, blank=True,
-                                            help_text='The exact longitude of the nearest highest point')
+    nearest_higher_point = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     # Obviously no altitude: this is equal to the altitude of this summit
 
     slope_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
@@ -235,19 +269,19 @@ class Summit(AdminModel):
             return None
 
     def compute_isolation(self):
-        if self.point and self.isolation_latitude and self.isolation_longitude:
+        if self.point and self.nearest_higher_point:
             return distance(
-                (self.point.latitude, self.point.longitude),
-                (self.isolation_latitude, self.isolation_longitude)
+                (self.point.location.y, self.point.location.x),
+                (self.nearest_higher_point.y, self.nearest_higher_point.x),
             )
         return None
 
     def isolation_vector(self):
         """ Vector of isolation, peak to nearest highest point """
-        if self.point and self.isolation_latitude and self.isolation_longitude:
+        if self.point and self.nearest_higher_point:
             inv = Geodesic.WGS84.Inverse(
-                self.point.latitude, self.point.longitude,
-                self.isolation_latitude, self.isolation_longitude
+                self.point.location.y, self.point.location.x,
+                self.nearest_higher_point.y, self.nearest_higher_point.x
             )
             return {
                 'az': inv['azi1'] % 360,
@@ -259,8 +293,8 @@ class Summit(AdminModel):
         """ Vector of isolation, peak to peak """
         if self.point and self.isolation_parent:
             inv = Geodesic.WGS84.Inverse(
-                self.point.latitude, self.point.longitude,
-                self.isolation_parent.point.latitude, self.isolation_parent.point.longitude,
+                self.point.location.y, self.point.location.x,
+                self.isolation_parent.point.location.y, self.isolation_parent.point.location.x,
             )
             return {
                 'az': inv['azi1'] % 360,
@@ -271,19 +305,19 @@ class Summit(AdminModel):
     def isolation_offset(self):
         """ Vector from nearest highest point to the associated peak """
         # FixMe: Deprecate in favour of vector version
-        if self.isolation_latitude and self.isolation_longitude and self.isolation_parent:
+        if self.nearest_higher_point.y and self.nearest_higher_point.x and self.isolation_parent:
             return distance(
-                (self.isolation_parent.point.latitude, self.isolation_parent.point.longitude),
-                (self.isolation_latitude, self.isolation_longitude)
+                (self.isolation_parent.point.location.y, self.isolation_parent.point.location.x),
+                (self.nearest_higher_point.y, self.nearest_higher_point.x)
             )
         return None
 
     def isolation_offset_vector(self):
         """ Vector from nearest highest point to the associated peak """
-        if self.isolation_latitude and self.isolation_longitude and self.isolation_parent:
+        if self.nearest_higher_point and self.isolation_parent:
             inv = Geodesic.WGS84.Inverse(
-                self.isolation_parent.point.latitude, self.isolation_parent.point.longitude,
-                self.isolation_latitude, self.isolation_longitude
+                self.isolation_parent.point.location.y, self.isolation_parent.point.location.x,
+                self.nearest_higher_point.y, self.nearest_higher_point.x
             )
             return {
                 'az': inv['azi1'] % 360,
@@ -294,8 +328,8 @@ class Summit(AdminModel):
     def distance_to_key_col(self):
         if self.key_col and self.key_col.point:
             return distance(
-                (self.point.latitude, self.point.longitude),
-                (self.key_col.point.latitude, self.key_col.point.longitude)
+                (self.point.location.y, self.point.location.x),
+                (self.key_col.point.location.y, self.key_col.point.location.x)
             )
         return None
 
@@ -332,19 +366,19 @@ class Summit(AdminModel):
             'pk': self.pk,
             'name': self.point.name if self.point else None,
             'alt': self.point.altitude if self.point else None,
-            'lat': self.point.latitude if self.point else None,
-            'lon': self.point.longitude if self.point else None,
+            'lat': self.point.location.y if self.point else None,
+            'lon': self.point.location.x if self.point else None,
             'prom': prominence,
             'ilp': {
                 'name': self.isolation_name,
                 'dist': isolation.m if isolation is not None else None,
-                'lat': self.isolation_latitude,
-                'lon': self.isolation_longitude,
+                'lat': self.nearest_higher_point.y if self.nearest_higher_point else None,
+                'lon': self.nearest_higher_point.x if self.nearest_higher_point else None,
             },
             'kc': {
                 'name': self.key_col.point.name if self.key_col and self.key_col.point else None,
-                'lat': self.key_col.point.latitude if self.key_col and self.key_col.point else None,
-                'lon': self.key_col.point.longitude if self.key_col and self.key_col.point else None,
+                'lat': self.key_col.point.location.y if self.key_col and self.key_col.point else None,
+                'lon': self.key_col.point.location.x if self.key_col and self.key_col.point else None,
                 'alt': self.key_col.point.altitude if self.key_col and self.key_col.point else None,
             } if self.key_col and self.key_col.point else None,
         }
@@ -397,10 +431,18 @@ class Summit(AdminModel):
 
     def is_complete(self):
         return self.key_col is not None and self.point is not None and self.isolation_parent is not None and \
-            self.isolation_latitude is not None and self.isolation_longitude is not None
+            self.nearest_higher_point.y is not None and self.nearest_higher_point.x is not None
 
     def get_absolute_url(self):
         return reverse('summit-detail', kwargs={'pk': self.pk})
 
     def __str__(self):
-        return f"{self.point}"
+        if self.point.name is not None:
+            return f"{self.point.__str__()} ({self.point.altitude})"
+        return "(unnamed)"
+
+    def name(self):
+        if self.point.name:
+            return f"{self.point.name}"
+        else:
+            return f"unnamed ({self.point.location.y}° {self.point.location.x}° {self.point.altitude} m)"

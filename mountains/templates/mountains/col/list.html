@@ -1,0 +1,68 @@
+{% extends 'core/text-page.html' %}
+
+{% load static tree countries cairn %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
+{% block title %}
+    &#x222A; list of cols
+{% endblock title %}
+
+{% block page_title %}
+    List of cols
+{% endblock page_title %}
+
+{% block page_content %}
+    <table class="sortable alternating">
+        <thead>
+            <tr>
+                <th>order</th>
+                <th>country</th>
+                {% th_orderable 'name' 'name' %}
+                {% th_orderable 'altitude' 'altitude' %}
+
+                {% th_orderable 'minor-name' 'minor peak' %}
+                {% th_orderable 'minor-alt' 'minor peak altitude' %}
+                {% th_orderable 'prominence' 'prominence' %}
+                {% th_orderable 'major-name' 'major peak' %}
+                {% th_orderable 'major-alt' 'major peak altitude' %}
+
+                {% th_orderable 'river-name' 'confluence river' %}
+                {% th_orderable 'river-alt' 'source altitude' %}
+                {% th_orderable 'confluence-alt' 'mouth altitude' %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for col in cols %}
+                {% with minor=col.key_for.all.0 %}
+                    {% with major=minor.prominence_parent %}
+                        <tr>
+                            <td class="number">{{ forloop.counter }}</td>
+                            <td>
+                                {% for country in col.point.countries.all %}
+                                    {% flaglet country.code %}
+                                {% endfor %}
+                            </td>
+                            <td class="link"> {% object_link col 'col' 'name' %} </td>
+                            <td class="altitude">{{ col.point.altitude|altitude }}</td>
+
+                            <td class="link">{% object_link minor 'mountain' attr='name' %}</td>
+                            <td class="altitude">{{ minor.point.altitude|altitude }}</td>
+                            <td class="altitude">{{ minor.prominence|altitude }}</td>
+                            <td class="link">{% object_link major 'mountain' attr='name' %}</td>
+                            <td class="altitude">{{ major.point.altitude|altitude }}</td>
+
+                            <td class="link">{% object_link col.confluence_river 'river' %}</td>
+                            <td class="link">{% object_link col.confluence_river.parent 'river' %}</td>
+                        </tr>
+                    {% endwith %}
+                {% endwith %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock page_content %}

@@ -1,8 +1,10 @@
+from django.apps import apps
 from django.db import models
-from django.db.models import Prefetch, F
+from django.db.models import Prefetch, F, Value, CharField
+from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
-from core.models import AdminModel
+from cairn.models import AdminModel
 
 
 class ColQuerySet(models.QuerySet):
@@ -12,15 +14,59 @@ class ColQuerySet(models.QuerySet):
     def with_point(self):
         return self.select_related('point')
 
+    def with_minor(self):
+        Summit = apps.get_model('mountains', 'Summit')
+        return self.annotate(
+            prominence=F('key_for__point__altitude') - F('key_for__key_col__point__altitude')
+        ).prefetch_related(
+            Prefetch('key_for',
+                     queryset=Summit.objects.with_prominence()
+            )
+        )
+
+    def with_river(self):
+        return self.select_related('confluence_river__source', 'confluence_river__parent__source')
+
+    def with_countries(self):
+        return self.prefetch_related('point__countries')
+
+    def with_full_name(self):
+        return self.annotate(
+            full_name=Concat(
+                Coalesce(
+                    F('point__name'),
+                    Concat(Value('unnamed ('), F('key_for__point__name'), Value(')'))
+                ),
+                Value(' ('),
+                F('point__altitude'),
+                Value(')'),
+                output_field=CharField()
+            )
+        )
+
 
 class Col(AdminModel):
-    point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False)
+    point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False, related_name='col')
     confluence = models.ForeignKey('Confluence', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
+    confluence_river = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
 
     objects = ColQuerySet.as_manager()
 
     def __str__(self):
-        return f"{self.point}"
+        if self.point.name:
+            return f"{self.point} ({self.point.altitude})"
+        elif len(self.key_for.all()) > 0:
+            return f"unnamed (for {self.key_for.all()[0].point})"
+        else:
+            return f"unnamed"
+
+    def name(self):
+        if self.point.name:
+            return f"{self.point.name}"
+        elif len(self.key_for.all()) > 0:
+            return f"unnamed (for {self.key_for.all()[0].point})"
+        else:
+            return f"unnamed"
 
     def get_absolute_url(self):
         return reverse('col', kwargs={'pk': self.pk})

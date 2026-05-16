@@ -19,8 +19,14 @@ urlpatterns = [
          name='prominence-lineage-json'),
     path('summit/<int:pk>/isolation-lineage.json',  views.summit.IsolationLineageJson.as_view(),
          name='isolation-lineage-json'),
+    path('summit/compare/', views.SummitCompareView.as_view(), name='summit-compare'),
+    path('summit/compare/<int:pk1>/<int:pk2>/', views.SummitCompareView.as_view(), name='summit-compare'),
 
-    path('col/<int:pk>/', views.ColView.as_view(), name='col'),
+    path('col/<int:pk>/', views.col.DetailView.as_view(), name='col'),
+    path('cols', views.col.ListView.as_view(), name='col-list'),
+
+    path('river/<int:pk>/', views.river.DetailView.as_view(), name='river-detail'),
+    path('rivers', views.river.ListView.as_view(), name='river-list'),
 
     path('confluences', views.confluence.ListView.as_view(), name='confluence-list'),
     path('confluence/<int:pk>/', views.confluence.DetailView.as_view(), name='confluence'),

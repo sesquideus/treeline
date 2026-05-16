@@ -1,0 +1,82 @@
+{% extends 'core/text-page.html' %}
+
+{% load static countries tree cairn %}
+
+{% block page_title %}
+    <span class="river">{{ river.source.name }}</span>
+    {{ river.source|flags }}
+    <a class="edit" href="{{ river.admin_change_url }}">&#x1F589;</a>
+{% endblock page_title %}
+
+{% block title %}
+    &#x224B; {{ river.source.name }}
+{% endblock title %}
+
+{% block page_content %}
+    {% for note in river.source.notes.all %}
+        <p>
+            {{ note }}
+        </p>
+    {% endfor %}
+
+    {% object_link river.source 'point' %}
+
+        <h3>
+            Key col for <b>{{ lower }}</b>
+        </h3>
+        {% object_link lower 'mountain' %}
+        &#x2198;
+        {{ lower.prominence|floatformat:1 }} m
+        &#x2197;
+        <b>{% object_link lower.prominence_parent 'mountain' %}</b>
+
+        <h3>
+            Confluence
+        </h3>
+        {% object_link col.confluence 'confluence' %}
+
+        <h3>
+            Sibling cols
+        </h3>
+        <p>
+            Sibling cols have the same parent peak.
+        </p>
+        <table class="lineage">
+            {% for peak in lower.prominence_parent.prominence_children.all %}
+                <tr>
+                    <td>
+                        {% object_link peak.key_col 'col' %}
+                    </td>
+                    <td>&rightarrow;</td>
+                    <td>
+                        {% object_link peak 'mountain' %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+
+        <h3>
+            Mouth
+        </h3>
+        <p>
+            Flows into {% object_link river.parent 'river' %} at {{ river.mouth.y }} {{ river.mouth.x }}
+            (<span class="altitude">{{ river.mouth_altitude|altitude }}</span>).
+        </p>
+        <table class="lineage">
+            {% for col in river.cols.all %}
+                <tr>
+                    <td>
+                        {% object_link col 'col' %}
+                    </td>
+                    <td>
+                        {% object_link col.key_for.all.0 'mountain' %}
+                    </td>
+                    <td>&rightarrow;</td>
+                    <td>
+                        {% object_link col.key_for.all.0.prominence_parent 'mountain' %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+
+{% endblock page_content %}

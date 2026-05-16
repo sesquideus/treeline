@@ -3,8 +3,8 @@
 {% if node.prominence_parent %}
     <tr>
         <td class="prominence altitude">
-            {% if node.prominence %}
-                {{ node.prominence|altitude }}
+            {% if node.compute_prominence %}
+                {{ node.compute_prominence|altitude }}
             {% endif %}
         </td>
         <td>

@@ -27,7 +27,7 @@
             <td class="distance">
                 {{ summit.distance|floatformat:3 }}
             </td>
-            <td class="angle">{{ summit.hhp_angle|slope }}</td>
+            <td class="angle">{{ summit.hhp_angle|angle_above_horizon }}</td>
         </tr>
     {% empty %}
         <tr>

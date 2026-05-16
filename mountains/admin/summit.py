@@ -1,13 +1,22 @@
-from cairn.admin.modeladmin import admin_action
 from django.contrib import admin
+from django.contrib.gis.db.models import PointField
+from django.contrib.gis.geos import Point
 
-from core.admin import ModelAdmin
+from cairn.admin import ModelAdmin
+from cairn.admin.modeladmin import admin_action
+
+from core.fields import PointFormField
 from mountains import models
 from mountains.models import NamedPoint, Summit, Col
 
 
 @admin.register(models.Summit)
 class SummitAdmin(ModelAdmin):
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if isinstance(db_field, PointField):
+            return PointFormField(label=db_field.verbose_name.title(), required=False)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
     class Media:
         css = {
             'all': ('css/admin.css',)
@@ -15,7 +24,7 @@ class SummitAdmin(ModelAdmin):
 
     fieldsets = (
         ('Point', {
-            'fields': ('point',),
+            'fields': ('point', 'location_display'),
         }),
         ('Prominence', {
             'fields': ('key_col', 'prominence_parent',
@@ -23,7 +32,8 @@ class SummitAdmin(ModelAdmin):
         }),
         ('Isolation', {
             'fields': (
-                'isolation_name', 'isolation_parent', ('isolation_latitude', 'isolation_longitude'),
+                'isolation_name', 'isolation_parent',
+                'nearest_higher_point',
                 'isolation_source',
             ),
         }),
@@ -34,28 +44,36 @@ class SummitAdmin(ModelAdmin):
         }),
     )
 
-    list_display = ['point', 'point__latitude', 'point__longitude', 'point__altitude',
+    list_display = ['point', 'point_latitude', 'point_longitude', 'point_altitude', 'flags',
                     'is_complete',
-                    'key_col__point__name', 'key_col_altitude',
+                    'key_col', 'key_col_altitude',
                     'prominence', 'prominence_parent_link',
                     'isolation', 'isolation_parent_link',
+                    'nearest_higher_point',
                     'slope_parent_link', 'horizon_parent_link']
 
-    actions = ['compute_slope_parent', 'compute_horizon_parent']
+    actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_points']
     search_fields = ['point__name']
     list_select_related = ['point', 'key_col__point', 'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
+    readonly_fields = ['location_display']
 
     def get_queryset(self, request):
         return super().get_queryset(request).with_isolation().with_prominence().with_prominence_parent().with_isolation_parent().with_key_col().with_slope_parent().with_horizon_parent()
 
-    def key_col_link(self, obj):
-        return self.related_link(obj.key_col)
+    def point_latitude(self, obj):
+        return f"{obj.point.location.y:+.6f}°"
+
+    def point_longitude(self, obj):
+        return f"{obj.point.location.x:+.6f}°"
+
+    def point_altitude(self, obj):
+        return f"{obj.point.altitude:.1f} m"
+
+    def flags(self, obj):
+        return obj.point.flags()
 
     def prominence_parent_link(self, obj):
         return self.related_link(obj.prominence_parent)
-
-    def encirclement_parent_link(self, obj):
-        return self.related_link(obj.encirclement_parent)
 
     def isolation_parent_link(self, obj):
         return self.related_link(obj.isolation_parent)
@@ -106,6 +124,25 @@ class SummitAdmin(ModelAdmin):
                 summit.save(update_fields=['horizon_parent'])
                 yield summit.point.name
 
+    @admin_action(description='Compute Points')
+    def compute_points(self, request, queryset):
+        for summit in queryset.select_related('point'):
+            if summit.point.longitude and summit.point.latitude:
+                new_point = Point(summit.point.longitude, summit.point.latitude)
+                new_nhp = Point(summit.isolation_longitude, summit.isolation_latitude)
+
+                if new_point != summit.point.location and new_nhp != summit.nearest_higher_point:
+                    summit.point.location = new_point
+                    summit.nearest_higher_point = new_nhp
+                    summit.point.save(update_fields=['location'])
+                    summit.save(update_fields=['nearest_higher_point'])
+                    yield summit.point.name
+
+    @admin.display(description="Location", ordering="point__location")
+    def location_display(self, obj):
+        if obj.point and obj.point.location:
+            return obj.point.location
+        return None
 
     @admin.display(description='Prominence')
     def prominence(self, obj):
@@ -122,7 +159,7 @@ class SummitAdmin(ModelAdmin):
     @admin.display(description='distance to NHN')
     def nhn_distance(self, obj):
         if (dist := obj.compute_distance_to_nhn()) is not None:
-            return f"{iso.km:.3f} km"
+            return f"{dist.km:.3f} km"
         return None
 
     @admin.display(description='Key col altitude')
@@ -138,7 +175,7 @@ class SummitAdmin(ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
             'point', 'key_col__point',
-            'encirclement_parent__point', 'prominence_parent__point', 'isolation_parent__point'
+            'prominence_parent__point', 'isolation_parent__point'
         )
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

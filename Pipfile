@@ -10,6 +10,7 @@ psycopg2-binary = "*"
 python-decouple = "*"
 pytz = "*"
 django-cairn = {editable = true, path="/home/kvik/python/django-cairn/"}
+django-map-widgets = "*"
 
 [dev-packages]
 django-debug-toolbar = "*"

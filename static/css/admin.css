@@ -1,6 +1,10 @@
 /* static/css/admin_custom.css */
 .field-prominence { text-align: right; }
 .field-isolation { text-align: right; }
+.field-point_latitude { text-align: right; }
+.field-point_longitude { text-align: right; }
+.field-point_altitude { text-align: right; }
+.field-key_col_altitude { text-align: right; }
 
 .distance-val {
     font-variant-numeric: tabular-nums;

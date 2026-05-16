@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0229d8e8a9d0dfbc98af7b17576683b993e4e96a7abb9bf409f28baba6a81779"
+            "sha256": "027bfe6719483ad6576e4fd4f2633fe73c5487446c8e70ad5bf79eb964152a7a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -35,6 +35,15 @@
             "index": "pypi",
             "markers": "python_version >= '3.12'",
             "version": "==6.0.5"
+        },
+        "django-map-widgets": {
+            "hashes": [
+                "sha256:08e20134c93c346d37b5ca9bf80b9a5cb3c76d450752dc31bb8932c3022d3221",
+                "sha256:b694f013ccb86f8e48b6eeb19d33c322d01a085de559dd52ff7e73df1e62a3c9"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==0.5.2"
         },
         "geographiclib": {
             "hashes": [

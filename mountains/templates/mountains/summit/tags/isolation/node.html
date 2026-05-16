@@ -1,4 +1,4 @@
-{% load tree %}
+{% load cairn tree %}
 
 {% for summit in nodes %}
     <li class="tree-node">
@@ -6,8 +6,7 @@
             &#x2196;
             <span class="distance">{{ summit.isolation.km|floatformat:3 }} km</span>
         {% endif %}
-            <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.name }}</a>
-            ({{ summit.point.altitude }} m)
+            {% object_link summit 'mountain' %}
             {% with children=tree|get_item:summit.pk %}
                 {% if children %}
                     <ul class="mountains">

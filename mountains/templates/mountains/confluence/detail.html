@@ -3,11 +3,11 @@
 {% load static tree cairn %}
 
 {% block title %}
-    Confluence
+    {{ confluence.point }}
 {% endblock title %}
 
 {% block page_title %}
-    Confluence {{ confluence.point.name }}
+    Confluence &#x22CE; <b>{{ confluence.point }}</b>
 {% endblock page_title %}
 
 {% block page_content %}
@@ -18,7 +18,7 @@
         {% for col in confluence.cols.all %}
             <tr>
                 <td>
-                    {% object_link col 'col' %}
+                    {% object_link col 'col' 'full_name' %}
                 </td>
             </tr>
         {% endfor %}

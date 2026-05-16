@@ -39,7 +39,8 @@ INSTALLED_APPS = ([
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
-    "debug_toolbar",
+    'debug_toolbar',
+    'mapwidgets',
 ] + [
     'cairn',
 ] + [

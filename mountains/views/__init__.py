@@ -6,15 +6,16 @@ from core.functions.world import distance
 from ..models import Summit
 
 from .summit import (ProminenceForestView, IsolationForestView, MountainDetailView, SlopeTreeView, HorizonTreeView,
-                     SummitDetailGeoJSON)
-from .col import ColView
-from . import confluence
+                     SummitDetailGeoJSON, SummitCompareView)
+from .river import river
+from . import confluence, col
 from .statistics import StatisticsView
 
 
 
 def build_line(peak, col, parent, kind: str):
-    name = f"{peak.point.name} ({peak.point.altitude} m) \u2198 {peak.prominence():.1f} m \u2198 {col.point.name} ({col.point.altitude:.1f} m) \u2197 {parent.point.name}"
+    name = (f"{peak.point.name} ({peak.point.altitude} m) "
+            f"\u2198 {peak.compute_prominence():.1f} m \u2198 {col.point.name} ({col.point.altitude:.1f} m) \u2197 {parent.point.name}")
     if kind == 'down':
         p1, p2 = peak, col
     else:
@@ -25,8 +26,8 @@ def build_line(peak, col, parent, kind: str):
         'geometry': {
             'type': 'LineString',
             'coordinates': [
-                [p1.point.longitude, p1.point.latitude],
-                [p2.point.longitude, p2.point.latitude],
+                [p1.point.location.x, p1.point.location.y],
+                [p2.point.location.x, p2.point.location.y],
             ]
         },
         'properties': {
@@ -42,7 +43,7 @@ def summit_map(request):
     summits = Summit.objects.select_related(
         'prominence_parent',
         'key_col',
-    ).filter(point__latitude__isnull=False, point__longitude__isnull=False)
+    ).filter(point__location__isnull=False)
 
     features = []
     seen_cols = set()
@@ -53,7 +54,7 @@ def summit_map(request):
             'type': 'Feature',
             'geometry': {
                 'type': 'Point',
-                'coordinates': [s.point.longitude, s.point.latitude],
+                'coordinates': [s.point.location.x, s.point.location.y],
             },
             'properties': {
                 'name': f"{s.point.name} ({s.point.altitude} m)",
@@ -63,13 +64,13 @@ def summit_map(request):
 
         # Col point — deduplicate since multiple summits may share a col
         col = s.key_col
-        if col and col.pk not in seen_cols and col.point.latitude and col.point.longitude:
+        if col and col.pk not in seen_cols and col.point.location:
             seen_cols.add(col.pk)
             features.append({
                 'type': 'Feature',
                 'geometry': {
                     'type': 'Point',
-                    'coordinates': [col.point.longitude, col.point.latitude],
+                    'coordinates': [col.point.location.x, col.point.location.y],
                 },
                 'properties': {
                     'name': f'{col.point.name} ({col.point.altitude} m)' ,
@@ -79,7 +80,7 @@ def summit_map(request):
 
         # Line: summit → col → prominence parent
         parent = s.prominence_parent
-        if col and col.point.latitude and col.point.longitude and parent and parent.point.latitude and parent.point.longitude:
+        if col and col.point.location and parent and parent.point:
             features.append(build_line(s, col, parent, 'down'))
             features.append(build_line(s, col, parent, 'up'))
 
@@ -100,7 +101,7 @@ def isolation_map(request):
             'type': 'Feature',
             'geometry': {
                 'type': 'Point',
-                'coordinates': [s.point.longitude, s.point.latitude],
+                'coordinates': [s.point.location.x, s.point.location.y],
             },
             'properties': {
                 'name': f"{s.point.name} ({s.point.altitude} m)",
@@ -108,10 +109,10 @@ def isolation_map(request):
             }
         })
 
-        if s.isolation_latitude and s.isolation_longitude:
+        if s.nearest_higher_point:
             dist = distance(
-                (s.point.latitude, s.point.longitude),
-                (s.isolation_latitude, s.isolation_longitude),
+                (s.point.location.y, s.point.location.x),
+                (s.nearest_higher_point.y, s.nearest_higher_point.x),
             )
             if s.isolation_parent:
                 iso_label = (
@@ -125,7 +126,7 @@ def isolation_map(request):
                 'type': 'Feature',
                 'geometry': {
                     'type': 'Point',
-                    'coordinates': [s.isolation_longitude, s.isolation_latitude],
+                    'coordinates': [s.nearest_higher_point.x, s.nearest_higher_point.y],
                 },
                 'properties': {
                     'name': iso_label,
@@ -139,8 +140,8 @@ def isolation_map(request):
                 'geometry': {
                     'type': 'LineString',
                     'coordinates': [
-                        [s.point.longitude, s.point.latitude],
-                        [s.isolation_longitude, s.isolation_latitude],
+                        [s.point.location.x, s.point.location.y],
+                        [s.nearest_higher_point.x, s.nearest_higher_point.y],
                     ]
                 },
                 'properties': {
@@ -157,8 +158,8 @@ def isolation_map(request):
                     'geometry': {
                         'type': 'LineString',
                         'coordinates': [
-                            [s.isolation_longitude, s.isolation_latitude],
-                            [s.isolation_parent.point.longitude, s.isolation_parent.point.latitude],
+                            [s.nearest_higher_point.x, s.nearest_higher_point.y],
+                            [s.isolation_parent.point.location.x, s.isolation_parent.point.location.y],
                         ]
                     },
                     'properties': {
@@ -178,7 +179,6 @@ def summit_detail_map(request, pk):
             'point',
             'key_col__point',
             'prominence_parent__point',
-            'encirclement_parent__point',
         ),
         pk=pk
     )
@@ -186,7 +186,7 @@ def summit_detail_map(request, pk):
     features = []
 
     # The summit itself
-    summit_coords = [s.point.longitude, s.point.latitude]
+    summit_coords = [s.point.location.x, s.point.location.y]
     features.append({
         'type': 'Feature',
         'geometry': {'type': 'Point', 'coordinates': summit_coords},
@@ -194,11 +194,11 @@ def summit_detail_map(request, pk):
     })
 
     # Isolation: line from isolation position to summit, plus isolation circle
-    if s.isolation_latitude and s.isolation_longitude:
-        iso_coords = [s.isolation_longitude, s.isolation_latitude]
+    if s.isolation_location.y and s.isolation_location.x:
+        iso_coords = [s.isolation_location.x, s.isolation_location.y]
         dist = distance(
-            (s.point.latitude, s.point.longitude),
-            (s.isolation_latitude, s.isolation_longitude),
+            (s.point.location.y, s.point.location.x),
+            (s.isolation_location.y, s.isolation_location.x),
         ) * 1000
         parent_name = (
             s.isolation_parent.point.name
@@ -222,7 +222,7 @@ def summit_detail_map(request, pk):
 
         # Line: summit → isolation position (second leg, yellow→purple if parent known)
         if s.isolation_parent and s.isolation_parent.point:
-            parent_coords = [s.isolation_parent.point.longitude, s.isolation_parent.point.latitude]
+            parent_coords = [s.isolation_parent.point.location.x, s.isolation_parent.point.location.y]
             features.append({
                 'type': 'Feature',
                 'geometry': {'type': 'Point', 'coordinates': parent_coords},
@@ -237,14 +237,14 @@ def summit_detail_map(request, pk):
         # Isolation circle — approximated as a GeoJSON polygon
         features.append({
             'type': 'Feature',
-            'geometry': isolation_circle(s.point.latitude, s.point.longitude, dist),
+            'geometry': isolation_circle(s.point.location.y, s.point.location.x, dist),
             'properties': {'type': 'isolation_circle', 'name': f'Isolation radius: {dist} km'},
         })
 
     # Prominence: summit → key col → prominence parent
     if s.key_col and s.key_col.point and s.prominence_parent and s.prominence_parent.point:
-        col_coords    = [s.key_col.point.longitude, s.key_col.point.latitude]
-        parent_coords = [s.prominence_parent.point.longitude, s.prominence_parent.point.latitude]
+        col_coords    = [s.key_col.point.location.x, s.key_col.point.location.y]
+        parent_coords = [s.prominence_parent.point.location.x, s.prominence_parent.point.location.y]
         features.append({
             'type': 'Feature',
             'geometry': {'type': 'Point', 'coordinates': col_coords},
@@ -266,7 +266,7 @@ def summit_detail_map(request, pk):
 
     # Encirclement parent
     if s.encirclement_parent and s.encirclement_parent.point:
-        enc_coords = [s.encirclement_parent.point.longitude, s.encirclement_parent.point.latitude]
+        enc_coords = [s.encirclement_parent.point.location.x, s.encirclement_parent.point.location.y]
         features.append({
             'type': 'Feature',
             'geometry': {'type': 'Point', 'coordinates': enc_coords},

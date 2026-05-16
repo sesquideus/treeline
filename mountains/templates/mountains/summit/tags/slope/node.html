@@ -3,7 +3,7 @@
 {% for summit in nodes %}
     <li class="tree-node">
         {% if summit.slope %}
-            <span style="color: hsla({{ summit.slope|multiply:1000 }}, 100%, 40%, 100%);">
+            <span style="color: {{ summit.slope|slope_colour }}">
                 {{ summit.slope|multiply:1000|floatformat:2 }} m/km
             </span>
         {% else %}

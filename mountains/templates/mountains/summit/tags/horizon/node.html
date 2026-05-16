@@ -3,7 +3,7 @@
 {% for summit in nodes %}
     <li class="tree-node">
         {% if summit.hhp_angle %}
-            <span style="color: hsla({{ summit.hhp_angle|degrees|floatformat:2 }}, 100%, 40%, 100%);">
+            <span style="color: {{ summit.hhp_angle|angle_colour }}">
                 {{ summit.hhp_angle|degrees|floatformat:2 }}°
             </span>
         {% else %}

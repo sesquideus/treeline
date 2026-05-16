@@ -8,6 +8,12 @@ html, body {
     line-height: 125%;
 }
 
+div.entire {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+}
+
 div.header {
     background-color: black;
     width: 100%;
@@ -32,6 +38,24 @@ div.header nav a, div.header nav a:visited {
     color: white;
 }
 
+div.header nav a.compare {
+    color: lightyellow;
+}
+
+div.header nav a.admin {
+    color: darkorange;
+}
+
+div.header nav a.active {
+    color: yellow;
+    text-shadow: yellow 0 0 0.5em;
+}
+
+p {
+    line-height: 120%;
+    padding-bottom: 1em;
+}
+
 h1 {
     font-size: 180%;
     padding-top: 0.3em;
@@ -49,17 +73,28 @@ h3 {
 }
 
 ul {
-    padding-left: 1.5rem;
+    margin-left: 0.4rem;
+    padding-left: 0.8rem;
     border-left: 1px solid hsla(0, 0%, 90%, 100%);
 }
 
+ul.tree-root {
+    padding-left: 0;
+    border-left: 0;
+}
+
 ul li.node {
-    padding-left: 1em;
+}
+
+ul li.tree-node::before {
+    margin-left: -0.78em;
+    content: '–';
+    color: hsla(0, 0%, 80%, 100%);
 }
 
 img.flag {
     display: inline-block;
-    height: 1.2em;
+    height: 1em;
     border: 1px solid hsla(0, 0%, 0%, 10%);
 }
 
@@ -67,25 +102,29 @@ span.prominence {
     font-weight: 600;
 }
 
-a.mountain, a.col {
+a.object {
     text-decoration: none;
 }
 
-a.mountain {
-    color: orangered;
+a.mountain, a.col, a.river {
+    text-decoration: none;
 }
 
-a.mountain::before {
+.mountain { color: orangered; }
+.mountain::before {
     content: "\26F0\00A0";
 }
 
-a.col {
-    color: darkblue;
-}
-
-a.col::before {
+.col { color: forestgreen; }
+.col::before {
     font-weight: bold;
     content: "\222A\00A0";
+}
+
+.river { color: navy; }
+.river::before {
+    content: "\3030\00A0";
+    /* content: "\224B\00A0"; */
 }
 
 abbr {
@@ -160,18 +199,18 @@ tr.down {
     background-color: hsla(10, 50%, 80%, 40%);
 }
 
-td.altitude { text-align: right; }
-td.prominence { text-align: right; }
-td.distance { text-align: right; }
-td.azimuth { text-align: right; }
-td.number { text-align: right; }
-td.angle { text-align: right; }
-td.slope { text-align: right; }
+.altitude { text-align: right; }
+.prominence { text-align: right; }
+.distance { text-align: right; }
+.azimuth { text-align: right; }
+.number { text-align: right; }
+.angle { text-align: right; }
+.slope { text-align: right; }
 
-td.angle::after { content: "°"; }
-td.slope::after { content: " m / km"; }
-td.distance::after { content: " km"; }
-td.altitude::after { content: " m"; }
+.angle::after { content: "°"; }
+.slope::after { content: " m\00A0/\00A0km"; }
+.distance::after { content: " km"; }
+.altitude::after { content: " m"; }
 
 td.empty {
     text-align: center;
@@ -195,8 +234,11 @@ div.text-page {
 }
 
 div.map-page {
+    display: flex;
+    flex-direction: row;
     overflow-y: auto;  /* scroll if content is taller than the viewport */
     padding: 0;
+    min-height: 100%;
 }
 
 div.map-page div.data {
@@ -213,6 +255,7 @@ div#map {
         #d0d0d0 40px
     );
     flex: 1;  /* takes all remaining space */
+    min-height: 500px;
 }
 
 #map-controls {

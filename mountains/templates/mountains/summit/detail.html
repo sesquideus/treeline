@@ -15,80 +15,62 @@
 {% endblock title %}
 
 {% block page_title %}
-    <h1>
-        &#x26F0; <b>{{ mountain.point.name }}</b>
-        ({{ mountain.point.altitude }} m)
-        <a class="edit" href="{{ mountain.admin_change_url }}">&#x1F589;</a>
-    </h1>
+    <span class="mountain">{{ mountain.point.name }}</span> ({{ mountain.point.altitude }} m)
+    {{ mountain.point|flags }}
+    <a class="edit" href="{{ mountain.admin_change_url }}">&#x1F589;</a>
 {% endblock page_title %}
 
 {% block page_content %}
-    <div class="page map-page">
-        <div class="data">
-            <h1>
-                &#x26F0; <b>{{ mountain.point.name }}</b>
-                ({{ mountain.point.altitude }} m)
-                <a class="edit" href="{{ mountain.admin_change_url }}">&#x1F589;</a>
-            </h1>
-            {{ mountain.point|flags }}
-            <span class="latitude">{{ mountain.point.latitude|floatformat:6 }}°</span>
-            <span class="longitude">{{ mountain.point.longitude|floatformat:6 }}°</span>
+    <span class="latitude">{{ mountain.point.location.y|floatformat:6 }}°</span>
+    <span class="longitude">{{ mountain.point.location.x|floatformat:6 }}°</span>
 
-            <h3>
-                Names
-            </h3>
-            <table class="lineage">
-                {% for name in mountain.point.names.all %}
-                    <tr>
-                        <td>{{ name.name }}</td>
-                        <td>{% flaglet name.language.country_code %}</td>
-                    </tr>
-                {% endfor %}
-            </table>
+    <h3>
+        Names
+    </h3>
+    <table class="lineage">
+        {% for name in mountain.point.names.all %}
+            <tr>
+                <td>{{ name.name }}</td>
+                <td>{% flaglet name.language.country_code %}</td>
+            </tr>
+        {% endfor %}
+    </table>
 
-            <h3>
-                Isolation
-            </h3>
-            <table>
-                {% with parent=mountain.isolation_parent vector=mountain.isolation_vector offset=mountain.isolation_offset_vector %}
-                    {% if parent %}
-                        {{ vector.dist|distance }} ({{ vector.az|floatformat:2 }}°)
-                        <span class="arrow" style="transform: rotate({{ vector.az|floatformat:2 }}deg);">
-                            &uparrow;
-                        </span>
-                        {{ offset.dist|distance }}
-                        {{ mountain.isolation_name }} of
-                        {{ parent.point.name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
-                    {% else %}
-                        (data not available)
-                    {% endif %}
-                {% endwith %}
-            </table>
+    <h3>
+        Isolation
+    </h3>
+    <table>
+        {% with parent=mountain.isolation_parent vector=mountain.isolation_vector offset=mountain.isolation_offset_vector %}
+            {% if parent %}
+                {{ vector.dist|distance }} ({{ vector.az|floatformat:2 }}°)
+                <span class="arrow" style="transform: rotate({{ vector.az|floatformat:2 }}deg);">
+                    &uparrow;
+                </span>
+                {{ offset.dist|distance }}
+                {{ mountain.isolation_name }} of
+                {{ parent.point.name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
+            {% else %}
+                (data not available)
+            {% endif %}
+        {% endwith %}
+    </table>
 
-            {% include "mountains/summit/blocks/prominence-lineage.html" %}
-            {% include "mountains/summit/blocks/slope-lineage.html" %}
-            {% include "mountains/summit/blocks/horizon-lineage.html" %}
-            {% include "mountains/summit/blocks/isolation-lineage.html" %}
+    {% include "mountains/summit/blocks/prominence-lineage.html" %}
+    {% include "mountains/summit/blocks/slope-lineage.html" %}
+    {% include "mountains/summit/blocks/horizon-lineage.html" %}
 
-
-            {% include "mountains/summit/blocks/parent-for.html" %}
-            {% include "mountains/summit/blocks/isolation-for.html" %}
-            {% include "mountains/summit/blocks/slope-to.html" %}
-            {% include "mountains/summit/blocks/horizon-to.html" %}
-        </div>
-        <div id="map"></div>
-        <div id="map-controls">
-            <label>
-                <input type="checkbox" id="toggle-col" checked>
-                Route through key col
-            </label>
-        </div>
-        <script>
-            initSummitMap(
-                "{% url 'summit-detail-geojson' mountain.pk %}",
-                "{% url 'prominence-lineage-json' mountain.pk %}",
-                [{{ mountain.point.longitude }}, {{ mountain.point.latitude }}],
-            );
-        </script>
-    </div>
+    {% include "mountains/summit/blocks/parent-for.html" %}
+    {% include "mountains/summit/blocks/isolation-for.html" %}
+    {% include "mountains/summit/blocks/slope-to.html" %}
+    {% include "mountains/summit/blocks/horizon-to.html" %}
 {% endblock page_content %}
+
+{% block init_map %}
+    <script>
+        initSummitMap(
+            "{% url 'summit-detail-geojson' mountain.pk %}",
+            "{% url 'prominence-lineage-json' mountain.pk %}",
+            [{{ mountain.point.location.x }}, {{ mountain.point.location.y }}],
+        );
+    </script>
+{% endblock init_map %}

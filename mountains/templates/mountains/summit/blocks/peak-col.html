@@ -1,0 +1,22 @@
+{% load cairn tree %}
+
+<tr>
+    <td class="link">
+        {% object_link summit 'mountain' attr='name' %}
+    </td>
+    <td>&downarrow;</td>
+    <td class="altitude">
+        {% if sep_col %}
+            {{ summit.point.altitude|subtract:sep_col.point.altitude }}
+        {% else %}
+            nothing to show
+        {% endif %}
+    </td>
+    <td class="distance">
+        {% if sep_col %}
+            {{ summit.point|distance_to:sep_col.point }}
+        {% else %}
+            nothing to show
+        {% endif %}
+    </td>
+</tr>

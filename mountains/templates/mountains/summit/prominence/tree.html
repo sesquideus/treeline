@@ -6,7 +6,11 @@
 
 {% block page_content %}
     <div class="data">
-        <ul>
+        <p>
+            This structure is a <b>tree</b>: every summit except the root (Mount Everest) has exactly one parent.
+            Other peaks without parents are an artifact of an incomplete database, but otherwise it should be true.
+        </p>
+        <ul class="tree-root">
             {% prominence_tree roots tree %}
         </ul>
     </div>

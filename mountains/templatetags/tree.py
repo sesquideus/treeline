@@ -2,6 +2,9 @@ import math
 from typing import Optional
 
 from django import template
+from django.utils.safestring import mark_safe
+
+from mountains.models import NamedPoint
 
 register = template.Library()
 
@@ -79,6 +82,10 @@ def render_horizon_lineage(node):
         'node': node,
     }
 
+@register.filter
+def subtract(a, b):
+    return a - b
+
 
 @register.filter
 def multiply(x, y):
@@ -87,7 +94,21 @@ def multiply(x, y):
 
 @register.filter
 def degrees(angle):
-    return angle * 180 / math.pi
+    if angle is not None:
+        return angle * 180 / math.pi
+    return None
+
+
+@register.filter
+def angle_above_horizon(angle):
+    if angle:
+        return f"{degrees(angle):+.3f}"
+    return mark_safe("&mdash;")
+
+
+@register.filter
+def distance_to(p1: NamedPoint, p2: NamedPoint):
+    return p1.distance_to(p2)
 
 
 @register.filter
@@ -112,14 +133,23 @@ def diff_altitude(dh):
 
 
 @register.filter
-def slope(angle):
-    if not angle:
+def slope(sl):
+    if not sl:
         return "?"
-    return f"{degrees(angle):+.2f}"
+    return f"{sl * 1000:+.2f}"
 
 
 @register.filter
-def slope_colour(angle):
+def slope_colour(slope):
+    """ Nice colour for slopes (in m / km) green to red"""
+    if not slope:
+        return "grey";
+    return f"hsl({120 - 400 * slope}, 60%, 40%)"
+
+
+@register.filter
+def angle_colour(angle):
+    """ Nice colour for horizon angles (green to red) """
     if not angle:
         return "grey";
     return f"hsl({120 - 4 * degrees(angle)}, 60%, 40%)"

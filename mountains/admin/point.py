@@ -1,7 +1,10 @@
+from cairn.admin.modeladmin import admin_action
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
+from django.contrib.gis.db.models import PointField
+from django.contrib.gis.geos import Point
 
-from core.admin import ModelAdmin
+from core.fields import PointFormField
 from .note import NoteInline
 from ..models import PointName, NamedPoint, Note
 
@@ -13,6 +16,11 @@ class PointNameInline(admin.TabularInline):
 
 @admin.register(NamedPoint)
 class NamedPointAdmin(GISModelAdmin):
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if isinstance(db_field, PointField):
+            return PointFormField(label=db_field.verbose_name.title(), required=False)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
     gis_widget_kwargs = {
         "attrs": {
             "default_lat": 48.5,
@@ -20,7 +28,7 @@ class NamedPointAdmin(GISModelAdmin):
             "default_zoom": 7,
         },
     }
-    list_display = ['name', 'location_display', 'latitude', 'longitude', 'altitude', 'flags']
+    list_display = ['__str__', 'location_display', 'altitude', 'flags']
 
     inlines = [PointNameInline, NoteInline]
 
@@ -29,7 +37,7 @@ class NamedPointAdmin(GISModelAdmin):
             'fields': ('name',)
         }),
         ('Position', {
-            'fields': ('location', ('latitude', 'longitude', 'altitude'), 'countries')
+            'fields': (('location', 'altitude'), 'countries')
         }),
         ('Source', {
             'fields': ('source',)
@@ -50,7 +58,7 @@ class NamedPointAdmin(GISModelAdmin):
             sn = 'N' if obj.location.y >= 0 else 'S'
             we = 'E' if obj.location.x >= 0 else 'W'
             return f"{abs(obj.location.y):.6f}° {sn}, {abs(obj.location.x):.5f}° {we}"
-        return "—"
+        return None
 
 
 class NamedPointInline(admin.TabularInline):

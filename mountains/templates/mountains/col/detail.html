@@ -3,13 +3,13 @@
 {% load static countries tree cairn %}
 
 {% block page_title %}
-    &#x2323; <b>{{ col.point.name }}</b> ({{ col.point.altitude }} m)
+    <span class="col">{{ col.full_name }}</span> ({{ col.point.altitude }} m)
     {{ col.point|flags }}
     <a class="edit" href="{{ col.admin_change_url }}">&#x1F589;</a>
 {% endblock page_title %}
 
 {% block title %}
-    {{ col.point.name }} ({{ col.point.altitude }} m)
+    &#x2323; {{ col }} ({{ col.point.altitude }} m)
 {% endblock title %}
 
 {% block page_content %}
@@ -32,11 +32,14 @@
         <h3>
             Confluence
         </h3>
-        {% object_link col.confluence 'confluence' %}
+        {% object_link col.confluence_river 'river' %}
 
         <h3>
-            Sister cols
+            Sibling cols
         </h3>
+        <p>
+            Sibling cols have the same parent peak.
+        </p>
         <table class="lineage">
             {% for peak in lower.prominence_parent.prominence_children.all %}
                 <tr>
@@ -55,7 +58,7 @@
             Friend cols
         </h3>
         <p>
-            Friend cols have the same key confluence and therefore form a natural ridge.
+            Friend cols have the same key confluence. Together they form a natural ridge.
         </p>
         <table class="lineage">
             {% for col in friend_cols %}
@@ -70,7 +73,6 @@
                     <td>
                         {% object_link col.key_for.all.0.prominence_parent 'mountain' %}
                     </td>
-
                 </tr>
             {% endfor %}
         </table>
