@@ -1,26 +1,3 @@
-const circleStyle = new ol.style.Style({
-    stroke: new ol.style.Stroke({ color: 'rgba(219,40,12,0.6)', width: 1.5, lineDash: [6,4] }),
-    fill:   new ol.style.Fill({ color: 'rgba(219,40,12,0.16)' }),
-});
-
-function styleFor(feature) {
-    switch (feature.get('type')) {
-        case 'summit':                return summit('#c0392b', 8);
-        case 'isolation_point':       return dot('#f1c40f');
-        case 'isolation_parent':      return dot('#8e44ad');
-        case 'col':                   return colMarker();
-        case 'prominence_parent':     return summit('#2980b9');
-        case 'encirclement_parent':   return dot('#e67e22');
-        case 'isolation_circle':      return circleStyle;
-        case 'isolation_line_first':  return gradientLine(feature, GREEN, YELLOW);
-        case 'isolation_line_second': return gradientLine(feature, YELLOW, PURPLE);
-        case 'prominence_line_first': return gradientLine(feature, BLUE, RED);
-        case 'prominence_line_second':return gradientLine(feature, RED, YELLOW);
-        case 'encirclement_line':     return [dashedLine('rgba(35,14,4,0.8)')];
-        default: return [];
-    }
-}
-
 function makePopupHtml(feature) {
     const name = feature.get('name');
     const url = feature.get('url');

@@ -4,7 +4,7 @@ from django.db.models import Prefetch, F, Value, Q
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
-from cairn.models import AdminModel
+from mountains.models.base import GeoModel
 
 
 class RiverQuerySet(models.QuerySet):
@@ -44,9 +44,9 @@ class RiverQuerySet(models.QuerySet):
         )
 
 
-class River(AdminModel):
-    source = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=True, related_name='+')
-    summit = models.ForeignKey('Summit', on_delete=models.CASCADE, null=True, blank=True, related_name='rivers')
+class River(GeoModel):
+    source = models.OneToOneField('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True, related_name='rivers')
 
     mouth = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     mouth_altitude = models.FloatField(null=True, blank=True)
@@ -63,3 +63,38 @@ class River(AdminModel):
 
     def get_absolute_url(self):
         return reverse('river-detail', kwargs={'pk': self.pk})
+
+    def to_dict(self):
+        return {
+            'pk': self.pk,
+            'name': self.__str__(),
+        }
+
+    def get_waypoints(self):
+        points = []
+        if self.source and self.source.location:
+            points.append(self.source.location)
+        for trib in self.tributaries.filter(mouth__isnull=False).order_by('-mouth_altitude'):
+            points.append(trib.mouth)
+        if self.mouth:
+            points.append(self.mouth)
+
+        return points
+
+    def to_geojson(self):
+        waypoints = self.get_waypoints()
+
+        if len(waypoints) < 2:
+            return None
+        else:
+            return {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'LineString',
+                    'coordinates': [[p.x, p.y] for p in waypoints],
+                },
+                'properties': {
+                    'type': 'river',
+                    **self.to_dict(),
+                }
+            }

@@ -1,4 +1,4 @@
-{% extends 'core/map-page.html' %}
+{% extends 'core/detail-page.html' %}
 
 {% load static tree countries %}
 
@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
     <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/styles.js' %}"></script>
     <script src="{% static 'js/summit-detail-map.js' %}"></script>
 {% endblock headextra %}
 

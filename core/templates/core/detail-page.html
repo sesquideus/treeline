@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+
+{% block page %}
+    <div class="detail-page">
+        <div class="data">
+            <h1>
+                {% block page_title %}
+                {% endblock page_title %}
+            </h1>
+            {% block page_content %}
+            {% endblock page_content %}
+        </div>
+        <div id="map"></div>
+        <div id="map-controls">
+            <label>
+                <input type="checkbox" id="toggle-col" checked>
+                Route through key col
+            </label>
+        </div>
+        {% block init_map %}
+        {% endblock init_map %}
+    </div>
+{% endblock page %}

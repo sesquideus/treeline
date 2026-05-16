@@ -4,13 +4,15 @@ from typing import Optional
 
 from cairn.views import OrderableListView
 from django.db.models import F, Prefetch
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import ListView, DetailView, TemplateView, FormView
 from django.views.generic.edit import FormMixin
 
-from core.models import Country
 from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col
+from mountains.models.base import GeoJsonMixin
+from mountains.views.tree.tree import FlatGeoJsonView
 
 
 class SummitTreeView(ListView, ABC):
@@ -170,6 +172,7 @@ class MountainListView(OrderableListView):
         'parent-name': 'prominence_parent__point__name',
         'parent-altitude': 'prominence_parent__point__altitude',
         'prominence': 'prominence',
+        'dominance': 'dominance',
         'key-col': 'key_col__point__name',
         'key-col-alt': 'key_col__point__altitude',
         'nhn': 'isolation_parent__point__name',
@@ -294,4 +297,8 @@ class SummitCompareView(FormMixin, TemplateView):
         return context
 
 
+class GeoJsonView(FlatGeoJsonView):
+    model = Summit
 
+    def get_queryset(self):
+        return Summit.objects.with_prominence().with_isolation().with_slope_parent().with_horizon_parent().with_countries()

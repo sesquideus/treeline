@@ -46,7 +46,7 @@ class SummitAdmin(ModelAdmin):
 
     list_display = ['point', 'point_latitude', 'point_longitude', 'point_altitude', 'flags',
                     'is_complete',
-                    'key_col', 'key_col_altitude',
+                    'key_col_altitude', 'key_col_link',
                     'prominence', 'prominence_parent_link',
                     'isolation', 'isolation_parent_link',
                     'nearest_higher_point',

@@ -30,6 +30,7 @@
                 {% th_orderable 'parent-name' 'parent' %}
                 {% th_orderable 'parent-altitude' 'parent altitude' %}
                 {% th_orderable 'prominence' 'prominence' %}
+                {% th_orderable 'dominance' 'dominance' %}
                 {% th_orderable 'isolation' 'isolation' %}
                 {% th_orderable 'nhn' 'nearest highest neighbour' long="nearest higher neighbour" %}
                 {% th_orderable 'slope' 'slope' %}
@@ -54,6 +55,7 @@
                     <td class="link">{% object_link mountain.prominence_parent 'mountain' attr='name' %}</td>
                     <td class="altitude">{{ mountain.prominence_parent.point.altitude|altitude }}</td>
                     <td class="altitude">{{ mountain.prominence|altitude }}</td>
+                    <td class="number">{{ mountain.dominance|floatformat:3 }}</td>
 
                     <td class="distance">{{ mountain.compute_isolation.m|distance }}</td>
                     <td class="link">{% object_link mountain.isolation_parent 'mountain' %}</td>

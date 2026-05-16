@@ -3,6 +3,7 @@ import json
 from django.shortcuts import render, get_object_or_404
 
 from core.functions.world import distance
+from .summit.json import isolation_circle
 from ..models import Summit
 
 from .summit import (ProminenceForestView, IsolationForestView, MountainDetailView, SlopeTreeView, HorizonTreeView,
@@ -12,10 +13,13 @@ from . import confluence, col
 from .statistics import StatisticsView
 
 
-
 def build_line(peak, col, parent, kind: str):
+    """
+    Build a line from peak and col
+    """
     name = (f"{peak.point.name} ({peak.point.altitude} m) "
-            f"\u2198 {peak.compute_prominence():.1f} m \u2198 {col.point.name} ({col.point.altitude:.1f} m) \u2197 {parent.point.name}")
+            f"\u2198 {peak.compute_prominence():.1f} m \u2198 {col.point.name} "
+            f"({col.point.altitude:.1f} m) \u2197 {parent.point.name}")
     if kind == 'down':
         p1, p2 = peak, col
     else:
@@ -170,7 +174,7 @@ def isolation_map(request):
                 })
 
     geojson = json.dumps({'type': 'FeatureCollection', 'features': features}, ensure_ascii=False)
-    return render(request, 'mountains/isolation_map.html', {'geojson': geojson})
+    return render(request, 'mountains/maps/isolation_map.html', {'geojson': geojson})
 
 
 def summit_detail_map(request, pk):

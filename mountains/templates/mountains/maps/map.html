@@ -1,0 +1,21 @@
+{% extends 'core/map-page.html' %}
+
+{% load static tree countries %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
+{% block title %}
+    Map
+{% endblock title %}
+
+{% block page_title %}
+    <span class="mountain">{{ mountain.point.name }}</span> ({{ mountain.point.altitude }} m)
+    {{ mountain.point|flags }}
+    <a class="edit" href="{{ mountain.admin_change_url }}">&#x1F589;</a>
+{% endblock page_title %}
+

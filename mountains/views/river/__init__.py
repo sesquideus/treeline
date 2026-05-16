@@ -1,1 +1,1 @@
-from . import river
+from .river import ListView, DetailView, GeoJsonView

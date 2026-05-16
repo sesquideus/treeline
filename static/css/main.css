@@ -160,6 +160,7 @@ tr th {
 
 td, th {
     padding: 0.3em 0.5em;
+    white-space: nowrap;
 }
 
 th.orderable {
@@ -229,11 +230,12 @@ div.page {
     padding: 1em;
 }
 
+/* Page without any map */
 div.text-page {
     display: block;
 }
 
-div.map-page {
+div.detail-page {
     display: flex;
     flex-direction: row;
     overflow-y: auto;  /* scroll if content is taller than the viewport */
@@ -241,9 +243,15 @@ div.map-page {
     min-height: 100%;
 }
 
-div.map-page div.data {
+div.detail-page div.data {
     min-width: 700px;
     padding: 1rem;
+}
+
+/* Page with only map */
+div.map-page {
+    display: flex;
+    flex-direction: column;
 }
 
 div#map {

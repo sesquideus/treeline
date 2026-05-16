@@ -29,9 +29,8 @@ class NamedPointAdmin(GISModelAdmin):
         },
     }
     list_display = ['__str__', 'location_display', 'altitude', 'flags']
-
     inlines = [PointNameInline, NoteInline]
-
+    search_fields = ['name']
     fieldsets = (
         ('Identity', {
             'fields': ('name',)

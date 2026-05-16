@@ -1,3 +1,5 @@
+from typing import Self
+
 from django.contrib.gis.db.models.functions import Distance
 from django.core.exceptions import ValidationError
 from django.contrib.gis.db import models
@@ -6,9 +8,8 @@ from django.db.models.functions import Concat, Coalesce, ATan, Cos, Sin
 from django.urls import reverse
 from geographiclib.geodesic import Geodesic
 
-from cairn.models import AdminModel
-
 from core.functions.world import distance
+from mountains.models.base import GeoModel
 from mountains.models.col import Col
 
 
@@ -35,6 +36,7 @@ class SummitQuerySet(models.QuerySet):
             )
             .annotate(
                 prominence=F('point__altitude') - F('key_col__point__altitude'),
+                dominance=F('prominence') / F('point__altitude'),
             )
         )
 
@@ -94,7 +96,7 @@ class SummitQuerySet(models.QuerySet):
             complete=True,
         )
 
-class Summit(AdminModel):
+class Summit(GeoModel):
     class Meta:
         ordering = ('-point__altitude',)
 
@@ -366,9 +368,13 @@ class Summit(AdminModel):
             'pk': self.pk,
             'name': self.point.name if self.point else None,
             'alt': self.point.altitude if self.point else None,
-            'lat': self.point.location.y if self.point else None,
-            'lon': self.point.location.x if self.point else None,
+            'lat': self.point.location.y if self.point and self.point.location else None,
+            'lon': self.point.location.x if self.point and self.point.location else None,
             'prom': prominence,
+            'prominence_parent': self.prominence_parent_id,
+            'isolation_parent': self.isolation_parent_id,
+            'slope_parent': self.slope_parent_id,
+            'horizon_parent': self.horizon_parent_id,
             'ilp': {
                 'name': self.isolation_name,
                 'dist': isolation.m if isolation is not None else None,
@@ -383,7 +389,22 @@ class Summit(AdminModel):
             } if self.key_col and self.key_col.point else None,
         }
 
-    def prominence_ancestors(self):
+    def to_geojson(self):
+        if not self.point or not self.point.location:
+            return None
+        return {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [self.point.location.x, self.point.location.y],
+            },
+            'properties': {
+                'type': 'summit',
+                **self.to_dict(),
+            }
+        }
+
+    def prominence_ancestors(self) -> list[Self]:
         ancestors = []
         visited = set()
         current = self
@@ -398,7 +419,7 @@ class Summit(AdminModel):
             ancestors.append(current.to_dict())
         return ancestors
 
-    def isolation_ancestors(self):
+    def isolation_ancestors(self) -> list[Self]:
         ancestors = []
         visited = set()
         current = self
@@ -431,7 +452,7 @@ class Summit(AdminModel):
 
     def is_complete(self):
         return self.key_col is not None and self.point is not None and self.isolation_parent is not None and \
-            self.nearest_higher_point.y is not None and self.nearest_higher_point.x is not None
+            self.nearest_higher_point is not None
 
     def get_absolute_url(self):
         return reverse('summit-detail', kwargs={'pk': self.pk})

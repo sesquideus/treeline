@@ -23,7 +23,7 @@ class ColAdmin(ModelAdmin):
             )
         }),
     )
-    search_fields = ['point__name']
+    search_fields = ['point__name', 'key_for__point__name']
 
     def point_latitude(self, obj):
         if obj.point.location:

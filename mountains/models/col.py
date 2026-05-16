@@ -4,7 +4,7 @@ from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
-from cairn.models import AdminModel
+from mountains.models.base import GeoModel
 
 
 class ColQuerySet(models.QuerySet):
@@ -45,7 +45,7 @@ class ColQuerySet(models.QuerySet):
         )
 
 
-class Col(AdminModel):
+class Col(GeoModel):
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False, related_name='col')
     confluence = models.ForeignKey('Confluence', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
     confluence_river = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
