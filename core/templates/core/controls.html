@@ -2,9 +2,26 @@
     <div class="toggle-group">
         <label><input type="radio" name="tree" value="prominence" checked> Prominence</label>
         <label><input type="radio" name="tree" value="isolation"> Isolation</label>
+        <label><input type="radio" name="tree" value="slope"> Slope</label>
+        <label><input type="radio" name="tree" value="horizon"> Horizon</label>
     </div>
-    <label>
-        <input type="checkbox" id="toggle-routing">
-        Route through col / NHP
-    </label>
+    <div class="toggle-group">
+        <label>
+            <input type="checkbox" id="toggle-routing" checked> Route through col / NHP
+        </label>
+    </div>
+    <div class="toggle-group">
+        <label>
+            <input type="range" id="map-opacity" min="0" max="100" value="40">
+            Map opacity
+        </label>
+    </div>
+    <div class="toggle-group">
+        <label>
+            <input type="checkbox" id="toggle-rivers" checked> Show rivers
+        </label>
+        <label>
+            <input type="checkbox" id="toggle-col-confluence" checked> Col → Confluence
+        </label>
+    </div>
 </div>

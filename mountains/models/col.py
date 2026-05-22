@@ -70,3 +70,31 @@ class Col(GeoModel):
 
     def get_absolute_url(self):
         return reverse('col', kwargs={'pk': self.pk})
+
+    def to_dict(self):
+        return {
+            'pk': self.pk,
+            'name': self.point.name if self.point else None,
+            'lat': self.point.location.y if self.point else None,
+            'lon': self.point.location.x if self.point else None,
+            'alt': self.point.altitude if self.point else None,
+        } if self.point else None
+
+    def to_geojson(self):
+        if not self.point or not self.point.location:
+            return None
+        return {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Point',
+                'coordinates': [self.point.location.x, self.point.location.y],
+            },
+            'properties': {
+                **self.to_dict(),
+                'type': 'col',
+                'confluence': {
+                    'lon': self.confluence_river.mouth.x,
+                    'lat': self.confluence_river.mouth.y,
+                } if self.confluence_river and self.confluence_river.mouth else None,
+            },
+        }

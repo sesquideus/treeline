@@ -360,7 +360,6 @@ class Summit(GeoModel):
             return self.point.angle_to(self.horizon_parent.point)
         return None
 
-
     def to_dict(self):
         prominence = self.compute_prominence()
         isolation = self.compute_isolation()
@@ -381,12 +380,7 @@ class Summit(GeoModel):
                 'lat': self.nearest_higher_point.y if self.nearest_higher_point else None,
                 'lon': self.nearest_higher_point.x if self.nearest_higher_point else None,
             },
-            'kc': {
-                'name': self.key_col.point.name if self.key_col and self.key_col.point else None,
-                'lat': self.key_col.point.location.y if self.key_col and self.key_col.point else None,
-                'lon': self.key_col.point.location.x if self.key_col and self.key_col.point else None,
-                'alt': self.key_col.point.altitude if self.key_col and self.key_col.point else None,
-            } if self.key_col and self.key_col.point else None,
+            'kc': self.key_col_id,
         }
 
     def to_geojson(self):

@@ -2,6 +2,7 @@ from cairn.views import OrderableListView
 from django.db.models import Q, F
 from django.views.generic import DetailView as DjangoDetailView, ListView as DjangoListView
 
+from .tree.tree import FlatGeoJsonView, TreeView
 from ..models import Col
 
 
@@ -53,3 +54,12 @@ class ListView(OrderableListView):
             qs = qs.order_by('-point__altitude')
 
         return qs
+
+
+class ColTreeView(TreeView):
+    def get_queryset(self):
+        return Col.objects.with_river()
+
+
+class GeoJsonView(ColTreeView, FlatGeoJsonView):
+    object_name = 'cols'

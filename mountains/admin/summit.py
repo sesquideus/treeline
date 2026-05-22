@@ -109,8 +109,7 @@ class SummitAdmin(ModelAdmin):
     @admin_action(description='Compute horizon parent')
     def compute_horizon_parent(self, request, queryset):
         all_summits = list(
-            self.model.objects.select_related('point')
-            .exclude(point__isnull=True)
+            self.model.objects.select_related('point').exclude(point__isnull=True)
         )
 
         for summit in queryset.select_related('point'):
@@ -123,20 +122,6 @@ class SummitAdmin(ModelAdmin):
                 summit.horizon_parent = best
                 summit.save(update_fields=['horizon_parent'])
                 yield summit.point.name
-
-    @admin_action(description='Compute Points')
-    def compute_points(self, request, queryset):
-        for summit in queryset.select_related('point'):
-            if summit.point.longitude and summit.point.latitude:
-                new_point = Point(summit.point.longitude, summit.point.latitude)
-                new_nhp = Point(summit.isolation_longitude, summit.isolation_latitude)
-
-                if new_point != summit.point.location and new_nhp != summit.nearest_higher_point:
-                    summit.point.location = new_point
-                    summit.nearest_higher_point = new_nhp
-                    summit.point.save(update_fields=['location'])
-                    summit.save(update_fields=['nearest_higher_point'])
-                    yield summit.point.name
 
     @admin.display(description="Location", ordering="point__location")
     def location_display(self, obj):

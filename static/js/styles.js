@@ -1,4 +1,3 @@
-
 const SEGMENTS = 20;
 
 const GREEN  = [39, 174, 96];
@@ -24,6 +23,16 @@ function denseCoords(coords) {
     }
     dense.push(coords[coords.length - 1]);
     return dense;
+}
+
+function segmentStyles(coords, c1, c2) {
+    return coords.slice(0, -1).map((_, i) => new ol.style.Style({
+        geometry: new ol.geom.LineString([coords[i], coords[i+1]]),
+        stroke: new ol.style.Stroke({
+            color: interpolateColor(c1, c2, i / (coords.length - 2)),
+            width: 2,
+        })
+    }));
 }
 
 function gradientLine(feature, c1, c2) {
@@ -68,9 +77,17 @@ function summitMarker(color, radius=6) {
     });
 }
 
-function colMarker(colour) {
+function colMarker(colour, size) {
+    return new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: 5,
+            fill: new ol.style.Fill({ color: '#0040FF' }),
+            stroke: new ol.style.Stroke({ color: '#FFFFFF', width: 1.5 }),
+        })
+    });
+
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-        <circle cx="12" cy="12" r="10"
+        <circle cx="12" cy="12" r="4"
                 fill="white"
                 stroke="#2760ae"
                 stroke-width="2.5"/>
@@ -102,12 +119,16 @@ function isolationLimitPointStyle(colour, radius=6) {
 const isolationCircleStyle = new ol.style.Style({
     stroke: new ol.style.Stroke(
         {
-            color: 'rgba(219,40,12,0.6)',
+            color: 'rgba(219, 40, 12, 0.6)',
             width: 1.5,
             lineDash: [6, 4],
         }
     ),
-    fill:   new ol.style.Fill({ color: 'rgba(219,40,12,0.16)' }),
+    fill:   new ol.style.Fill(
+        {
+            color: 'rgba(219, 40, 12, 0.16)'
+        }
+    ),
 });
 
 
@@ -126,6 +147,16 @@ function styleFor(feature) {
         case 'prominence_line_second':  return gradientLine(feature, RED, YELLOW);
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
         case 'slope_line':              return gradientLine(feature, RED, YELLOW);
+        case 'horizon_king':            return [
+            summitMarker('#c0392b', 10),
+            new ol.style.Style({
+                text: new ol.style.Text({
+                    text: '👑',
+                    font: '14px sans-serif',
+                    offsetY: -10,
+                }),
+            }),
+        ];
         default: return [];
     }
 }

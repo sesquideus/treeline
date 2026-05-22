@@ -71,7 +71,7 @@ class ProminenceForestView(SummitTreeView):
         return summit.prominence_parent_id
 
     def get_queryset(self):
-        return Summit.objects.with_prominence().select_related('key_col__point', 'point')
+        return Summit.objects.with_prominence().select_related('point', 'key_col', 'key_col__point', 'prominence_parent__point').prefetch_related('key_col__key_for__point')
 
 
 class IsolationForestView(SummitTreeView):

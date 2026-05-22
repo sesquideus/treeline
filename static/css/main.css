@@ -255,25 +255,38 @@ div.map-page {
 }
 
 div#map {
-    background: repeating-linear-gradient(
+   /* background: repeating-linear-gradient(
         135deg,
         #f0f0f0,
         #f0f0f0 20px,
         #d0d0d0 20px,
         #d0d0d0 40px
-    );
+    ); */
     flex: 1;  /* takes all remaining space */
     min-height: 500px;
 }
 
 #map-controls {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 48px;
+    right: 8px;
     z-index: 1000;
     background: #fff;
     padding: 8px 12px;
     border-radius: 4px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     font: 14px sans-serif;
+    width: 250px;
+}
+
+.toggle-group {
+    display: flex;
+    flex-direction: column;
+}
+
+#map-controls label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 12px;
 }

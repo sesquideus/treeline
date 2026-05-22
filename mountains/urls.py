@@ -19,6 +19,7 @@ urlpatterns = [
     path('isolation-tree.json', views.summit.tree.IsolationJsonView.as_view(), name='isolation-tree-json'),
 
     path('rivers/geo.json', views.river.GeoJsonView.as_view(), name='rivers-geojson'),
+    path('cols/geo.json/', views.col.GeoJsonView.as_view(), name='cols-geojson'),
 
     path('summit/<int:pk>/', views.MountainDetailView.as_view(), name='summit-detail'),
     path('summit/<int:pk>/geo.json/', views.SummitDetailGeoJSON.as_view(), name='summit-detail-geojson'),

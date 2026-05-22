@@ -1,5 +1,4 @@
 from django.http import JsonResponse
-from django.views import View
 
 from mountains.views.tree.tree import TreeView
 
@@ -9,10 +8,6 @@ from mountains.models import Summit
 class SummitTreeView(TreeView):
     def get_queryset(self):
         return Summit.objects.with_prominence().with_isolation().with_slope_parent().with_horizon_parent()
-
-
-
-
 
 
 class ProminenceJsonView(SummitTreeView):

@@ -11,12 +11,15 @@ class ListView(DjangoListView):
     context_object_name = 'rivers'
 
     def get_queryset(self):
-        return River.objects.with_displacement()
+        return River.objects.with_displacement().with_tributaries()
 
 
 class DetailView(DjangoDetailView):
     model = River
     template_name = 'mountains/river/detail.html'
+
+    def get_queryset(self):
+        return River.objects.with_displacement().with_tributaries()
 
 
 class RiverTreeView(TreeView):

@@ -1,4 +1,4 @@
-{% extends 'core/text-page.html' %}
+{% extends 'core/detail-page.html' %}
 
 {% load static countries tree cairn %}
 
@@ -55,6 +55,28 @@
             {% endfor %}
         </table>
 
+
+        <h3>
+            Tributaries
+        </h3>
+        <table>
+            <thead>
+            </thead>
+            <tbody>
+                {% for tributary in river.tributaries.all %}
+                    <tr>
+                        <td>
+                            {% object_link tributary 'river' %}
+                        </td>
+                        <td>
+                            {{ tributary.mouth_altitude }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+
         <h3>
             Mouth
         </h3>
@@ -78,5 +100,4 @@
                 </tr>
             {% endfor %}
         </table>
-
 {% endblock page_content %}

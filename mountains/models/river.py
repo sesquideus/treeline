@@ -1,6 +1,6 @@
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models.functions import Distance
-from django.db.models import Prefetch, F, Value, Q
+from django.db.models import Prefetch, F, Value, Q, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
@@ -21,19 +21,25 @@ class RiverQuerySet(models.QuerySet):
     def with_full_name(self):
         return self.annotate(
             full_name=Concat(
-                Coalesce(
-                    F('point__name'),
-                    Concat(Value('unnamed ('), F('key_for__point__name'), Value(')'))
-                ),
+                F('source__name'),
                 Value(' ('),
-                F('point__altitude'),
+                F('source__altitude'),
                 Value(')'),
+                output_field=CharField(),
             )
         )
 
     def with_displacement(self):
         return self.annotate(
             displacement=Distance('source__location', 'mouth'),
+        )
+
+    def with_tributaries(self):
+        return self.prefetch_related(
+            Prefetch(
+                'tributaries',
+                queryset=River.objects.with_source().with_full_name().order_by('-mouth_altitude'),
+            )
         )
 
     def with_db_status(self):
@@ -68,6 +74,16 @@ class River(GeoModel):
         return {
             'pk': self.pk,
             'name': self.__str__(),
+            'source': {
+                'lat': self.source.location.y,
+                'lon': self.source.location.x,
+                'alt': self.source.altitude,
+            },
+            'mouth': {
+                'lat': self.mouth.y,
+                'lon': self.mouth.x,
+                'alt': self.mouth_altitude,
+            } if self.mouth else None,
         }
 
     def get_waypoints(self):
