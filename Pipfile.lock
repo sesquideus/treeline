@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "027bfe6719483ad6576e4fd4f2633fe73c5487446c8e70ad5bf79eb964152a7a"
+            "sha256": "4b50ab96c9677a09708294ae56127ba61793d80e126a67b12f9f184a2915465a"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -25,7 +25,8 @@
             "version": "==3.11.1"
         },
         "cairn": {
-            "version": "==0.1.0"
+            "editable": true,
+            "path": "../python/django-cairn"
         },
         "django": {
             "hashes": [
