@@ -1,6 +1,7 @@
 import math
 from typing import Any
 
+from django.db.models import F
 from django.http import JsonResponse
 from django.views.generic.detail import BaseDetailView
 
@@ -35,37 +36,17 @@ def isolation_circle(lat, lon, radius, steps=256) -> dict[str, Any]:
     }
 
 
-def build_feature(name, coords, *, geom_type, prop_type):
-    return {
-        'type': 'Feature',
-        'geometry': {
-            'type': geom_type,
-            'coordinates': coords
-        },
-        'properties': {
-            'name': name,
-            'type': prop_type,
-        }
-    }
-
-
-def build_point(name, coords, *, type):
-    return build_feature(
-        name=name,
-        coords=coords,
-        geom_type='Point',
-        prop_type=type,
-    )
-
-
 def build_summit_features(s: Summit):
     features = []
     summit_coords = [s.point.location.x, s.point.location.y]
 
-    # True point
-    features.append(
-        build_point(f"\u26f0 {s.point.name} ({s.point.altitude:.1f} m)", summit_coords, type='summit')
+    # True point \u2014 delegate to the model serializer so the feature carries the
+    # full property set (pk, prom, parents, kc, ...), then override the label.
+    summit_feature = s.to_geojson()
+    summit_feature['properties']['name'] = (
+        f"\u26f0 {s.point.name} ({s.point.altitude:.1f} m)"
     )
+    features.append(summit_feature)
 
     if s.nearest_higher_point:
         iso_coords = [s.nearest_higher_point.x, s.nearest_higher_point.y]
@@ -138,15 +119,17 @@ def build_summit_features(s: Summit):
         })
 
     if s.key_col is not None:
-        col_coords    = [s.key_col.point.location.x, s.key_col.point.location.y]
-        features.append({
-            'type': 'Feature',
-            'geometry': {'type': 'Point', 'coordinates': col_coords},
-            'properties': {
-                'name': f"\U0001F511 {s.key_col.point.name} ({s.key_col.point.altitude:.1f} m)",
-                'type': 'col'
-            },
-        })
+        # Prime the reverse OneToOne cache so Col.to_dict() can read `key_for`
+        # (and its `prominence` annotation) without an extra query.
+        s.key_col.key_for = s
+        col_coords = [s.key_col.point.location.x, s.key_col.point.location.y]
+        col_feature = s.key_col.to_geojson()
+        if col_feature is not None:
+            # Override the bare name with the decorated, altitude-tagged label.
+            col_feature['properties']['name'] = (
+                f"\U0001F511 {s.key_col.point.name} ({s.key_col.point.altitude:.1f} m)"
+            )
+            features.append(col_feature)
 
     if s.key_col and s.key_col.point and s.prominence_parent and s.prominence_parent.point:
         features.append({
@@ -178,7 +161,10 @@ class SummitDetailGeoJSON(BaseDetailView):
     queryset = Summit.objects.select_related(
         'point',
         'key_col__point',
+        'key_col__confluence_river__source',
         'prominence_parent__point',
+    ).annotate(
+        prominence=F('point__altitude') - F('key_col__point__altitude'),
     )
 
     def get(self, request, *args, **kwargs):

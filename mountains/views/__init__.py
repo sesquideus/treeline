@@ -92,7 +92,7 @@ def summit_map(request):
     return render(request, 'mountains/map.html', {'geojson': geojson})
 
 
-def isolation_map(request):
+def map(request):
     summits = Summit.objects.select_related(
         'point',
         'isolation_parent__point',

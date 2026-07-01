@@ -1,8 +1,6 @@
-from cairn.admin.modeladmin import admin_action
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 from django.contrib.gis.db.models import PointField
-from django.contrib.gis.geos import Point
 
 from core.fields import PointFormField
 from .note import NoteInline

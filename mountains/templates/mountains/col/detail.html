@@ -19,7 +19,7 @@
         </p>
     {% endfor %}
 
-    {% with lower=col.key_for.all.0 upper=lower.prominence_parent %}
+    {% with lower=col.key_for upper=lower.prominence_parent %}
         <h3>
             Key col for <b>{{ lower }}</b>
         </h3>
@@ -67,11 +67,11 @@
                         {% object_link col 'col' %}
                     </td>
                     <td>
-                        {% object_link col.key_for.all.0 'mountain' %}
+                        {% object_link col.key_for 'mountain' %}
                     </td>
                     <td>&rightarrow;</td>
                     <td>
-                        {% object_link col.key_for.all.0.prominence_parent 'mountain' %}
+                        {% object_link col.key_for.prominence_parent 'mountain' %}
                     </td>
                 </tr>
             {% endfor %}

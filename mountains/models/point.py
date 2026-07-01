@@ -50,13 +50,15 @@ class NamedPoint(AdminModel):
         return dh / dist
 
     def angle_to(self, other, refraction=0.0):
-        r = 6371000 * (1 + refraction)
+        r = 6371000 / (1 - refraction)
         dist = distance(
             (self.location.y, self.location.x),
             (other.location.y, other.location.x),
         ).m
         beta = dist / r
-        return math.atan(((r + other.altitude) * math.cos(beta) - (r + self.altitude)) / ((r + other.altitude) * math.sin(beta)))
+        return math.atan(
+            ((r + other.altitude) * math.cos(beta) - (r + self.altitude)) / ((r + other.altitude) * math.sin(beta))
+        )
 
 
 class PointName(models.Model):

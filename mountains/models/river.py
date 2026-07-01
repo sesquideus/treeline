@@ -52,7 +52,14 @@ class RiverQuerySet(models.QuerySet):
 
 class River(GeoModel):
     source = models.OneToOneField('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
-    summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True, related_name='rivers')
+
+    summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True, related_name='rivers',
+                               help_text='Nearest up-slope summit to the source')
+
+    branches_off = models.ForeignKey('River', on_delete=models.SET_NULL, null=True, blank=True,
+                                     default=None,
+                                     related_name='branches',
+                                     help_text='Set if the source is a branch off another river')
 
     mouth = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     mouth_altitude = models.FloatField(null=True, blank=True)
@@ -79,6 +86,10 @@ class River(GeoModel):
                 'lon': self.source.location.x,
                 'alt': self.source.altitude,
             },
+            'parent': {
+                'name': self.parent.source.name,
+                'id': self.parent_id,
+            } if self.parent else None,
             'mouth': {
                 'lat': self.mouth.y,
                 'lon': self.mouth.x,
@@ -87,6 +98,9 @@ class River(GeoModel):
         }
 
     def get_waypoints(self):
+        """
+        Get an ordered list of waypoints for this river.
+        """
         points = []
         if self.source and self.source.location:
             points.append(self.source.location)

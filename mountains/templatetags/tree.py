@@ -82,6 +82,14 @@ def render_horizon_lineage(node):
         'node': node,
     }
 
+
+@register.inclusion_tag('mountains/summit/tags/horizon/lineage-std.html')
+def render_horizon_lineage_std(node):
+    return {
+        'node': node,
+    }
+
+
 @register.filter
 def subtract(a, b):
     return a - b

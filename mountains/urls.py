@@ -12,10 +12,9 @@ urlpatterns = [
 
     path('summits/geo.json', views.summit.GeoJsonView.as_view(), name='summits-geojson'),
 
-    path('prominence', views.summit_map, name='map-prominence'),
     path('prominence-tree.json', views.summit.tree.ProminenceJsonView.as_view(), name='prominence-tree-json'),
 
-    path('isolation', views.isolation_map, name='map-isolation'),
+    path('isolation', views.map, name='map'),
     path('isolation-tree.json', views.summit.tree.IsolationJsonView.as_view(), name='isolation-tree-json'),
 
     path('rivers/geo.json', views.river.GeoJsonView.as_view(), name='rivers-geojson'),

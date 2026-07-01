@@ -39,7 +39,7 @@
         </thead>
         <tbody>
             {% for col in cols %}
-                {% with minor=col.key_for.all.0 %}
+                {% with minor=col.key_for %}
                     {% with major=minor.prominence_parent %}
                         <tr>
                             <td class="number">{{ forloop.counter }}</td>

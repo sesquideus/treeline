@@ -46,15 +46,16 @@ class SummitAdmin(ModelAdmin):
 
     list_display = ['point', 'point_latitude', 'point_longitude', 'point_altitude', 'flags',
                     'is_complete',
-                    'key_col_altitude', 'key_col_link',
-                    'prominence', 'prominence_parent_link',
-                    'isolation', 'isolation_parent_link',
+                    'key_col_altitude', 'key_col:link',
+                    'prominence', 'prominence_parent:link',
+                    'isolation', 'isolation_parent:link',
                     'nearest_higher_point',
-                    'slope_parent_link', 'horizon_parent_link']
+                    'slope_parent:link', 'horizon_parent:link']
 
-    actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_points']
+    actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std', 'compute_points']
     search_fields = ['point__name']
-    list_select_related = ['point', 'key_col__point', 'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
+    list_select_related = ['point', 'key_col__point',
+                           'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
     readonly_fields = ['location_display']
 
     def get_queryset(self, request):
@@ -71,18 +72,6 @@ class SummitAdmin(ModelAdmin):
 
     def flags(self, obj):
         return obj.point.flags()
-
-    def prominence_parent_link(self, obj):
-        return self.related_link(obj.prominence_parent)
-
-    def isolation_parent_link(self, obj):
-        return self.related_link(obj.isolation_parent)
-
-    def slope_parent_link(self, obj):
-        return self.related_link(obj.slope_parent)
-
-    def horizon_parent_link(self, obj):
-        return self.related_link(obj.horizon_parent)
 
     @admin_action(description='Compute slope')
     def compute_slope_parent(self, request, queryset):
@@ -106,6 +95,21 @@ class SummitAdmin(ModelAdmin):
                 summit.save(update_fields=['slope_parent'])
                 yield summit.point.name
 
+    def _compute_horizon_parent(self, all_summits, summit, refraction: float = 0.0):
+        all_summits = list(
+            self.model.objects.select_related('point').exclude(point__isnull=True)
+        )
+
+        best = max(
+            [s for s in all_summits if s.pk != summit.pk],
+            key=lambda x: summit.point.angle_to(x.point, refraction),
+        )
+
+        if summit.horizon_parent_id != best.pk and summit.point.angle_to(best.point, refraction) > 0:
+            summit.horizon_parent = best
+            summit.save(update_fields=['horizon_parent'])
+            yield summit.point.nam
+
     @admin_action(description='Compute horizon parent')
     def compute_horizon_parent(self, request, queryset):
         all_summits = list(
@@ -121,6 +125,23 @@ class SummitAdmin(ModelAdmin):
             if summit.horizon_parent_id != best.pk and summit.point.angle_to(best.point) > 0:
                 summit.horizon_parent = best
                 summit.save(update_fields=['horizon_parent'])
+                yield summit.point.name
+
+    @admin_action(description='Compute horizon parent (std)')
+    def compute_horizon_parent_std(self, request, queryset):
+        all_summits = list(
+            self.model.objects.select_related('point').exclude(point__isnull=True)
+        )
+
+        for summit in queryset.select_related('point'):
+            best = max(
+                [s for s in all_summits if s.pk != summit.pk],
+                key=lambda x: summit.point.angle_to(x.point, refraction=0.14),
+            )
+
+            if summit.horizon_parent_std_id != best.pk and summit.point.angle_to(best.point, refraction=0.14) > 0:
+                summit.horizon_parent_std = best
+                summit.save(update_fields=['horizon_parent_std'])
                 yield summit.point.name
 
     @admin.display(description="Location", ordering="point__location")

@@ -114,8 +114,8 @@ class Summit(GeoModel):
 
     prominence_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.PROTECT,
                                           related_name='prominence_children')
-    key_col = models.ForeignKey('Col', null=True, blank=True, on_delete=models.PROTECT,
-                                related_name='key_for')
+    key_col = models.OneToOneField('Col', null=True, blank=True, on_delete=models.PROTECT,
+                                   related_name='key_for')
     prominence_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='prominence_data')
     island_high_point = models.BooleanField(default=False)
@@ -135,6 +135,10 @@ class Summit(GeoModel):
     horizon_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
                                        related_name='horizon_children',
                                        help_text='The summit that is the highest point above the local horizon')
+    horizon_parent_std = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
+                                           related_name='horizon_children_std',
+                                           help_text='The summit that is the highest point above the local horizon '
+                                                     'with standard coefficient of refraction (0.14)')
 
     objects = SummitQuerySet.as_manager()
 
@@ -265,6 +269,10 @@ class Summit(GeoModel):
     def compute_prominence(self):
         if self.island_high_point:
             return self.point.altitude
+        # Prefer the queryset annotation when present, to avoid recomputation.
+        annotated = getattr(self, 'prominence', None)
+        if annotated is not None:
+            return annotated
         if self.key_col:
             return self.point.altitude - self.key_col.point.altitude
         else:
@@ -355,9 +363,19 @@ class Summit(GeoModel):
             return self.point.distance_to(self.horizon_parent.point)
         return None
 
+    def distance_to_horizon_parent_std(self):
+        if self.horizon_parent_std and self.horizon_parent_std.point:
+            return self.point.distance_to(self.horizon_parent_std.point)
+        return None
+
     def angle_to_horizon_parent(self):
         if self.horizon_parent and self.horizon_parent.point:
             return self.point.angle_to(self.horizon_parent.point)
+        return None
+
+    def angle_to_horizon_parent_std(self):
+        if self.horizon_parent_std and self.horizon_parent_std.point:
+            return self.point.angle_to(self.horizon_parent_std.point, refraction=0.14)
         return None
 
     def to_dict(self):

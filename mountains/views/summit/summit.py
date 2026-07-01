@@ -130,6 +130,7 @@ class HorizonTreeView(SummitTreeView):
     def preprocess(self):
         for mountain in self.summits:
             mountain.hhp_angle = mountain.point.angle_to(mountain.horizon_parent.point) if mountain.horizon_parent else None
+            mountain.hhp_angle_std = mountain.point.angle_to(mountain.horizon_parent_std.point) if mountain.horizon_parent_std else None
 
     def get_queryset(self):
         return Summit.objects.select_related('horizon_parent__point', 'point')
@@ -153,6 +154,7 @@ class MountainDetailView(DetailView):
         for s in summits:
             s.slope = self.object.point.slope_to(s.point)
             s.hhp_angle = self.object.point.angle_to(s.point)
+            s.hhp_angle_std = self.object.point.angle_to(s.point, refraction=0.14)
             s.dh = s.point.altitude - self.object.point.altitude
             s.distance = s.point.distance_to(self.object.point)
 
@@ -248,7 +250,7 @@ def separation(s1, s2) -> Optional[tuple[Optional[Summit], Optional[Col]]]:
     if not (cols := [s.key_col for s in candidates if s.key_col and s.key_col.point]):
         return None
 
-    return (lca, min(cols, key=lambda c: c.point.altitude))
+    return lca, min(cols, key=lambda c: c.point.altitude)
 
 
 class SummitCompareView(FormMixin, TemplateView):

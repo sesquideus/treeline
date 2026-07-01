@@ -45,9 +45,97 @@ function makeMap(geojson, styleFor, coords) {
 
     map.on('click', function(e) {
         const feature = map.forEachFeatureAtPixel(e.pixel, f => f);
-        if (feature && feature.get('name')) {
+        if (feature) {
             overlay.setPosition(e.coordinate);
-            popup.textContent = `${feature.get('name')} (${feature.get('alt')})`;
+
+            let text = "";
+            console.log(feature);
+            switch (feature.get('type')) {
+                case 'summit':
+                    text = `
+                        <table>
+                            <tr>
+                                <td>name</td>
+                                <td>${feature.get('name') ?? 'unnamed summit'}</td>
+                            </tr>
+                            <tr>
+                                <td>altitude</td>
+                                <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <td>prominence</td>
+                                <td class="altitude">${feature.get('prom')?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                        </table>
+                    `;
+                    break;
+                case 'col': {
+                    const confluence = feature.get('confluence');
+                    const confluenceRows = confluence
+                        ? `
+                            <tr>
+                                <td>confluence</td>
+                                <td>${confluence.name ?? 'unnamed'}</td>
+                            </tr>
+                            <tr>
+                                <td>↳ latitude</td>
+                                <td class="altitude">${confluence.lat?.toFixed(5) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <td>↳ longitude</td>
+                                <td class="altitude">${confluence.lon?.toFixed(5) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <td>↳ altitude</td>
+                                <td class="altitude">${confluence.alt?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                          `
+                        : `
+                            <tr>
+                                <td>confluence</td>
+                                <td>—</td>
+                            </tr>
+                          `;
+                    text = `
+                        <table>
+                            <tr>
+                                <td>name</td>
+                                <td>${feature.get('name') ?? 'unnamed col'}</td>
+                            </tr>
+                            <tr>
+                                <td>key col for</td>
+                                <td>${feature.get('key_for') ?? '???'}</td>
+                            </tr>
+                            <tr>
+                                <td>altitude</td>
+                                <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            ${confluenceRows}
+                        </table>
+                    `;
+                    break;
+                }
+                case 'river':
+                    text = `
+                        <h3 class="river">
+                            ${feature.get('name') ?? 'unknown'}
+                        </h3>
+                        <table>
+                            <tr>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td>flows into</td>
+                                <td>
+                                    ${feature.get('parent')
+                                        ? `<a href="river/${feature.get('parent')['id']}">${feature.get('parent')['name']}</a>`
+                                        : '—'}
+                                </td>
+                            </tr>
+                        </table>
+                    `;
+            }
+            popup.innerHTML = text;
         } else {
             overlay.setPosition(undefined);
         }

@@ -8,18 +8,15 @@ from ..models import River
 
 @admin.register(River)
 class RiverAdmin(PointModelAdmin):
-    def formfield_for_dbfield(self, db_field, request, **kwargs):
-        if isinstance(db_field, PointField):
-            return PointFormField(label=db_field.verbose_name.title(), required=False)
-        return super().formfield_for_dbfield(db_field, request, **kwargs)
-
-    list_display = ['source__name', 'source__location', 'source__altitude', 'summit_link',
-                    'mouth', 'mouth_altitude', 'parent_link', 'is_complete']
+    list_display = ['source__name', 'source_latitude', 'source_longitude', 'source_altitude', 'summit:link',
+                    'branches_off:link',
+                    'mouth', 'mouth_altitude:.1f', 'parent:link', 'is_complete']
     fieldsets = (
         ('Identity', {
             'fields': (
                 'source',
                 'summit',
+                'branches_off',
             )
         }),
         ('Mouth', {
@@ -34,3 +31,17 @@ class RiverAdmin(PointModelAdmin):
 
     def get_queryset(self, request):
         return self.model.objects.with_db_status().with_source().with_parent()
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if isinstance(db_field, PointField):
+            return PointFormField(label=db_field.verbose_name.title(), required=False)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def source_latitude(self, obj):
+        return f"{obj.source.location.y:+.6f}°"
+
+    def source_longitude(self, obj):
+        return f"{obj.source.location.x:+.6f}°"
+
+    def source_altitude(self, obj):
+        return f"{obj.source.altitude:.1f} m"

@@ -28,11 +28,12 @@ wheels = [
 [[package]]
 name = "django-cairn"
 version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e7/f7/ff2b8a3e19ce4dca50dd2c3621223b347649ebfe0870061b7b63ad6d4d8c/django_cairn-0.1.0.tar.gz", hash = "sha256:cbf4bdb75a588d7031a0032bc69b7c8962e2d36cc49f62a00f7f62d771c18432", size = 4373, upload-time = "2026-06-03T09:19:03.506Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/bd/21982ae2b7db3c92f21a73af6c2678d810aaa4a3a8841fab099bcd2d8ebd/django_cairn-0.1.0-py3-none-any.whl", hash = "sha256:84e9b38ba6454cddd38bd2a1fd1054424abdd50c981cb9ec5d8775d7487375bb", size = 7920, upload-time = "2026-06-03T09:19:02.345Z" },
-]
+source = { editable = "../python/django-cairn" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.3,<10.0.0" }]
 
 [[package]]
 name = "django-debug-toolbar"
@@ -154,7 +155,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "django-cairn", specifier = ">=0.1.0" },
+    { name = "django-cairn", editable = "../python/django-cairn" },
     { name = "django-debug-toolbar", specifier = ">=6.3.0" },
 ]
 

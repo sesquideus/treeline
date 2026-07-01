@@ -58,7 +58,7 @@ class ListView(OrderableListView):
 
 class ColTreeView(TreeView):
     def get_queryset(self):
-        return Col.objects.with_river()
+        return Col.objects.with_river().with_minor()
 
 
 class GeoJsonView(ColTreeView, FlatGeoJsonView):

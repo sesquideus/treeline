@@ -3,9 +3,6 @@
 <h3>
     Horizon angle
 </h3>
-{% for summit in by_horizon %}
-    {{ mountain.hhp_angle }}
-{% endfor %}
 
 <table>
     <thead>
@@ -14,6 +11,7 @@
             <th>&uparrow;</th>
             <th>&leftrightarrow;</th>
             <th>&#x2197;</th>
+            <th>&#x2197; (air)</th>
         </tr>
     </thead>
     {% for summit in by_horizon %}
@@ -28,6 +26,7 @@
                 {{ summit.distance|floatformat:3 }}
             </td>
             <td class="angle">{{ summit.hhp_angle|angle_above_horizon }}</td>
+            <td class="angle">{{ summit.hhp_angle_std|angle_above_horizon }}</td>
         </tr>
     {% empty %}
         <tr>

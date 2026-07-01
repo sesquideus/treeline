@@ -4,8 +4,7 @@ MAIN_MENU = [
     {'label': 'Slope tree',         'url_name': 'slope-tree'},
     {'label': 'Horizon forest',     'url_name': 'horizon-forest'},
 
-    {'label': 'Prominence map',     'url_name': 'map-prominence'},
-    {'label': 'Isolation map',      'url_name': 'map-isolation'},
+    {'label': 'Map',                'url_name': 'map'},
     {'label': 'Statistics',         'url_name': 'statistics'},
 
     {'label': 'List of mountains',  'url_name': 'mountain-list'},

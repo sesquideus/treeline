@@ -16,3 +16,6 @@ dev = [
     "django-cairn>=0.1.0",
     "django-debug-toolbar>=6.3.0",
 ]
+
+[tool.uv.sources]
+django-cairn = { path = "../python/django-cairn", editable = true }

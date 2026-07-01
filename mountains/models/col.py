@@ -55,16 +55,16 @@ class Col(GeoModel):
     def __str__(self):
         if self.point.name:
             return f"{self.point} ({self.point.altitude})"
-        elif len(self.key_for.all()) > 0:
-            return f"unnamed (for {self.key_for.all()[0].point})"
+        elif hasattr(self, 'key_for'):
+            return f"unnamed (for {self.key_for.point})"
         else:
             return f"unnamed"
 
     def name(self):
         if self.point.name:
             return f"{self.point.name}"
-        elif len(self.key_for.all()) > 0:
-            return f"unnamed (for {self.key_for.all()[0].point})"
+        elif hasattr(self, 'key_for'):
+            return f"unnamed (for {self.key_for.point})"
         else:
             return f"unnamed"
 
@@ -78,6 +78,15 @@ class Col(GeoModel):
             'lat': self.point.location.y if self.point else None,
             'lon': self.point.location.x if self.point else None,
             'alt': self.point.altitude if self.point else None,
+            'prom': self.key_for.prominence if hasattr(self, 'key_for') else None,
+            'confluence': {
+                'river': self.confluence_river.source.id if self.confluence_river else None,
+                'name': self.confluence_river.source.name,
+                'lon': self.confluence_river.mouth.x,
+                'lat': self.confluence_river.mouth.y,
+                'alt': self.confluence_river.mouth_altitude,
+            } if self.confluence_river else None,
+            'key_for': self.key_for.id if hasattr(self, 'key_for') else None,
         } if self.point else None
 
     def to_geojson(self):
@@ -90,11 +99,7 @@ class Col(GeoModel):
                 'coordinates': [self.point.location.x, self.point.location.y],
             },
             'properties': {
-                **self.to_dict(),
                 'type': 'col',
-                'confluence': {
-                    'lon': self.confluence_river.mouth.x,
-                    'lat': self.confluence_river.mouth.y,
-                } if self.confluence_river and self.confluence_river.mouth else None,
+                **self.to_dict(),
             },
         }
