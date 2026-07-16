@@ -5,6 +5,7 @@ from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
 from mountains.models.base import GeoModel
+from mountains.models.col import Col
 
 
 class RiverQuerySet(models.QuerySet):
@@ -42,6 +43,14 @@ class RiverQuerySet(models.QuerySet):
             )
         )
 
+    def with_cols(self):
+        return self.prefetch_related(
+            Prefetch(
+                'cols',
+                queryset=Col.objects.with_minor().order_by('-prominence'),
+            )
+        )
+
     def with_db_status(self):
         return self.annotate(
             complete=Q(source__location__isnull=False) & Q(source__altitude__isnull=False) & \
@@ -69,7 +78,10 @@ class River(GeoModel):
     objects = RiverQuerySet.as_manager()
 
     def __str__(self):
-        return f"{self.source}"
+        return f"{self.source.name}"
+
+    def name(self):
+        return f"{self.source.name}"
 
     def confluence_name(self):
         return f"{self.source.name} → {self.parent.source.name}"

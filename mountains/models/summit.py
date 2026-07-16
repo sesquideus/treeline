@@ -471,7 +471,7 @@ class Summit(GeoModel):
 
     def __str__(self):
         if self.point.name is not None:
-            return f"{self.point.__str__()} ({self.point.altitude})"
+            return f"{self.point.__str__()}"
         return "(unnamed)"
 
     def name(self):

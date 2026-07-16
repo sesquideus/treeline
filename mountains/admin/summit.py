@@ -49,7 +49,7 @@ class SummitAdmin(ModelAdmin):
                     'key_col_altitude', 'key_col:link',
                     'prominence', 'prominence_parent:link',
                     'isolation', 'isolation_parent:link',
-                    'nearest_higher_point',
+                    'nhp_latitude', 'nhp_longitude',
                     'slope_parent:link', 'horizon_parent:link']
 
     actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std', 'compute_points']
@@ -61,14 +61,27 @@ class SummitAdmin(ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).with_isolation().with_prominence().with_prominence_parent().with_isolation_parent().with_key_col().with_slope_parent().with_horizon_parent()
 
+    @admin.display(description="Latitude")
     def point_latitude(self, obj):
         return f"{obj.point.location.y:+.6f}°"
 
+    @admin.display(description="Longitude")
     def point_longitude(self, obj):
         return f"{obj.point.location.x:+.6f}°"
 
+    @admin.display(description="Altitude")
     def point_altitude(self, obj):
         return f"{obj.point.altitude:.1f} m"
+
+    def nhp_latitude(self, obj):
+        if obj.nearest_higher_point:
+            return f"{obj.nearest_higher_point.y:+.6f}°"
+        return ""
+
+    def nhp_longitude(self, obj):
+        if obj.nearest_higher_point:
+            return f"{obj.nearest_higher_point.x:+.6f}°"
+        return ""
 
     def flags(self, obj):
         return obj.point.flags()
@@ -159,13 +172,13 @@ class SummitAdmin(ModelAdmin):
     @admin.display(description='Isolation')
     def isolation(self, obj):
         if (iso := obj.compute_isolation()) is not None:
-            return f"{iso.km:.3f} km"
+            return f"{iso.km:.3f}\u00A0km"
         return None
 
     @admin.display(description='distance to NHN')
     def nhn_distance(self, obj):
         if (dist := obj.compute_distance_to_nhn()) is not None:
-            return f"{dist.km:.3f} km"
+            return f"{dist.km:.3f}\uAA0Akm"
         return None
 
     @admin.display(description='Key col altitude')

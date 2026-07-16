@@ -1,17 +1,16 @@
 import math
-from abc import abstractmethod, ABC
+from abc import ABC
 from typing import Optional
 
 from cairn.views import OrderableListView
 from django.db.models import F, Prefetch
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.generic import ListView, DetailView, TemplateView, FormView
 from django.views.generic.edit import FormMixin
 
+from mountains.forms.filter import FilterForm
 from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col
-from mountains.models.base import GeoJsonMixin
 from mountains.views.tree.tree import FlatGeoJsonView
 
 
@@ -203,6 +202,14 @@ class MountainListView(OrderableListView):
 
         return qs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context |= {
+            'filter_form': FilterForm(),
+        }
+
+        return context
 
 class SlopeToView(DetailView):
     model = Summit

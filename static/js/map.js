@@ -1,4 +1,4 @@
-function makeMap(geojson, styleFor, coords) {
+function makeMap(geojson, styleFor, coords, zoom) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
         source: new ol.source.XYZ({
@@ -26,7 +26,7 @@ function makeMap(geojson, styleFor, coords) {
             tileLayer,
             vectorLayer,
         ],
-        view: new ol.View({ center: ol.proj.fromLonLat(coords), zoom: 9 }),
+        view: new ol.View({ center: ol.proj.fromLonLat(coords), zoom: zoom }),
     });
 
     vectorLayer.getSource().once('change', function() {
@@ -514,7 +514,7 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         summitsData = summits;
         colsData = cols;
 
-        const { map: m, tileLayer } = makeMap(summits, styleFor, [19, 48]);
+        const { map: m, tileLayer } = makeMap(summits, styleFor, [22, 49], 11);
         map = m;
 
         const opacitySlider = document.getElementById('map-opacity');

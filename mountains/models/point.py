@@ -24,12 +24,12 @@ class NamedPoint(AdminModel):
 
     def __str__(self):
         if self.name is not None:
-            return f"{self.name}"
+            return f"{self.name} ({self.altitude}\u00A0m)"
         return "(unnamed)"
 
     def full_name(self):
         if self.name is not None:
-            return f"{self.name} ({self.altitude:.1f})"
+            return f"{self.name} ({self.altitude:.1f}\u00A0m)"
         return "(unnamed)"
 
     def flags(self):

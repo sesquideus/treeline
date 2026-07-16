@@ -61,7 +61,10 @@ def build_summit_features(s: Summit):
             iso_label = f"\u21e5 {s.isolation_name} ({iso_distance_true.km:.3f} km)"
         features.append({
             'type': 'Feature',
-            'geometry': {'type': 'Point', 'coordinates': iso_coords},
+            'geometry': {
+                'type': 'Point',
+                'coordinates': iso_coords if iso_coords else None,
+            },
             'properties': {'name': iso_label, 'type': 'isolation_point'},
         })
 

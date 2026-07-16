@@ -46,6 +46,9 @@ class ColQuerySet(models.QuerySet):
 
 
 class Col(GeoModel):
+    class Meta:
+        ordering = ['point__altitude']
+
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False, related_name='col')
     confluence = models.ForeignKey('Confluence', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
     confluence_river = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
@@ -54,17 +57,17 @@ class Col(GeoModel):
 
     def __str__(self):
         if self.point.name:
-            return f"{self.point} ({self.point.altitude})"
+            return f"{self.point.name} ({self.point.altitude}\u00A0m)"
         elif hasattr(self, 'key_for'):
-            return f"unnamed (for {self.key_for.point})"
+            return f"unnamed → {self.key_for.point}"
         else:
-            return f"unnamed"
+            return f"unnamed col"
 
     def name(self):
         if self.point.name:
             return f"{self.point.name}"
         elif hasattr(self, 'key_for'):
-            return f"unnamed (for {self.key_for.point})"
+            return f"unnamed @ {self.key_for.point}"
         else:
             return f"unnamed"
 

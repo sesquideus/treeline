@@ -36,20 +36,39 @@
         {% object_link col.confluence 'confluence' %}
 
         <h3>
-            Sibling cols
+            Cols
         </h3>
         <p>
-            Sibling cols have the same parent peak.
+            List of all cols for which runoffs merge at the mouth of this river.
         </p>
         <table class="lineage">
-            {% for peak in lower.prominence_parent.prominence_children.all %}
+            <thead>
+                <tr>
+                    <th>col</th>
+                    <th>key for</th>
+                    <th>
+                        <abbr title="altitude difference between minor and major peak">
+                            depth
+                        </abbr>
+                    </th>
+                    <th></th>
+                    <th>parent</th>
+                </tr>
+            </thead>
+            {% for col in river.cols.all %}
                 <tr>
                     <td>
-                        {% object_link peak.key_col 'col' %}
+                        {% object_link col 'col' attr='name' %}
+                    </td>
+                    <td>
+                        {% object_link col.key_for 'mountain' %}
+                    </td>
+                    <td class="altitude">
+                        {{ col.key_for.prominence|altitude }}
                     </td>
                     <td>&rightarrow;</td>
                     <td>
-                        {% object_link peak 'mountain' %}
+                        {% object_link col.key_for.prominence_parent 'mountain' %}
                     </td>
                 </tr>
             {% endfor %}
@@ -61,6 +80,14 @@
         </h3>
         <table>
             <thead>
+                <tr>
+                    <th>
+                        tributary
+                    </th>
+                    <th>
+                        mouth altitude
+                    </th>
+                </tr>
             </thead>
             <tbody>
                 {% for tributary in river.tributaries.all %}
@@ -68,10 +95,12 @@
                         <td>
                             {% object_link tributary 'river' %}
                         </td>
-                        <td>
+                        <td class="altitude">
                             {{ tributary.mouth_altitude }}
                         </td>
                     </tr>
+                {% empty %}
+                    {% empty_tr "No tributaries in the database" %}
                 {% endfor %}
             </tbody>
         </table>
@@ -84,20 +113,5 @@
             Flows into {% object_link river.parent 'river' %} at {{ river.mouth.y }} {{ river.mouth.x }}
             (<span class="altitude">{{ river.mouth_altitude|altitude }}</span>).
         </p>
-        <table class="lineage">
-            {% for col in river.cols.all %}
-                <tr>
-                    <td>
-                        {% object_link col 'col' %}
-                    </td>
-                    <td>
-                        {% object_link col.key_for 'mountain' %}
-                    </td>
-                    <td>&rightarrow;</td>
-                    <td>
-                        {% object_link col.key_for.prominence_parent 'mountain' %}
-                    </td>
-                </tr>
-            {% endfor %}
-        </table>
+
 {% endblock page_content %}

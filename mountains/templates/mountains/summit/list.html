@@ -18,6 +18,14 @@
 {% endblock page_title %}
 
 {% block page_content %}
+    <form class="filter" method="get" action="">
+        <ul>
+            {{ filter_form.as_ul }}
+            <input type="submit">Filter</input>
+        </ul>
+    </form>
+
+
     <table class="sortable alternating">
         <thead>
             <tr>
@@ -32,7 +40,7 @@
                 {% th_orderable 'prominence' 'prominence' %}
                 {% th_orderable 'dominance' 'dominance' %}
                 {% th_orderable 'isolation' 'isolation' %}
-                {% th_orderable 'nhn' 'nearest highest neighbour' long="nearest higher neighbour" %}
+                {% th_orderable 'nhn' 'NHN' long="nearest higher neighbour" %}
                 {% th_orderable 'slope' 'slope' %}
                 {% th_orderable 'slope-parent' 'slope parent' %}
                 {% th_orderable 'horizon' 'horizon angle' %}
@@ -58,7 +66,7 @@
                     <td class="number">{{ mountain.dominance|floatformat:3 }}</td>
 
                     <td class="distance">{{ mountain.compute_isolation.m|distance }}</td>
-                    <td class="link">{% object_link mountain.isolation_parent 'mountain' %}</td>
+                    <td class="link">{% object_link mountain.isolation_parent 'mountain' attr='name' %}</td>
                     <td class="slope" style="color: {{ mountain.slope|slope_colour }};">{{ mountain.slope|slope }}</td>
                     <td class="link">{% object_link mountain.slope_parent 'mountain' %}</td>
                     <td class="angle" style="color: {{ mountain.angle_to_horizon_parent|angle_colour }};">{{ mountain.angle_to_horizon_parent|angle_above_horizon }}</td>

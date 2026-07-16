@@ -3,13 +3,13 @@
 {% load static countries tree cairn %}
 
 {% block page_title %}
-    <span class="col">{{ col.full_name }}</span> ({{ col.point.altitude }} m)
+    <span class="col">{{ col.name }}</span> ({{ col.point.altitude }} m)
     {{ col.point|flags }}
     <a class="edit" href="{{ col.admin_change_url }}">&#x1F589;</a>
 {% endblock page_title %}
 
 {% block title %}
-    &#x2323; {{ col }} ({{ col.point.altitude }} m)
+    &#x222A; {{ col }} ({{ col.point.altitude }} m)
 {% endblock title %}
 
 {% block page_content %}
@@ -20,19 +20,15 @@
     {% endfor %}
 
     {% with lower=col.key_for upper=lower.prominence_parent %}
-        <h3>
-            Key col for <b>{{ lower }}</b>
-        </h3>
+        <h2>
+            Key col for <b>{% object_link lower 'mountain' %}</b>
+        </h2>
         {% object_link lower 'mountain' %}
         &#x2198;
         {{ lower.prominence|floatformat:1 }} m
         &#x2197;
         <b>{% object_link lower.prominence_parent 'mountain' %}</b>
 
-        <h3>
-            Confluence
-        </h3>
-        {% object_link col.confluence_river 'river' %}
 
         <h3>
             Sibling cols
@@ -44,7 +40,7 @@
             {% for peak in lower.prominence_parent.prominence_children.all %}
                 <tr>
                     <td>
-                        {% object_link peak.key_col 'col' %}
+                        {% object_link peak.key_col 'col' attr='name' %}
                     </td>
                     <td>&rightarrow;</td>
                     <td>
@@ -54,6 +50,12 @@
             {% endfor %}
         </table>
 
+        <h2>
+            Confluence
+        </h2>
+        {% object_link col.confluence_river 'river' attr='source' %}
+        &rightarrow;
+        {% object_link col.confluence_river.parent 'river' %}
         <h3>
             Friend cols
         </h3>
@@ -64,14 +66,14 @@
             {% for col in friend_cols %}
                 <tr>
                     <td>
-                        {% object_link col 'col' %}
+                        {% object_link col 'col' attr='name' %}
                     </td>
                     <td>
-                        {% object_link col.key_for 'mountain' %}
+                        {% object_link col.key_for 'mountain' attr='name' %}
                     </td>
                     <td>&rightarrow;</td>
                     <td>
-                        {% object_link col.key_for.prominence_parent 'mountain' %}
+                        {% object_link col.key_for.prominence_parent 'mountain' attr='name' %}
                     </td>
                 </tr>
             {% endfor %}
