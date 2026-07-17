@@ -8,33 +8,41 @@
     <div class="data">
         <p>
             Another well-defined measure of a mountain's dominance in its vicinity
-            is the highest visible with respect to the local horizon.
-            For peak A, we take every other peak in the database and compute the vertical angle &beta;,
+            is the highest peak visible above its local horizon.
+            For peak <b>A</b>, we compute the angle &beta; to every other peak with respect to the local horizon,
             filter out those for which it is positive, and mark the one with
-            the highest value as the parent of the peak.
+            the highest value as the <b>horizon parent</b> of the peak.
         </p>
         <p>
             Compared to <a href="{% url 'isolation-tree' %}">isolation</a>,
-            this forms many isolated trees &ndash; isolated dominant peaks often
+            this forms many isolated trees &ndash; dominant peaks often
             have a completely clean horizon and all other visible peaks, if any, are below
-            the tangential plane. The horizon measure therefore does not result
-            in a complete hierarchy.
-        </p>
-        <p>
+            the tangential plane. The horizon measure therefore does not result in a complete hierarchy.
             Also unlike plain <a href="{% url 'slope-tree' %}">slope</a>,
             this hierarchy is not that shallow and results in fewer surprises.
-            However, there are again at least two posible definitions:
-            one is purely geometric, which is well-defined and does not need any other parameters;
-            another also takes atmospheric refraction into account.
-            Currently we only store values for the standard value of <i>c</i> = 0.14.
+        </p>
+        <p>
+            However, there are again at least two posible meaningful definitions:
+            the simpler one is purely geometric and does not take atmospheric refraction into account.
+            This is easier to compute and does not change in time, however in real world
+            the distances involved are large enough (and the angles are often small enough)
+            so that this results in a measurable difference. A downside is that the value is not constant,
+            and depends on temperature gradients, humidity and so on. Still, it is possible to use
+            at least the standard value of <i>c</i> = 0.14. This results in an effective
+            diameter of the Earth of <i>R'</i> = R / (1 - 0.14) &approx; 7408 km.
+        </p>
+        <p>
+            In certain pathological cases it is also possible that the highest point above the horizon is
+            not a summit, but just a convex protrusion, however these cases are very difficult to cover
+            and probably not worthwhile.
         </p>
         <p>
             By default, children are sorted in descending order by angle:
-            peaks for which the angle is high are likely to be minor sub-summits,
+            peaks for which the angle is high are most often just minor sub-summits,
             while peaks that are just enough far away to reach a small but positive
-            values are likely relatively important, independent summits.
+            values are likely still relatively important and independent summits.
         </p>
-        <ul class="tree">
+        <ul class="tree tree-root">
             {% horizon_tree roots tree %}
         </ul>
     </div>

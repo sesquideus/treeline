@@ -13,7 +13,7 @@
 
         {% with children=tree|get_item:summit.pk %}
             {% if children %}
-                <ul class="mountains">
+                <ul class="tree mountains">
                     {% horizon_tree children tree %}
                 </ul>
             {% endif %}

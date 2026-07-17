@@ -89,7 +89,7 @@ DATABASES = {
     'default': {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
         'NAME': 'treeline',
-        'USER': 'kvik',
+        'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': 'localhost',
         'ATOMIC_REQUESTS': False,
@@ -130,6 +130,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+STATIC_ROOT = '/var/www/treeline/static/'
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     Path(BASE_DIR / 'static'),
