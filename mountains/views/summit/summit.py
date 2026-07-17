@@ -162,54 +162,6 @@ class MountainDetailView(DetailView):
             'by_horizon': sorted(summits, key=lambda x: x.hhp_angle, reverse=True)[:20],
         }
 
-class MountainListView(OrderableListView):
-    model = Summit
-    context_object_name = 'mountains'
-    template_name = 'mountains/summit/list.html'
-
-    ORDERING = {
-        'name': 'point__name',
-        'altitude': 'point__altitude',
-        'parent-name': 'prominence_parent__point__name',
-        'parent-altitude': 'prominence_parent__point__altitude',
-        'prominence': 'prominence',
-        'dominance': 'dominance',
-        'key-col': 'key_col__point__name',
-        'key-col-alt': 'key_col__point__altitude',
-        'nhn': 'isolation_parent__point__name',
-        'isolation': 'isolation',
-        'slope': 'slope',
-        'horizon': 'angle',
-    }
-
-    def parse_get_arguments(self):
-        super().parse_get_arguments()
-        self.countries = self.request.GET.get('countries', '').split(',')
-
-    def get_queryset(self):
-        qs = Summit.objects.with_point().with_prominence().with_isolation().with_slope_parent().with_horizon_parent().with_countries().with_full_name().distinct()
-
-        if self.ordering:
-            if self.ordering[0] == '-':
-                ordering = self.ordering[1:]
-                qs = qs.order_by(F(ordering).desc(nulls_last=True))
-            else:
-                ordering = self.ordering
-                qs = qs.order_by(F(ordering).asc(nulls_last=True))
-
-        if self.countries and self.countries != ['']:
-            qs = qs.filter(point__countries__code__in=self.countries)
-
-        return qs
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        context |= {
-            'filter_form': FilterForm(),
-        }
-
-        return context
 
 class SlopeToView(DetailView):
     model = Summit

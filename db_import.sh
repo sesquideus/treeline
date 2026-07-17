@@ -21,6 +21,7 @@ echo "Enabling postgis extension in database '$DB'..."
 sudo -u postgres psql -d "$DB" -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 
 echo "Importing $SQL..."
-psql -U "$USER" -d "$DB" -f ~/$SQL
+sudo -u postgres pg_restore -d treeline ./$SQL
+#psql -U "$USER" -d "$DB" -f ~/$SQL
 
-echo "Done."
+echo "Done"

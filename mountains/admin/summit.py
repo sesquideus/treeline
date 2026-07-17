@@ -207,6 +207,6 @@ class SummitAdmin(ModelAdmin):
         elif db_field.name == 'isolation_parent':
             kwargs['queryset'] = Summit.objects.with_isolation()
         elif db_field.name == 'key_col':
-            kwargs['queryset'] = Col.objects.with_point()
+            kwargs['queryset'] = Col.objects.with_point().order_by('-point__altitude')
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)

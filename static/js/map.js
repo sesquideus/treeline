@@ -53,6 +53,9 @@ function makeMap(geojson, styleFor, coords, zoom) {
             switch (feature.get('type')) {
                 case 'summit':
                     text = `
+                        <h3 class="mountain">
+                            ${feature.get('name') ?? 'unknown'}
+                        </h3>
                         <table>
                             <tr>
                                 <td>name</td>
@@ -97,6 +100,9 @@ function makeMap(geojson, styleFor, coords, zoom) {
                             </tr>
                           `;
                     text = `
+                        <h3 class="col">
+                            ${feature.get('name') ?? 'unknown'}
+                        </h3>
                         <table>
                             <tr>
                                 <td>name</td>

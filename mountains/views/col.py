@@ -50,8 +50,6 @@ class ListView(OrderableListView):
             else:
                 ordering = self.ordering
                 qs = qs.order_by(F(ordering).asc(nulls_last=True))
-        else:
-            qs = qs.order_by('-point__altitude')
 
         return qs
 

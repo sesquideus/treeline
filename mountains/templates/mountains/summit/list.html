@@ -28,24 +28,7 @@
 
     <table class="sortable alternating">
         <thead>
-            <tr>
-                <th>order</th>
-                <th>country</th>
-                {% th_orderable 'name' 'name' %}
-                {% th_orderable 'altitude' 'altitude' %}
-                {% th_orderable 'key-col' 'key col' %}
-                {% th_orderable 'key-col-alt' 'key col altitude' %}
-                {% th_orderable 'parent-name' 'parent' %}
-                {% th_orderable 'parent-altitude' 'parent altitude' %}
-                {% th_orderable 'prominence' 'prominence' %}
-                {% th_orderable 'dominance' 'dominance' %}
-                {% th_orderable 'isolation' 'isolation' %}
-                {% th_orderable 'nhn' 'NHN' long="nearest higher neighbour" %}
-                {% th_orderable 'slope' 'slope' %}
-                {% th_orderable 'slope-parent' 'slope parent' %}
-                {% th_orderable 'horizon' 'horizon angle' %}
-                {% th_orderable 'horizon-parent' 'horizon parent' %}
-            </tr>
+            {% include 'mountains/summit/list/thead.html' %}
         </thead>
         <tbody>
             {% for mountain in mountains %}
@@ -74,5 +57,8 @@
                 </tr>
             {% endfor %}
         </tbody>
+        <tfoot>
+            {% include 'mountains/summit/list/thead.html' %}
+        </tfoot>
     </table>
 {% endblock page_content %}

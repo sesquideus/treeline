@@ -6,6 +6,7 @@ dependencies = [
     "django>=6.0.6",
     "django-map-widgets>=0.5.2",
     "geopy>=2.4.1",
+    "django-cairn>=0.1.3",
     "psycopg2-binary>=2.9.12",
     "python-decouple>=3.8",
     "pytz>=2026.2",
@@ -13,7 +14,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "django-cairn>=0.1.0",
     "django-debug-toolbar>=6.3.0",
 ]
 
