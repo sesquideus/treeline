@@ -25,7 +25,7 @@ class NamedPoint(AdminModel):
     def __str__(self):
         if self.name is not None:
             return f"{self.name} ({self.altitude}\u00A0m)"
-        return "(unnamed)"
+        return f"(unnamed {self.location.y:6f} {self.location.x:6f}° {self.altitude:.1f}\u00A0m)"
 
     def full_name(self):
         if self.name is not None:

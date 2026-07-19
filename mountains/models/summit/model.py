@@ -23,7 +23,7 @@ class SummitQuerySet(models.QuerySet):
             .prefetch_related(
                 Prefetch(
                     'prominence_parent',
-                    queryset=Summit.objects.with_point().annotate(
+                    queryset=Summit.objects.with_point().with_full_name().annotate(
                         prominence=ExpressionWrapper(F('point__altitude') - F('key_col__point__altitude'), output_field=FloatField()),
                     )
                 )
@@ -31,13 +31,19 @@ class SummitQuerySet(models.QuerySet):
             .prefetch_related(
                 Prefetch(
                     'key_col',
-                    queryset=Col.objects.with_point().with_full_name().prefetch_related('key_for__point')
+                    queryset=Col.objects.with_full_name().select_related('point', 'key_for__point')
                 )
             )
             .annotate(
                 prominence=F('point__altitude') - F('key_col__point__altitude'),
                 dominance=F('prominence') / F('point__altitude'),
-            )
+                distance_to_parent=Distance('point__location', 'prominence_parent__point__location'),
+        )
+        )
+
+    def with_distance_to_key_col(self):
+        return self.annotate(
+            distance_to_key_col=Distance('point__location', 'key_col__point__location')
         )
 
     def with_isolation(self):
@@ -337,10 +343,7 @@ class Summit(GeoModel):
 
     def distance_to_key_col(self):
         if self.key_col and self.key_col.point:
-            return distance(
-                (self.point.location.y, self.point.location.x),
-                (self.key_col.point.location.y, self.key_col.point.location.x)
-            )
+            self.point.distance_to(self.key_col.point)
         return None
 
     def slope_to_parent(self):
@@ -478,4 +481,4 @@ class Summit(GeoModel):
         if self.point.name:
             return f"{self.point.name}"
         else:
-            return f"unnamed ({self.point.location.y}° {self.point.location.x}° {self.point.altitude} m)"
+            return f"unnamed ({self.point.location.y:.3f}° {self.point.location.x:.3f}° {self.point.altitude:.0f} m)"

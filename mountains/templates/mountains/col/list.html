@@ -18,6 +18,13 @@
 {% endblock page_title %}
 
 {% block page_content %}
+    <form class="filter" method="get" action="">
+        <ul>
+            {{ filter_form.as_ul }}
+            <input type="submit">Filter</input>
+        </ul>
+    </form>
+
     <table class="sortable alternating">
         <thead>
             <tr>
@@ -28,7 +35,7 @@
 
                 {% th_orderable 'minor-name' 'minor peak' %}
                 {% th_orderable 'minor-alt' 'minor peak altitude' %}
-                {% th_orderable 'prominence' 'prominence' %}
+                {% th_orderable 'prominence' 'depth' %}
                 {% th_orderable 'major-name' 'major peak' %}
                 {% th_orderable 'major-alt' 'major peak altitude' %}
 

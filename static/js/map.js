@@ -54,19 +54,15 @@ function makeMap(geojson, styleFor, coords, zoom) {
                 case 'summit':
                     text = `
                         <h3 class="mountain">
-                            ${feature.get('name') ?? 'unknown'}
+                            ${feature.get('name') ?? 'unnamed col'}
                         </h3>
-                        <table>
+                        <table class="tooltip">
                             <tr>
-                                <td>name</td>
-                                <td>${feature.get('name') ?? 'unnamed summit'}</td>
-                            </tr>
-                            <tr>
-                                <td>altitude</td>
+                                <th>altitude</th>
                                 <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
                             </tr>
                             <tr>
-                                <td>prominence</td>
+                                <th>prominence</th>
                                 <td class="altitude">${feature.get('prom')?.toFixed(1) ?? '?'}</td>
                             </tr>
                         </table>
@@ -77,19 +73,23 @@ function makeMap(geojson, styleFor, coords, zoom) {
                     const confluenceRows = confluence
                         ? `
                             <tr>
-                                <td>confluence</td>
-                                <td>${confluence.name ?? 'unnamed'}</td>
+                                <th>confluence</th>
+                                <td class="link river">
+                                    <a href="">
+                                        ${confluence.name ?? 'unnamed'}
+                                    </a>
+                                </td>
                             </tr>
                             <tr>
-                                <td>↳ latitude</td>
-                                <td class="altitude">${confluence.lat?.toFixed(5) ?? '?'}</td>
+                                <th>↳ latitude</th>
+                                <td class="angle">${confluence.lat?.toFixed(5) ?? '?'}</td>
                             </tr>
                             <tr>
-                                <td>↳ longitude</td>
-                                <td class="altitude">${confluence.lon?.toFixed(5) ?? '?'}</td>
+                                <th>↳ longitude</th>
+                                <td class="angle">${confluence.lon?.toFixed(5) ?? '?'}</td>
                             </tr>
                             <tr>
-                                <td>↳ altitude</td>
+                                <th>↳ altitude</th>
                                 <td class="altitude">${confluence.alt?.toFixed(1) ?? '?'}</td>
                             </tr>
                           `
@@ -115,6 +115,10 @@ function makeMap(geojson, styleFor, coords, zoom) {
                             <tr>
                                 <td>altitude</td>
                                 <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <td>depth</td>
+                                <td class="altitude">${feature.get('depth')?.toFixed(1) ?? '?'}</td>
                             </tr>
                             ${confluenceRows}
                         </table>
@@ -356,6 +360,9 @@ function buildKeyColLayer(summits, cols) {
             alt: col.properties.alt,
             pk: kcPk,
             type: 'col',
+            key_for: col.properties.key_for,
+            depth: col.properties.depth,
+            confluence: col.properties.confluence,
         }));
     });
 

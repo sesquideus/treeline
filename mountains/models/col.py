@@ -24,7 +24,7 @@ class ColQuerySet(models.QuerySet):
             )
         )
 
-    def with_river(self):
+    def with_rivers(self):
         return self.select_related('confluence_river__source', 'confluence_river__parent__source')
 
     def with_countries(self):
@@ -59,7 +59,7 @@ class Col(GeoModel):
         if self.point.name:
             return f"{self.point.name} ({self.point.altitude}\u00A0m)"
         elif hasattr(self, 'key_for'):
-            return f"unnamed → {self.key_for.point}"
+            return f"unnamed → {self.key_for.point.name}"
         else:
             return f"unnamed col"
 
@@ -67,9 +67,9 @@ class Col(GeoModel):
         if self.point.name:
             return f"{self.point.name}"
         elif hasattr(self, 'key_for'):
-            return f"unnamed @ {self.key_for.point}"
+            return f"→ {self.key_for.point.name}"
         else:
-            return f"unnamed"
+            return f"unnamed col"
 
     def get_absolute_url(self):
         return reverse('col', kwargs={'pk': self.pk})
@@ -81,7 +81,7 @@ class Col(GeoModel):
             'lat': self.point.location.y if self.point else None,
             'lon': self.point.location.x if self.point else None,
             'alt': self.point.altitude if self.point else None,
-            'prom': self.key_for.prominence if hasattr(self, 'key_for') else None,
+            'depth': self.key_for.prominence if hasattr(self, 'key_for') else None,
             'confluence': {
                 'river': self.confluence_river.source.id if self.confluence_river else None,
                 'name': self.confluence_river.source.name,
@@ -89,7 +89,7 @@ class Col(GeoModel):
                 'lat': self.confluence_river.mouth.y,
                 'alt': self.confluence_river.mouth_altitude,
             } if self.confluence_river else None,
-            'key_for': self.key_for.id if hasattr(self, 'key_for') else None,
+            'key_for': self.key_for.point.name if hasattr(self, 'key_for') else None,
         } if self.point else None
 
     def to_geojson(self):

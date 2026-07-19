@@ -2,19 +2,23 @@
 
 <tr>
     <th>order</th>
-    <th>country</th>
+    <th>countries</th>
     {% th_orderable 'name' 'name' %}
     {% th_orderable 'altitude' 'altitude' %}
     {% th_orderable 'key-col' 'key col' %}
-    {% th_orderable 'key-col-alt' 'key col altitude' %}
+    {% th_orderable 'key-col-alt' 'key col alt' long="altitude of key col" %}
+    {% th_orderable 'key-col-dist' long='distance to key col' %}
+
     {% th_orderable 'parent-name' 'parent' %}
-    {% th_orderable 'parent-altitude' 'parent altitude' %}
-    {% th_orderable 'prominence' 'prominence' %}
-    {% th_orderable 'dominance' 'dominance' %}
-    {% th_orderable 'isolation' 'isolation' %}
+    {% th_orderable 'parent-alt' 'parent alt' long="parent peak altitude" %}
+    {% th_orderable 'parent-dist' 'dist to parent' long="distance to parent peak" %}
+    {% th_orderable 'prominence' 'prom' long="prominence" %}
+    {% th_orderable 'dominance' 'dom' long="dominance" %}
+
+    {% th_orderable 'isolation' 'isolation' long="distance to nearest higher point" %}
     {% th_orderable 'nhn' 'NHN' long="nearest higher neighbour" %}
     {% th_orderable 'slope' 'slope' %}
     {% th_orderable 'slope-parent' 'slope parent' %}
     {% th_orderable 'horizon' 'horizon angle' %}
-    {% th_orderable 'horizon-parent' 'horizon parent' nulls_first=True %}
+    {% th_orderable 'horizon-parent' 'horizon parent' %}
 </tr>

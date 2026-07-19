@@ -25,7 +25,6 @@
         </ul>
     </form>
 
-
     <table class="sortable alternating">
         <thead>
             {% include 'mountains/summit/list/thead.html' %}
@@ -43,8 +42,11 @@
                     <td class="altitude">{{ mountain.point.altitude|altitude }}</td>
                     <td class="link">{% object_link mountain.key_col 'col' attr='name' %}</td>
                     <td class="altitude">{{ mountain.key_col.point.altitude|altitude }}</td>
+                    <td class="distance">{{ mountain.distance_to_key_col.m|distance }}</td>
+
                     <td class="link">{% object_link mountain.prominence_parent 'mountain' attr='name' %}</td>
                     <td class="altitude">{{ mountain.prominence_parent.point.altitude|altitude }}</td>
+                    <td class="distance">{{ mountain.distance_to_parent.m|distance }}</td>
                     <td class="altitude">{{ mountain.prominence|altitude }}</td>
                     <td class="number">{{ mountain.dominance|floatformat:3 }}</td>
 
