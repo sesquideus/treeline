@@ -13,10 +13,10 @@ class StatisticsView(ListView):
     def get_context_data(self, *, object_list = ..., **kwargs):
         return {
             'summits': Summit.objects.count(),
-            'summitsc': Summit.objects.with_complete().count(),
+            'summitsc': Summit.objects.only_complete().count(),
             'ultras': Summit.objects.with_ultras().filter(ultra=True).count(),
             'cols': Col.objects.count(),
 
-            'most_prominent': Summit.objects.with_prominence().with_ultras() \
-                .filter(prominence_parent__isnull=False, key_col__isnull=False).order_by('-prominence')[:40],
+            'most_prominent': Summit.objects.with_ultras() \
+                .filter(key_col__isnull=False).order_by('-prominence')[:50],
         }
