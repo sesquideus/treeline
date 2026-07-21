@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.views.generic import ListView
 
 from mountains.models import Summit, Col
@@ -18,5 +19,5 @@ class StatisticsView(ListView):
             'cols': Col.objects.count(),
 
             'most_prominent': Summit.objects.with_ultras() \
-                .filter(key_col__isnull=False).order_by('-prominence')[:50],
+                .filter(Q(key_col__isnull=False) | Q(island_high_point=True)).order_by('-prominence', '-point__altitude')[:50],
         }
