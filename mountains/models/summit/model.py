@@ -3,7 +3,7 @@ from typing import Self
 from django.contrib.gis.db.models.functions import Distance
 from django.core.exceptions import ValidationError
 from django.contrib.gis.db import models
-from django.db.models import Q, F, Value, CharField, Prefetch, ExpressionWrapper, FloatField
+from django.db.models import Q, F, Value, CharField, Prefetch, ExpressionWrapper, FloatField, Case, When
 from django.db.models.functions import Concat, Coalesce, ATan, Cos, Sin
 from django.urls import reverse
 from geographiclib.geodesic import Geodesic
@@ -23,19 +23,31 @@ class SummitQuerySet(models.QuerySet):
             .prefetch_related(
                 Prefetch(
                     'prominence_parent',
-                    queryset=Summit.objects.with_point().with_full_name().annotate(
-                        prominence=ExpressionWrapper(F('point__altitude') - F('key_col__point__altitude'), output_field=FloatField()),
+                    queryset=Summit.objects.with_point().annotate(
+                        prominence=Case(
+                            When(island_high_point=True, then=F('point__altitude')),
+                            default=ExpressionWrapper(
+                                F('point__altitude') - F('key_col__point__altitude'),
+                                output_field=FloatField()
+                            )
+                        )
                     )
                 )
             )
             .prefetch_related(
                 Prefetch(
                     'key_col',
-                    queryset=Col.objects.with_full_name().select_related('point', 'key_for__point')
+                    queryset=Col.objects.select_related('point', 'key_for__point')
                 )
             )
             .annotate(
-                prominence=F('point__altitude') - F('key_col__point__altitude'),
+                prominence=Case(
+                    When(island_high_point=True, then=F('point__altitude')),
+                    default=ExpressionWrapper(
+                        F('point__altitude') - F('key_col__point__altitude'),
+                        output_field=FloatField()
+                    )
+                ),
                 dominance=F('prominence') / F('point__altitude'),
                 distance_to_parent=Distance('point__location', 'prominence_parent__point__location'),
         )
