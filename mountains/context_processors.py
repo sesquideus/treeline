@@ -3,6 +3,7 @@ MAIN_MENU = [
     {'label': 'Isolation tree',     'url_name': 'isolation-tree'},
     {'label': 'Slope tree',         'url_name': 'slope-tree'},
     {'label': 'Horizon forest',     'url_name': 'horizon-forest'},
+    {'label': 'River tree',         'url_name': 'river-tree'},
 
     {'label': 'Map',                'url_name': 'map'},
     {'label': 'Statistics',         'url_name': 'statistics'},

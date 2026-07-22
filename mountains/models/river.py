@@ -1,5 +1,6 @@
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models.functions import Distance
+from django.core.exceptions import ValidationError
 from django.db.models import Prefetch, F, Value, Q, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
@@ -76,6 +77,22 @@ class River(GeoModel):
     parent = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='tributaries')
 
     objects = RiverQuerySet.as_manager()
+
+    def _check_mouth_altitude(self):
+        if not (self.parent and self.mouth_altitude is not None and self.parent.mouth_altitude is not None):
+            return
+        if self.mouth_altitude < self.parent.mouth_altitude:
+            raise ValidationError({
+                'mouth_altitude': (
+                    f'{self.name()} mouth ({self.mouth_altitude:.1f} m) '
+                    f'must not be lower than the mouth of its parent '
+                    f'{self.parent.name()} ({self.parent.mouth_altitude:.1f} m).'
+                )
+            })
+
+    def clean(self):
+        super().clean()
+        self._check_mouth_altitude()
 
     def __str__(self):
         return f"{self.source.name}"

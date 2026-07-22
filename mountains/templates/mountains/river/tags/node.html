@@ -1,0 +1,20 @@
+{% load tree %}
+
+{% for river in nodes %}
+    <li class="tree-node">
+        <a class="river" href="{% url 'river-detail' river.id %}">{{ river.name }}</a>
+        {% if river.mouth_altitude is not None %}({{ river.mouth_altitude|floatformat:1 }} m){% endif %}
+        {% if river.branches_off %}
+            &#x2197; branches off
+            <a class="river" href="{% url 'river-detail' river.branches_off.id %}">{{ river.branches_off.name }}</a>
+        {% endif %}
+
+        {% with children=tree|get_item:river.pk %}
+            {% if children %}
+                <ul class="tree rivers">
+                    {% river_tree children tree %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+    </li>
+{% endfor %}

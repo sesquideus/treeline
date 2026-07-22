@@ -47,6 +47,14 @@ def horizon_tree(nodes, tree):
     }
 
 
+@register.inclusion_tag('mountains/river/tags/node.html')
+def river_tree(nodes, tree):
+    return {
+        'nodes': nodes,
+        'tree': tree,
+    }
+
+
 @register.inclusion_tag('mountains/summit/tags/prominence/lineage.html')
 def render_prominence_lineage(node, encirclement_parent_pk):
     return {

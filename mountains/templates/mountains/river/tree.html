@@ -1,0 +1,19 @@
+{% extends 'core/text-page.html' %}
+{% load static tree %}
+
+{% block title %}River tree{% endblock title %}
+{% block page_title %}River tree{% endblock page_title %}
+
+{% block page_content %}
+    <div class="data">
+        <p>
+            This structure is a <b>forest</b> of rivers: every river points at the river it
+            flows into (its parent), and tributaries are nested underneath. Rivers without a
+            parent are roots &mdash; either the ultimate outflows or an artifact of an
+            incomplete database. Siblings are ordered by source altitude, ascending.
+        </p>
+        <ul class="tree tree-root">
+            {% river_tree roots tree %}
+        </ul>
+    </div>
+{% endblock page_content %}

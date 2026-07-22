@@ -34,6 +34,7 @@ urlpatterns = [
     path('col/<int:pk>/', views.col.DetailView.as_view(), name='col'),
     path('cols', views.col.ListView.as_view(), name='col-list'),
 
+    path('river-tree', views.river.RiverForestView.as_view(), name='river-tree'),
     path('river/<int:pk>/', views.river.DetailView.as_view(), name='river-detail'),
     path('rivers', views.river.ListView.as_view(), name='river-list'),
 
