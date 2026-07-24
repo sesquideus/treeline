@@ -48,8 +48,13 @@ class RiverQuerySet(models.QuerySet):
         return self.prefetch_related(
             Prefetch(
                 'cols',
-                queryset=Col.objects.with_minor().order_by('-prominence'),
+                queryset=Col.objects.with_minor().order_by('-depth'),
             )
+        )
+
+    def with_direct_length(self):
+        return self.annotate(
+            direct_length=Distance('source__location', 'mouth'),
         )
 
     def with_db_status(self):

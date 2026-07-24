@@ -30,7 +30,7 @@ class DetailView(DjangoDetailView):
     template_name = 'mountains/river/detail.html'
 
     def get_queryset(self):
-        return River.objects.with_displacement().with_tributaries().with_cols()
+        return River.objects.with_displacement().with_tributaries().with_cols().with_direct_length()
 
 
 class RiverForestView(ListView):

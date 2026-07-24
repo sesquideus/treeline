@@ -17,7 +17,7 @@ class ColQuerySet(models.QuerySet):
     def with_minor(self):
         Summit = apps.get_model('mountains', 'Summit')
         return self.annotate(
-            prominence=F('key_for__point__altitude') - F('key_for__key_col__point__altitude')
+            depth=F('key_for__point__altitude') - F('key_for__key_col__point__altitude')
         ).prefetch_related(
             Prefetch('key_for',
                      queryset=Summit.objects.with_prominence()

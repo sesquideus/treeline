@@ -3,6 +3,7 @@ from django.forms import ModelMultipleChoiceField, CharField
 
 from core.models import Country
 
+
 class FilterForm(forms.Form):
     countries = ModelMultipleChoiceField(
         queryset=Country.objects.all(),
