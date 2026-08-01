@@ -11,7 +11,7 @@ class DetailView(DjangoDetailView):
     template_name = 'mountains/col/detail.html'
 
     def get_queryset(self):
-        return super().get_queryset().with_full_name().select_related('point')
+        return super().get_queryset().with_full_name().with_minor().select_related('point')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

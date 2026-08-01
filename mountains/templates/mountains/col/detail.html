@@ -25,9 +25,11 @@
         </h2>
         {% object_link lower 'mountain' %}
         &#x2198;
-        {{ lower.prominence|floatformat:1 }} m
+        {{ col.point.altitude|floatformat:1 }} m
         &#x2197;
         <b>{% object_link lower.prominence_parent 'mountain' %}</b>
+
+        <p>Depth <span class="altitude">{{ col.depth|altitude }}</span></p>
 
 
         <h3>

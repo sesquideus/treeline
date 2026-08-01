@@ -8,7 +8,7 @@ from ..models import River
 
 @admin.register(River)
 class RiverAdmin(PointModelAdmin):
-    list_display = ['source__name', 'source_latitude', 'source_longitude', 'source_altitude', 'summit:link',
+    list_display = ['source__name', 'flags', 'source_latitude', 'source_longitude', 'source_altitude', 'summit:link',
                     'branches_off:link',
                     'mouth', 'mouth_altitude:.1f', 'parent:link', 'is_complete']
     fieldsets = (
@@ -45,3 +45,7 @@ class RiverAdmin(PointModelAdmin):
 
     def source_altitude(self, obj):
         return f"{obj.source.altitude:.1f} m"
+
+    def flags(self, obj):
+        return obj.source.flags()
+

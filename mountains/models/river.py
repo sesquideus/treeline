@@ -61,7 +61,8 @@ class RiverQuerySet(models.QuerySet):
         return self.annotate(
             complete=Q(source__location__isnull=False) & Q(source__altitude__isnull=False) & \
                      Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) & \
-                     Q(parent__isnull=False) & Q(summit__isnull=False),
+                     Q(parent__isnull=False) & \
+                     (Q(summit__isnull=False) | Q(branches_off__isnull=False)),
         )
 
 
