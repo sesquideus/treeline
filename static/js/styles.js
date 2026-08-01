@@ -30,13 +30,16 @@ const MAX_PROMINENCE = 8848.86;   // Mount Everest
 // magnitude too — an ultra is a large, pale, ink-outlined mark, a subsidiary bump a small
 // dark dot. Reverse the colour column to put it back the conventional way round; the
 // palette validates identically either way, only the meaning changes.
+// Hue drifts with lightness as well — amber at the ultra end, deep red at the bottom — so
+// the bands separate by two channels, not just one. Spread is 29°, inside the 40° that
+// still reads as a single ramp rather than a categorical set of hues.
 const PROMINENCE_BANDS = [
-    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#ca5e48' },
-    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#b74832' },
-    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#a3341e' },
-    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#8a2410' },
-    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#701806' },
-    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#551004' },
+    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#be6c1e' },
+    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#ae5402' },
+    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#9c3e00' },
+    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#862c00' },
+    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#701800' },
+    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#560e08' },
 ];
 const PROMINENCE_UNKNOWN = { key: 'unknown', label: 'unknown', colour: '#898781' };
 
@@ -66,6 +69,18 @@ function prominenceRadius(prominence, base = SUMMIT_BASE_RADIUS) {
     const scale = SUMMIT_MIN_SCALE
         + (SUMMIT_MAX_SCALE - SUMMIT_MIN_SCALE) * Math.pow(t, SUMMIT_SCALE_EXPONENT);
     return base * scale;
+}
+
+// Where summits overlap, the more prominent one takes the top of the stack — and with it
+// the click, since forEachFeatureAtPixel hands back the topmost feature first. The span is
+// wide so that neighbouring peaks rarely land on the same integer and fall back to source
+// order; the curve matches prominenceRadius() so the stacking follows the visible sizes.
+const Z_SUMMIT_SPAN = 1000;
+
+function prominenceZIndex(prominence) {
+    if (prominence == null || !(prominence > 0)) return Z_POINT;
+    const t = Math.min(prominence / MAX_PROMINENCE, 1);
+    return Z_POINT + Math.round(Math.pow(t, SUMMIT_SCALE_EXPONENT) * Z_SUMMIT_SPAN);
 }
 
 const GREEN  = [39, 174, 96];
@@ -142,7 +157,7 @@ function dot(color, radius=6) {
 // legible against the terrain. Small dark markers lose nothing by it.
 const SUMMIT_OUTLINE = 'rgba(11, 11, 11, 0.8)';
 
-function summitMarker(color, radius=6, outline=SUMMIT_OUTLINE) {
+function summitMarker(color, radius = 6, { outline = SUMMIT_OUTLINE, zIndex = Z_POINT } = {}) {
     return new ol.style.Style({
         image: new ol.style.RegularShape({
             points: 3,
@@ -150,7 +165,7 @@ function summitMarker(color, radius=6, outline=SUMMIT_OUTLINE) {
             fill: new ol.style.Fill({ color }),
             stroke: new ol.style.Stroke({ color: outline, width: 1 }),
         }),
-        zIndex: Z_POINT,
+        zIndex,
     });
 }
 
@@ -213,9 +228,11 @@ const isolationCircleStyle = new ol.style.Style({
 
 
 function styleFor(feature) {
+    const prom = feature.get('prom');
     switch (feature.get('type')) {
-        case 'summit':                  return summitMarker(prominenceBand(feature.get('prom')).colour,
-                                                            prominenceRadius(feature.get('prom')));
+        case 'summit':                  return summitMarker(prominenceBand(prom).colour,
+                                                            prominenceRadius(prom),
+                                                            { zIndex: prominenceZIndex(prom) });
         case 'prominence_parent':       return summitMarker('#2980b9');
         case 'col':                     return colMarker();
         case 'isolation_point':         return dot('#f1c40f');
@@ -229,14 +246,15 @@ function styleFor(feature) {
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
         case 'slope_line':              return gradientLine(feature, RED, YELLOW);
         case 'horizon_king':            return [
-            summitMarker(prominenceBand(feature.get('prom')).colour, prominenceRadius(feature.get('prom'))),
+            summitMarker(prominenceBand(prom).colour, prominenceRadius(prom),
+                         { zIndex: prominenceZIndex(prom) }),
             new ol.style.Style({
                 text: new ol.style.Text({
                     text: '👑',
                     font: '14px sans-serif',
                     offsetY: -10,
                 }),
-                zIndex: Z_POINT,
+                zIndex: prominenceZIndex(prom),
             }),
         ];
         default: return [];

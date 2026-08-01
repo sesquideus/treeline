@@ -83,16 +83,20 @@ nearest higher point. It resolves parents against `/summits/geo.json` and cols a
   middle — the exponent is the counter-knob: steepen it toward 0.5 to hold the crowd down
   while the tail grows.
 - **Colour** — `prominenceBand()` buckets on the domain thresholds 1500 (ultra) / 600 / 200 /
-  100 / 30, returning one of `PROMINENCE_BANDS` or `PROMINENCE_UNKNOWN`. Single-hue ordinal
-  ramp validated on a light surface (monotone lightness, adjacent ΔL ≥ 0.06 — six steps fit
-  at 0.063, so a seventh band means re-stepping the whole ramp, not squeezing one in — hue
-  spread 0°, lightest step 3.9:1 against the surface). Note the direction is deliberately
-  *inverted* against the usual convention: the lightest step is the ultra band. That only
-  works because size co-encodes magnitude and the markers are ink-outlined
+  100 / 30, returning one of `PROMINENCE_BANDS` or `PROMINENCE_UNKNOWN`. Ordinal ramp
+  validated on a light surface: monotone lightness, adjacent ΔL ≥ 0.06 (six steps fit at
+  0.063, so a seventh band means re-stepping the whole ramp, not squeezing one in), hue
+  drifting 29° from amber at the top to deep red at the bottom — under the 40° that still
+  reads as one ramp — and the lightest step at 3.8:1 against the surface. The direction is
+  deliberately *inverted* against the usual convention: the lightest step is the ultra band.
+  That only works because size co-encodes magnitude and the markers are ink-outlined
   (`SUMMIT_OUTLINE`) rather than white-ringed, so a big pale mark still has a defined edge.
-  Beware `null >= 0 === true` in JS when
-  touching these guards — the 23 summits with no prominence must land in the grey unknown
-  band, not in "minor".
+  Beware `null >= 0 === true` in JS when touching these guards — the summits with no
+  prominence must land in the grey unknown band, not in "minor".
+- **Stacking** — `prominenceZIndex()` puts the more prominent of two overlapping summits on
+  top, which also decides the click, since `forEachFeatureAtPixel` returns the topmost
+  feature. Same cube-root curve as the radius, spread over `Z_SUMMIT_SPAN` so neighbouring
+  peaks rarely collide on one integer; unknown prominence sits at the floor.
 
 Colour never carries a band alone: `renderProminenceLegend()` builds the legend in
 `#prominence-legend` (in `core/controls.html`) from the same `PROMINENCE_BANDS` array, and
@@ -101,9 +105,10 @@ the summit popup names the band. Add a band and both follow automatically.
 Draw order is pinned with explicit z-indices, never insertion order, because layers are added
 and removed as modes change. Layers (`map.js`): rivers 10, col–confluence 15, lineage 20,
 key-col/isolation overlays 30, summits 40. Styles within one layer (`styles.js`): areas 10,
-lines 20, points 40 — this is what keeps markers on top on the single-layer detail map.
-Summits sit above everything so they stay clickable: `forEachFeatureAtPixel` returns the
-topmost feature, so anything drawn over a marker steals its clicks.
+lines 20, points 40, and summit markers 40 + prominence — this is what keeps markers on top
+on the single-layer detail map. Summits sit above everything so they stay clickable:
+`forEachFeatureAtPixel` returns the topmost feature, so anything drawn over a marker steals
+its clicks.
 
 `properties.type` drives styling. Point/marker types that `styles.js:styleFor()` handles:
 `summit`, `prominence_parent`, `col`, `isolation_point`, `isolation_parent`,
