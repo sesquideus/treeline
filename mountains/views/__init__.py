@@ -197,19 +197,19 @@ def summit_detail_map(request, pk):
         'properties': {'name': s.point.name, 'type': 'summit'},
     })
 
-    # Isolation: line from isolation position to summit, plus isolation circle
-    if s.isolation_location.y and s.isolation_location.x:
-        iso_coords = [s.isolation_location.x, s.isolation_location.y]
+    # Isolation: line from the nearest higher point to the summit, plus isolation circle
+    if s.nearest_higher_point:
+        iso_coords = [s.nearest_higher_point.x, s.nearest_higher_point.y]
         dist = distance(
             (s.point.location.y, s.point.location.x),
-            (s.isolation_location.y, s.isolation_location.x),
-        ) * 1000
+            (s.nearest_higher_point.y, s.nearest_higher_point.x),
+        )
         parent_name = (
             s.isolation_parent.point.name
             if s.isolation_parent and s.isolation_parent.point
             else 'Unknown'
         )
-        iso_label = f"{s.isolation_name or parent_name} of {s.point.name} ({dist} km)"
+        iso_label = f"{s.isolation_name or parent_name} of {s.point.name} ({dist.km:.3f} km)"
 
         features.append({
             'type': 'Feature',
@@ -241,8 +241,8 @@ def summit_detail_map(request, pk):
         # Isolation circle — approximated as a GeoJSON polygon
         features.append({
             'type': 'Feature',
-            'geometry': isolation_circle(s.point.location.y, s.point.location.x, dist),
-            'properties': {'type': 'isolation_circle', 'name': f'Isolation radius: {dist} km'},
+            'geometry': isolation_circle(s.point.location.y, s.point.location.x, dist.m),
+            'properties': {'type': 'isolation_circle', 'name': f'Isolation radius: {dist.km:.3f} km'},
         })
 
     # Prominence: summit → key col → prominence parent
@@ -268,13 +268,13 @@ def summit_detail_map(request, pk):
             'properties': {'type': 'prominence_line'},
         })
 
-    # Encirclement parent
-    if s.encirclement_parent and s.encirclement_parent.point:
-        enc_coords = [s.encirclement_parent.point.location.x, s.encirclement_parent.point.location.y]
+    # Encirclement parent — derived from the prominence chain, not stored
+    if (ep := s.compute_encirclement_parent()) and ep.point:
+        enc_coords = [ep.point.location.x, ep.point.location.y]
         features.append({
             'type': 'Feature',
             'geometry': {'type': 'Point', 'coordinates': enc_coords},
-            'properties': {'name': s.encirclement_parent.point.name, 'type': 'encirclement_parent'},
+            'properties': {'name': ep.point.name, 'type': 'encirclement_parent'},
         })
         features.append({
             'type': 'Feature',

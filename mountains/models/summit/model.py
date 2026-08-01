@@ -102,7 +102,12 @@ class SummitQuerySet(models.QuerySet):
     def with_complete(self):
         return self.with_prominence().annotate(
             has_point=Q(point__isnull=False),
-            has_key_col=Q(key_col__isnull=False) & Q(key_col__point__altitude__isnull=False),
+            # An island high point needs no key col: the sea is its col, so its
+            # prominence is its altitude. Every other summit must have one.
+            has_key_col=(
+                (Q(key_col__isnull=False) & Q(key_col__point__altitude__isnull=False))
+                | Q(island_high_point=True)
+            ),
             has_prominence_parent=Q(prominence_parent__point__isnull=False),
             has_isolation=Q(isolation_parent__point__isnull=False) & Q(nearest_higher_point__isnull=False),
         ).annotate(
@@ -262,7 +267,7 @@ class Summit(GeoModel):
         Walk up the prominence parent chain and return the first peak
         whose key col is lower than this peak's key col.
         That peak's territory encloses this one.
-        # ToDo: Done by Claude, not verified yet. But maybe we can get rid of encirclement anyway
+        # ToDo: Done by Claude, not verified yet.
         """
         if not (self.key_col and self.key_col.point):
             return None

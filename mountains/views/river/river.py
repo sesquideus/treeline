@@ -84,7 +84,8 @@ class RiverForestView(ListView):
 
 class RiverTreeView(TreeView):
     def get_queryset(self):
-        return River.objects.with_source().with_parent()
+        # get_waypoints() walks both relations per river — prefetch or it is an N+1.
+        return River.objects.with_source().with_parent().with_tributaries().with_branches()
 
 
 class GeoJsonView(RiverTreeView, FlatGeoJsonView):

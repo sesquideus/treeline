@@ -1,3 +1,5 @@
+import math
+
 from django.contrib.gis.db import models
 from django.contrib.gis.db.models.functions import Distance
 from django.core.exceptions import ValidationError
@@ -41,6 +43,15 @@ class RiverQuerySet(models.QuerySet):
             Prefetch(
                 'tributaries',
                 queryset=River.objects.with_source().with_full_name().order_by('-mouth_altitude'),
+            )
+        )
+
+    def with_branches(self):
+        """Rivers that bifurcate off this one; their sources are junctions on it."""
+        return self.prefetch_related(
+            Prefetch(
+                'branches',
+                queryset=River.objects.select_related('source'),
             )
         )
 
@@ -135,12 +146,35 @@ class River(GeoModel):
     def get_waypoints(self):
         """
         Get an ordered list of waypoints for this river.
+
+        Between the source and the mouth the channel passes two kinds of junction: the
+        mouths of its tributaries, and — where the river bifurcates — the sources of the
+        rivers that branch off it. Both are ordered together by descending altitude, the
+        order in which the water reaches them; taking only the tributaries would drop a
+        bifurcation out of the polyline entirely.
+
+        The related managers are read with `.all()` and filtered in Python so that a
+        caller who prefetched them (`with_tributaries().with_branches()`) pays no extra
+        query per river.
         """
+        junctions = [
+            (trib.mouth_altitude, trib.mouth)
+            for trib in self.tributaries.all()
+            if trib.mouth is not None
+        ] + [
+            (branch.source.altitude, branch.source.location)
+            for branch in self.branches.all()
+            if branch.source is not None and branch.source.location is not None
+        ]
+        # An unknown altitude sorts first, which is what NULLS FIRST gave us under the
+        # previous `order_by('-mouth_altitude')`.
+        junctions.sort(key=lambda junction: math.inf if junction[0] is None else junction[0],
+                       reverse=True)
+
         points = []
         if self.source and self.source.location:
             points.append(self.source.location)
-        for trib in self.tributaries.filter(mouth__isnull=False).order_by('-mouth_altitude'):
-            points.append(trib.mouth)
+        points.extend(location for _, location in junctions)
         if self.mouth:
             points.append(self.mouth)
 

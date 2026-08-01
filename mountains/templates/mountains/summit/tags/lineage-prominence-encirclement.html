@@ -1,10 +1,12 @@
 {% load tree %}
 
-{% if node.encirclement_parent %}
-    <li>
-        <a href="{{ node.encirclement_parent.get_absolute_url }}">{{ node.encirclement_parent }}</a> ({{ node.prominence|floatformat:1 }} m)
-    </li>
-    {% render_encirclement_lineage node.encirclement_parent %}
-{% else %}
-    (unknown) ({{ node.prominence|floatformat:1 }} m)
-{% endif %}
+{% with ep=node.compute_encirclement_parent %}
+    {% if ep %}
+        <li>
+            <a href="{{ ep.get_absolute_url }}">{{ ep }}</a> ({{ node.prominence|floatformat:1 }} m)
+        </li>
+        {% render_encirclement_lineage ep %}
+    {% else %}
+        (unknown) ({{ node.prominence|floatformat:1 }} m)
+    {% endif %}
+{% endwith %}

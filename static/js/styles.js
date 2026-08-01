@@ -1,5 +1,73 @@
 const SEGMENTS = 20;
 
+// Draw order *within* a single vector layer. Points sit above lines so that a marker
+// crossed by a lineage line stays visible and stays the topmost hit target on click.
+const Z_AREA  = 10;
+const Z_LINE  = 20;
+const Z_POINT = 40;
+
+// Summit markers scale with prominence: a bump with no prominence to speak of renders at
+// SUMMIT_MIN_SCALE of the base radius, Everest at SUMMIT_MAX_SCALE. The exponent shapes the
+// curve between them. The distribution is extremely tail-heavy — median prominence is under
+// 200 m against Everest's 8849 — so a cube root, which keeps the crowded bottom half
+// legible without flattening the top the way a log curve does.
+const SUMMIT_BASE_RADIUS = 10;
+const SUMMIT_MIN_SCALE = 0.6;
+const SUMMIT_MAX_SCALE = 1.75;
+const SUMMIT_SCALE_EXPONENT = 1 / 3;
+const MAX_PROMINENCE = 8848.86;   // Mount Everest
+
+// Size is a continuous encoding and cannot show a threshold; colour does that. The cutoffs
+// are the ones that carry meaning in the domain: 1500 m is the ultra definition, 600 m and
+// 200 m the conventional steps below it, then 100 m and 30 m — the latter being the usual
+// cutoff for counting as an independent summit at all. Ordered light→dark in a single hue
+// and validated as an ordinal ramp on a light surface: monotone lightness, adjacent ΔL ≥
+// 0.06 (six steps fit at 0.063), hue spread 0°. The whole ramp is stepped dark enough that
+// the lightest band clears 3.9:1 against the surface — the basemap is muted terrain, and a
+// pale warm marker disappears into it.
+// Ramp direction: light for the big peaks, dark for the small ones. It runs against the
+// usual "darker means more" convention, and it works here only because size carries the
+// magnitude too — an ultra is a large, pale, ink-outlined mark, a subsidiary bump a small
+// dark dot. Reverse the colour column to put it back the conventional way round; the
+// palette validates identically either way, only the meaning changes.
+const PROMINENCE_BANDS = [
+    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#ca5e48' },
+    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#b74832' },
+    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#a3341e' },
+    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#8a2410' },
+    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#701806' },
+    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#551004' },
+];
+const PROMINENCE_UNKNOWN = { key: 'unknown', label: 'unknown', colour: '#898781' };
+
+function prominenceBand(prominence) {
+    // `null >= 0` is true in JS, so null has to be excluded before the comparison.
+    if (prominence == null || !(prominence >= 0)) return PROMINENCE_UNKNOWN;
+    return PROMINENCE_BANDS.find(band => prominence >= band.min) || PROMINENCE_UNKNOWN;
+}
+
+// Colour must not be the only channel carrying the bands, so the legend is generated from
+// the same array the styles read. Silently does nothing on pages with no legend element.
+function renderProminenceLegend(element = document.getElementById('prominence-legend')) {
+    if (!element) return;
+    const swatch = band => `
+        <span class="legend-row">
+            <span class="legend-swatch" style="background:${band.colour}"></span>
+            ${band.label}
+        </span>`;
+    element.innerHTML = '<span class="legend-title">Prominence</span>'
+        + PROMINENCE_BANDS.map(swatch).join('')
+        + swatch(PROMINENCE_UNKNOWN);
+}
+
+function prominenceRadius(prominence, base = SUMMIT_BASE_RADIUS) {
+    if (prominence == null || !(prominence > 0)) return base * SUMMIT_MIN_SCALE;
+    const t = Math.min(prominence / MAX_PROMINENCE, 1);
+    const scale = SUMMIT_MIN_SCALE
+        + (SUMMIT_MAX_SCALE - SUMMIT_MIN_SCALE) * Math.pow(t, SUMMIT_SCALE_EXPONENT);
+    return base * scale;
+}
+
 const GREEN  = [39, 174, 96];
 const ISOLATION_BEGIN = [241, 86, 255];
 const ISOLATION_MID = [241, 86, 255];
@@ -31,7 +99,8 @@ function segmentStyles(coords, c1, c2) {
         stroke: new ol.style.Stroke({
             color: interpolateColor(c1, c2, i / (coords.length - 2)),
             width: 2,
-        })
+        }),
+        zIndex: Z_LINE,
     }));
 }
 
@@ -52,7 +121,8 @@ function withAlpha(color, alpha) {
 
 function dashedLine(color, width=3, dash=[8, 5]) {
     return new ol.style.Style({
-        stroke: new ol.style.Stroke({ color, width, lineDash: dash })
+        stroke: new ol.style.Stroke({ color, width, lineDash: dash }),
+        zIndex: Z_LINE,
     });
 }
 
@@ -62,18 +132,25 @@ function dot(color, radius=6) {
             radius,
             fill: new ol.style.Fill({ color }),
             stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
-        })
+        }),
+        zIndex: Z_POINT,
     });
 }
 
-function summitMarker(color, radius=6) {
+// Summit markers are outlined in ink rather than the usual white surface ring: the fill now
+// gets *lighter* as prominence rises, and a defined edge is what keeps the big pale ultras
+// legible against the terrain. Small dark markers lose nothing by it.
+const SUMMIT_OUTLINE = 'rgba(11, 11, 11, 0.8)';
+
+function summitMarker(color, radius=6, outline=SUMMIT_OUTLINE) {
     return new ol.style.Style({
         image: new ol.style.RegularShape({
             points: 3,
             radius,
             fill: new ol.style.Fill({ color }),
-            stroke: new ol.style.Stroke({ color: '#fff', width: 1 }),
-        })
+            stroke: new ol.style.Stroke({ color: outline, width: 1 }),
+        }),
+        zIndex: Z_POINT,
     });
 }
 
@@ -83,7 +160,8 @@ function colMarker(colour, size) {
             radius: 5,
             fill: new ol.style.Fill({ color: '#0040FF' }),
             stroke: new ol.style.Stroke({ color: '#FFFFFF', width: 1.5 }),
-        })
+        }),
+        zIndex: Z_POINT,
     });
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
@@ -112,7 +190,8 @@ function isolationLimitPointStyle(colour, radius=6) {
             radius,
             fill: new ol.style.Fill({ colour }),
             stroke: new ol.style.Stroke({ color: '#fff', width: 0.5 }),
-        })
+        }),
+        zIndex: Z_POINT,
     });
 }
 
@@ -129,12 +208,14 @@ const isolationCircleStyle = new ol.style.Style({
             color: 'rgba(219, 40, 12, 0.16)'
         }
     ),
+    zIndex: Z_AREA,
 });
 
 
 function styleFor(feature) {
     switch (feature.get('type')) {
-        case 'summit':                  return summitMarker('#c0392b', 10);
+        case 'summit':                  return summitMarker(prominenceBand(feature.get('prom')).colour,
+                                                            prominenceRadius(feature.get('prom')));
         case 'prominence_parent':       return summitMarker('#2980b9');
         case 'col':                     return colMarker();
         case 'isolation_point':         return dot('#f1c40f');
@@ -148,13 +229,14 @@ function styleFor(feature) {
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
         case 'slope_line':              return gradientLine(feature, RED, YELLOW);
         case 'horizon_king':            return [
-            summitMarker('#c0392b', 10),
+            summitMarker(prominenceBand(feature.get('prom')).colour, prominenceRadius(feature.get('prom'))),
             new ol.style.Style({
                 text: new ol.style.Text({
                     text: '👑',
                     font: '14px sans-serif',
                     offsetY: -10,
                 }),
+                zIndex: Z_POINT,
             }),
         ];
         default: return [];

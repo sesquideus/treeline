@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Treeline is a GeoDjango application that models the topography of mountains: their
 **prominence**, **isolation**, and related hierarchies. It stores summits, cols, rivers,
 and confluences as geographic points and exposes them through HTML list/detail pages,
-statistics, tree/forest visualizations, and GeoJSON endpoints that feed Leaflet maps.
+statistics, tree/forest visualizations, and GeoJSON endpoints that feed OpenLayers maps.
 
 Stack: Django 6, Python 3.14, PostGIS (via `django.contrib.gis`), `uv` for dependency
 management. Config is read from `.env` through `python-decouple`.

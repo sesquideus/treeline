@@ -299,3 +299,22 @@ div#map {
     gap: 4px;
     margin-right: 12px;
 }
+
+#map-controls .legend .legend-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+#map-controls .legend .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#map-controls .legend .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(11, 11, 11, 0.15);
+    flex: none;
+}

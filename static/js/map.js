@@ -1,3 +1,12 @@
+// Layer draw order. Layers are added and removed as modes change, so ordering is pinned
+// with an explicit zIndex rather than left to insertion order. Summits go on top: they are
+// the click targets, and a marker hidden under a lineage line cannot be hit.
+const Z_RIVERS         = 10;
+const Z_CONFLUENCE     = 15;
+const Z_LINEAGE        = 20;
+const Z_OVERLAY_POINTS = 30;
+const Z_SUMMITS        = 40;
+
 function makeMap(geojson, styleFor, coords, zoom) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
@@ -18,6 +27,7 @@ function makeMap(geojson, styleFor, coords, zoom) {
             }),
         }),
         style: styleFor,
+        zIndex: Z_SUMMITS,
     });
 
     const map = new ol.Map({
@@ -64,6 +74,10 @@ function makeMap(geojson, styleFor, coords, zoom) {
                             <tr>
                                 <th>prominence</th>
                                 <td class="altitude">${feature.get('prom')?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <th>class</th>
+                                <td>${prominenceBand(feature.get('prom')).label}</td>
                             </tr>
                         </table>
                     `;
@@ -158,7 +172,7 @@ function makeMap(geojson, styleFor, coords, zoom) {
         });
     }
 
-    return { map, tileLayer };
+    return { map, tileLayer, vectorLayer };
 }
 
 const PROMINENCE_PEAK_TO_COL_A   = [180, 0,   255, 1];   // purple
@@ -472,7 +486,7 @@ function buildRiversLayer(rivers) {
 }
 
 function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
-    let map, lineageLayer;
+    let map, lineageLayer, summitLayer;
     let summitsData, colsData;
 
     const routeToggle = document.getElementById('toggle-routing');
@@ -496,11 +510,13 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         if (mode === 'prominence' && useRouting) {
             keyColLayer = buildKeyColLayer(summitsData, colsData);
             keyColLayer.set('name', 'keycols');
+            keyColLayer.setZIndex(Z_OVERLAY_POINTS);
             map.addLayer(keyColLayer);
         }
         if (mode === 'isolation' && useRouting) {
             isolationPointLayer = buildIsolationPointLayer(summitsData);
             isolationPointLayer.set('name', 'isolation_points');
+            isolationPointLayer.setZIndex(Z_OVERLAY_POINTS);
             map.addLayer(isolationPointLayer);
         }
     }
@@ -513,10 +529,11 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
         lineageLayer = buildLineageLayer(summitsData, colsData, currentMode, useRouting);
         lineageLayer.set('name', 'lineage');
+        lineageLayer.setZIndex(Z_LINEAGE);
         map.addLayer(lineageLayer);
         rebuildOverlayLayers();
         // refresh summit layer style
-        map.getLayers().item(1).setStyle(summitStyleFor);
+        summitLayer.setStyle(summitStyleFor);
     }
 
     Promise.all([
@@ -527,8 +544,11 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         summitsData = summits;
         colsData = cols;
 
-        const { map: m, tileLayer } = makeMap(summits, styleFor, [22, 49], 11);
+        const { map: m, tileLayer, vectorLayer } = makeMap(summits, styleFor, [22, 49], 11);
         map = m;
+        summitLayer = vectorLayer;
+        summitLayer.set('name', 'summits');
+        renderProminenceLegend();
 
         const opacitySlider = document.getElementById('map-opacity');
         if (opacitySlider) {
@@ -539,6 +559,7 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
         const riversLayer = buildRiversLayer(rivers);
         riversLayer.set('name', 'rivers');
+        riversLayer.setZIndex(Z_RIVERS);
         map.addLayer(riversLayer);
 
         const riversToggle = document.getElementById('toggle-rivers');
@@ -556,6 +577,7 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         }
         let colConfluenceLayer = buildConfluenceLayer(cols, colToggle && colToggle.checked);
         colConfluenceLayer.set('name', 'col_confluence');
+        colConfluenceLayer.setZIndex(Z_CONFLUENCE);
         map.addLayer(colConfluenceLayer);
 
 

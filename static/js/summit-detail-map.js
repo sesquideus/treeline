@@ -13,7 +13,7 @@ function initSummitMap(geojsonUrl, lineageUrl, summitCoords) {
         fetch(geojsonUrl).then(r => r.json()),
         fetch(lineageUrl).then(r => r.json()),
     ]).then(([geojson, lineage]) => {
-        map = makeMap(geojson, styleFor, summitCoords);
+        ({ map } = makeMap(geojson, styleFor, summitCoords));
 
         map.on('click', function(e) {
             const feature = map.forEachFeatureAtPixel(e.pixel, f => f);
