@@ -47,7 +47,10 @@
                     <td class="link">{% object_link mountain.prominence_parent 'mountain' attr='name' %}</td>
                     <td class="altitude">{{ mountain.prominence_parent.point.altitude|altitude }}</td>
                     <td class="distance">{{ mountain.distance_to_parent.m|distance }}</td>
-                    <td class="altitude">{{ mountain.prominence|altitude }}</td>
+                    <td class="altitude">
+                        {% if mountain.island_high_point %}&#x1F3DD;{% endif %}
+                        {{ mountain.prominence|altitude }}
+                    </td>
                     <td class="number">{{ mountain.dominance|floatformat:3 }}</td>
 
                     <td class="distance">{{ mountain.compute_isolation.m|distance }}</td>

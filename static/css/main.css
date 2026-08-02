@@ -103,6 +103,57 @@ img.flag {
     border: 1px solid hsla(0, 0%, 0%, 10%);
 }
 
+/* Country filter (FilterForm.countries). The id comes from the field name, so this
+   follows a rename of `countries` in mountains/forms/filter.py. */
+#id_countries {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10em, 1fr));
+    gap: 1px 4px;
+    max-width: 34em;
+}
+
+#id_countries label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#id_countries .country-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+#id_countries .country-name {
+    font-size: 0.85em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#id_countries label:hover {
+    background: hsla(0, 0%, 0%, 6%);
+}
+
+#id_countries img.flag {
+    height: 1.2em;
+}
+
+/* The label is a picture, so mark the checked one on the picture too */
+#id_countries input:checked + .country-choice img.flag {
+    outline: 2px solid hsl(210, 80%, 45%);
+    outline-offset: 1px;
+}
+
+.flag-missing {
+    font-size: 0.85em;
+    font-variant: small-caps;
+}
+
 span.prominence {
     font-weight: 600;
 }
