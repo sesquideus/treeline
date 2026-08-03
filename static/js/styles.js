@@ -20,26 +20,31 @@ const MAX_PROMINENCE = 8848.86;   // Mount Everest
 // Size is a continuous encoding and cannot show a threshold; colour does that. The cutoffs
 // are the ones that carry meaning in the domain: 1500 m is the ultra definition, 600 m and
 // 200 m the conventional steps below it, then 100 m and 30 m — the latter being the usual
-// cutoff for counting as an independent summit at all. Ordered light→dark in a single hue
-// and validated as an ordinal ramp on a light surface: monotone lightness, adjacent ΔL ≥
-// 0.06 (six steps fit at 0.063), hue spread 0°. The whole ramp is stepped dark enough that
-// the lightest band clears 3.9:1 against the surface — the basemap is muted terrain, and a
-// pale warm marker disappears into it.
+// cutoff for counting as an independent summit at all.
+// A multi-hue ramp in the style of inferno/magma: gold → amber → orange → red → magenta →
+// violet, monotone in lightness (0.820 → 0.241) with 160° of hue travel on top of it. The
+// one-hue-per-ramp rule is deliberately broken: six steps of a single hue put adjacent bands
+// only ΔE 6.4 apart, close enough that the bottom half of the legend read as one colour.
+// Steps are spaced *unevenly on purpose* — ΔL grows from 0.073 at the top to 0.145 at the
+// bottom, and hue likewise. Marker area shrinks with prominence, so the low bands have the
+// least ink to carry their colour and need the most separation to stay distinguishable: the
+// bottom pairs sit at ΔE 17–19, the top ones at 9–13, where the marks are large enough to
+// read a smaller difference. Worst pair under simulated protanopia/deuteranopia is 7.2.
 // Ramp direction: light for the big peaks, dark for the small ones. It runs against the
 // usual "darker means more" convention, and it works here only because size carries the
 // magnitude too — an ultra is a large, pale, ink-outlined mark, a subsidiary bump a small
-// dark dot. Reverse the colour column to put it back the conventional way round; the
-// palette validates identically either way, only the meaning changes.
-// Hue drifts with lightness as well — amber at the ultra end, deep red at the bottom — so
-// the bands separate by two channels, not just one. Spread is 29°, inside the 40° that
-// still reads as a single ramp rather than a categorical set of hues.
+// dark dot. Reverse the colour column to put it back the conventional way round.
+// The cost of a vivid top end: the gold clears only 1.7:1 against the surface and 1.2:1
+// against forest-green tiles, under the 2:1 an ordinal ramp's lightest step is supposed to
+// hold, so it leans on SUMMIT_OUTLINE for its edge. Darkening it toward #c5af00 buys that
+// contrast back and costs the vibrancy.
 const PROMINENCE_BANDS = [
-    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#eebc1e' },
-    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#ce7402' },
-    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#ac4e00' },
-    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#862c00' },
-    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#701800' },
-    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#560e08' },
+    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#d6c900' },
+    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#d9a400' },
+    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#d36f00' },
+    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#c60129' },
+    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#7a0057' },
+    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#2e004d' },
 ];
 const PROMINENCE_UNKNOWN = { key: 'unknown', label: 'unknown', colour: '#898781' };
 
