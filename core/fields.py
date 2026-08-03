@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.gis.geos import Point
+from django.core.exceptions import ValidationError
 from django.utils.html import format_html
 
 from core.templatetags.countries import flag
@@ -65,3 +66,48 @@ class PointFormField(forms.MultiValueField):
         if data_list and data_list[0] is not None and data_list[1] is not None:
             return Point(data_list[1], data_list[0], srid=4326)  # Point(lon, lat)
         return None
+
+
+class RangeWidget(forms.MultiWidget):
+    """A "min" and a "max" number input on one line, separated by a dash."""
+    template_name = 'core/widgets/range.html'
+
+    def __init__(self):
+        widgets = [
+            forms.NumberInput(attrs={'step': 'any', 'placeholder': 'min'}),
+            forms.NumberInput(attrs={'step': 'any', 'placeholder': 'max'}),
+        ]
+        super().__init__(widgets=widgets)
+
+    def decompress(self, value):
+        if value:
+            return list(value)
+        return [None, None]
+
+
+class RangeFormField(forms.MultiValueField):
+    """
+    An inclusive numeric range, cleaned to a `(low, high)` tuple where either end may be None.
+
+    Both ends are optional — a one-sided bound is ordinary input, not an "incomplete value"
+    error, so the subfields are explicitly `required=False` (`require_all_fields=False` alone
+    does not relax them). An empty range cleans to `None` rather than `(None, None)`, so a
+    view can skip it with a walrus the way it does for the other filters.
+    """
+    def __init__(self, *, min_value=None, **kwargs):
+        kwargs.setdefault('required', False)
+        fields = (
+            forms.FloatField(required=False, min_value=min_value),
+            forms.FloatField(required=False, min_value=min_value),
+        )
+        super().__init__(fields=fields, widget=RangeWidget(), require_all_fields=False, **kwargs)
+
+    def compress(self, data_list):
+        if not data_list:
+            return None
+        low, high = data_list
+        if low is None and high is None:
+            return None
+        if low is not None and high is not None and low > high:
+            raise ValidationError("The minimum cannot be greater than the maximum.")
+        return low, high

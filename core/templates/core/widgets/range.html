@@ -1,0 +1,1 @@
+{% spaceless %}<span class="range-widget">{% for subwidget in widget.subwidgets %}{% if not forloop.first %}<span class="range-dash">&ndash;</span>{% endif %}{% include subwidget.template_name with widget=subwidget %}{% endfor %}</span>{% endspaceless %}

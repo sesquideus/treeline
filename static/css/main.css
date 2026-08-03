@@ -103,13 +103,64 @@ img.flag {
     border: 1px solid hsla(0, 0%, 0%, 10%);
 }
 
+/* The list filters (`form.filter`, rendered by `as_ul`): one wide, low band across the top
+   of the page instead of a tall stack — the table below is the point of the page. Each field
+   is an `li`, so they become flex items laid side by side and wrapped as the width allows. */
+form.filter ul {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3em 1.5em;
+    margin: 0 0 0.9em;
+    padding: 0;
+    list-style: none;
+}
+
+form.filter li {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    margin: 0;
+}
+
+form.filter label {
+    white-space: nowrap;
+}
+
+/* The countries take a whole row of their own — dozens of chips beside a text input would
+   push everything else off the line. Baseline alignment keeps the label level with the first
+   row of chips rather than centred against all of them. */
+form.filter li:has(#id_countries) {
+    flex: 1 1 100%;
+    align-items: baseline;
+}
+
+form.filter #id_countries {
+    flex: 1;
+}
+
+form.filter .helptext {
+    font-size: 0.85em;
+    color: hsl(0, 0%, 45%);
+}
+
+/* The default `size=20` text input is wider than any name needs to be here */
+form.filter input[type="text"] {
+    width: 10em;
+}
+
 /* Country filter (FilterForm.countries). The id comes from the field name, so this
-   follows a rename of `countries` in mountains/forms/filter.py. */
+   follows a rename of `countries` in mountains/forms/filter.py.
+   Chips are sized to their own content and wrapped, rather than laid on a fixed grid, so a
+   row holds as many short names as it can fit and the block stays two or three lines high. */
 #id_countries {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(10em, 1fr));
-    gap: 1px 4px;
-    max-width: 34em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px 0.4em;
+}
+
+#id_countries > div {
+    display: flex;
 }
 
 #id_countries label {
@@ -152,6 +203,21 @@ img.flag {
 .flag-missing {
     font-size: 0.85em;
     font-variant: small-caps;
+}
+
+/* Numeric range filters (core.fields.RangeWidget) — min and max on one line */
+.range-widget {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4em;
+}
+
+.range-widget input {
+    width: 5.5em;
+}
+
+.range-dash {
+    color: hsl(0, 0%, 45%);
 }
 
 span.prominence {

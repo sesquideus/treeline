@@ -1,7 +1,18 @@
 from cairn.views import OrderableListView
+from django.contrib.gis.measure import D
 
-from mountains.forms.filter import FilterForm
+from mountains.forms.filter import SummitFilterForm
 from mountains.models import Summit
+
+
+def within(qs, name, bounds, convert=float):
+    """Apply an inclusive `(low, high)` range to a field or annotation; either end may be None."""
+    low, high = bounds
+    if low is not None:
+        qs = qs.filter(**{f'{name}__gte': convert(low)})
+    if high is not None:
+        qs = qs.filter(**{f'{name}__lte': convert(high)})
+    return qs
 
 
 class MountainListView(OrderableListView):
@@ -30,7 +41,7 @@ class MountainListView(OrderableListView):
 
     def parse_get_arguments(self):
         super().parse_get_arguments()
-        self.filter_form = FilterForm(self.request.GET or None)
+        self.filter_form = SummitFilterForm(self.request.GET or None)
         self.filter_form.is_valid()  # all fields are optional, so this just populates cleaned_data
 
     def get_queryset(self):
@@ -51,6 +62,16 @@ class MountainListView(OrderableListView):
             qs = qs.filter(point__countries__in=countries).distinct()
         if name := data.get('name'):
             qs = qs.filter(point__name__icontains=name)
+        if altitude := data.get('altitude'):
+            qs = within(qs, 'point__altitude', altitude)
+        if prominence := data.get('prominence'):
+            # Both metric filters drop the summits whose metric is NULL — no key col means no
+            # prominence, no nearest higher point means no isolation (Everest has neither).
+            qs = within(qs, 'prominence', prominence)
+        if isolation := data.get('isolation'):
+            # `isolation` is a Distance annotation, so its bounds have to be measures too;
+            # the form takes kilometres because that is what the column shows.
+            qs = within(qs, 'isolation', isolation, convert=lambda km: D(km=km))
 
         self.queryset = qs
         return super().get_queryset()
