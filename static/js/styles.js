@@ -34,9 +34,9 @@ const MAX_PROMINENCE = 8848.86;   // Mount Everest
 // the bands separate by two channels, not just one. Spread is 29°, inside the 40° that
 // still reads as a single ramp rather than a categorical set of hues.
 const PROMINENCE_BANDS = [
-    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#be6c1e' },
-    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#ae5402' },
-    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#9c3e00' },
+    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#eebc1e' },
+    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#ce7402' },
+    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#ac4e00' },
     { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#862c00' },
     { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#701800' },
     { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#560e08' },
