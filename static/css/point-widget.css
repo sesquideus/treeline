@@ -1,0 +1,24 @@
+.point-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+}
+
+.point-widget-paste {
+    padding: 0.15em 0.45em;
+    border: 1px solid var(--border-color, #ccc);
+    border-radius: 4px;
+    background: var(--button-bg, transparent);
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.point-widget-paste.point-widget-ok {
+    border-color: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.35);
+}
+
+.point-widget-paste.point-widget-failed {
+    border-color: #d9534f;
+    box-shadow: 0 0 0 2px rgba(217, 83, 79, 0.35);
+}

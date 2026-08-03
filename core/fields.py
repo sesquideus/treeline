@@ -26,6 +26,20 @@ class CountryMultipleChoiceField(forms.ModelMultipleChoiceField):
 
 
 class PointWidget(forms.MultiWidget):
+    """
+    A latitude and a longitude input that fill both halves from one pasted coordinate pair.
+
+    `static/js/point-widget.js` splits the "48.123456, 19.12345" pair Google Maps copies —
+    and the hemisphere form `NamedPointAdmin.location_display` prints — across the two inputs
+    on Ctrl+V, leaving anything else to paste normally. The 📋 button does the same on click
+    where the browser grants clipboard reads.
+    """
+    template_name = 'core/widgets/point.html'
+
+    class Media:
+        css = {'all': ('css/point-widget.css',)}
+        js = ('js/point-widget.js',)
+
     def __init__(self):
         widgets = [
             forms.NumberInput(attrs={'step': 'any', 'placeholder': 'Latitude',}),

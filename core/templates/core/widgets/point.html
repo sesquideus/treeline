@@ -1,0 +1,1 @@
+{% spaceless %}<span class="point-widget">{% for subwidget in widget.subwidgets %}{% include subwidget.template_name with widget=subwidget %}{% endfor %}<button type="button" class="point-widget-paste" title="Paste coordinates from the clipboard (&quot;48.123456, 19.12345&quot;)" aria-label="Paste coordinates from the clipboard">📋</button></span>{% endspaceless %}
