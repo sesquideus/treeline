@@ -59,7 +59,7 @@ class Col(GeoModel):
         if self.point.name:
             return f"{self.point.name} ({self.point.altitude}\u00A0m)"
         elif hasattr(self, 'key_for'):
-            return f"unnamed → {self.key_for.point.name}"
+            return f"unnamed → {self.key_for.point.name} ({self.point.altitude}\u00A0m)"
         else:
             return f"unnamed col"
 

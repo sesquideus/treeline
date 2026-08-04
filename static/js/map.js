@@ -64,7 +64,7 @@ function makeMap(geojson, styleFor, coords, zoom) {
                 case 'summit':
                     text = `
                         <h3 class="mountain">
-                            ${feature.get('name') ?? 'unnamed col'}
+                            ${feature.get('name') ?? 'unnamed peak'}
                         </h3>
                         <table class="tooltip">
                             <tr>

@@ -112,7 +112,10 @@ class River(GeoModel):
         self._check_mouth_altitude()
 
     def __str__(self):
-        return f"{self.source.name}"
+        if self.source.name:
+            return f"{self.source.name}"
+        else:
+            return f"unnamed river ({self.source.location.y:.6f}° {self.source.location.x:.6f}°)"
 
     def name(self):
         return f"{self.source.name}"
