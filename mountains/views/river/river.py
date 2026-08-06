@@ -2,7 +2,6 @@ import math
 from abc import ABC
 
 from cairn.views import OrderableListView
-from django.db.models import F
 from django.views.generic import ListView as DjangoListView, DetailView as DjangoDetailView, ListView
 
 from mountains.models import River

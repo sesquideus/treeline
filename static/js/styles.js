@@ -232,6 +232,103 @@ const isolationCircleStyle = new ol.style.Style({
 });
 
 
+// Hover highlight: a ring drawn around the key col and the parent of whichever peak is under
+// the cursor. Cyan is deliberately outside the prominence ramp's warm gold-to-violet range, so
+// a ring never reads as another band; and it is a ring rather than a fill so the marker it
+// annotates stays visible, colour and size intact, inside it. The white halo underneath keeps
+// it legible on the forested green parts of the basemap as well as the pale ones.
+const HIGHLIGHT_COLOUR = '#00b6e0';
+const HIGHLIGHT_HALO = 'rgba(255, 255, 255, 0.9)';
+
+// The parent's entrance animation. OpenLayers has no declarative animation, so the style
+// function reads a progress value (0 = just appeared, 1 = settled) that map.js advances with
+// requestAnimationFrame plus a map.render() per frame.
+const HIGHLIGHT_MS = 220;          // short enough to read as a response to the cursor
+const HIGHLIGHT_GROW = 1.7;        // final size of the parent triangle, relative to its own
+let highlightProgress = 1;
+
+function setHighlightProgress(value) {
+    highlightProgress = Math.min(Math.max(value, 0), 1);
+}
+
+// Overshoots just past the target before settling, which is what makes the growth read as a
+// snap rather than a slow inflation.
+function easeOutBack(t) {
+    const s = 1.70158;
+    const u = t - 1;
+    return 1 + (s + 1) * u * u * u + s * u * u;
+}
+
+// Mix a hex colour toward white. Lifting the parent's own band colour is what makes it look
+// lit while keeping it identifiably its own band — a flat white marker would lose that.
+function lighten(hex, amount) {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    const mix = c => Math.round(c + (255 - c) * amount);
+    return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+function highlightParent(prom) {
+    const eased = easeOutBack(highlightProgress);
+    const radius = prominenceRadius(prom) * (1 + (HIGHLIGHT_GROW - 1) * eased);
+    return [
+        // An oversized translucent triangle fading in behind the marker: the "shine".
+        new ol.style.Style({
+            image: new ol.style.RegularShape({
+                points: 3,
+                radius: radius * 1.5,
+                fill: new ol.style.Fill({ color: `rgba(0, 182, 224, ${0.32 * eased})` }),
+            }),
+            zIndex: Z_POINT,
+        }),
+        new ol.style.Style({
+            image: new ol.style.RegularShape({
+                points: 3,
+                radius,
+                fill: new ol.style.Fill({
+                    color: lighten(prominenceBand(prom).colour, 0.4 * eased),
+                }),
+                stroke: new ol.style.Stroke({ color: HIGHLIGHT_HALO, width: 2 }),
+            }),
+            zIndex: Z_POINT + 1,
+        }),
+    ];
+}
+
+// The peak-to-parent connection, over the top of the lineage line it follows: a white halo
+// under a cyan core, so it stays readable wherever it crosses.
+function highlightLine() {
+    return [
+        new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: HIGHLIGHT_HALO, width: 7 }),
+            zIndex: Z_LINE,
+        }),
+        new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: HIGHLIGHT_COLOUR, width: 3 }),
+            zIndex: Z_LINE + 1,
+        }),
+    ];
+}
+
+function highlightRing(radius) {
+    return [
+        new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: radius,
+                stroke: new ol.style.Stroke({ color: HIGHLIGHT_HALO, width: 5 }),
+            }),
+            zIndex: Z_POINT,
+        }),
+        new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: radius,
+                stroke: new ol.style.Stroke({ color: HIGHLIGHT_COLOUR, width: 2.5 }),
+            }),
+            zIndex: Z_POINT,
+        }),
+    ];
+}
+
+
 function styleFor(feature) {
     const prom = feature.get('prom');
     switch (feature.get('type')) {
@@ -240,6 +337,11 @@ function styleFor(feature) {
                                                             { zIndex: prominenceZIndex(prom) });
         case 'prominence_parent':       return summitMarker('#2980b9');
         case 'col':                     return colMarker();
+        // The col keeps a ring — it is a fixed 5px circle, so a ring at 10 clears it — while the
+        // parent is redrawn as its own triangle, grown and lit, rather than annotated.
+        case 'highlight_col':           return highlightRing(10);
+        case 'highlight_parent':        return highlightParent(prom);
+        case 'highlight_line':          return highlightLine();
         case 'isolation_point':         return dot('#f1c40f');
         case 'isolation_parent':        return dot('#8e44ad');
         case 'encirclement_parent':     return summitMarker('#c0392b', 12);

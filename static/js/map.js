@@ -4,10 +4,16 @@
 const Z_RIVERS         = 10;
 const Z_CONFLUENCE     = 15;
 const Z_LINEAGE        = 20;
+const Z_HIGHLIGHT_LINE = 25;   // over the lineage it traces, under the markers it connects
 const Z_OVERLAY_POINTS = 30;
 const Z_SUMMITS        = 40;
+const Z_HIGHLIGHT_MARK = 45;   // above the summits: the grown parent replaces its own marker
 
-function makeMap(geojson, styleFor, coords, zoom) {
+// `onHover` is optional and receives the feature under the cursor (or null). The tooltip is
+// wired up here; anything else that should react to hovering — the key col and parent
+// highlight, for one — goes through the callback rather than adding a second pointermove
+// listener, so the hit test still runs once per mouse position.
+function makeMap(geojson, styleFor, coords, zoom, onHover) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
         source: new ol.source.XYZ({
@@ -53,13 +59,9 @@ function makeMap(geojson, styleFor, coords, zoom) {
     const overlay = new ol.Overlay({ element: popup, positioning: 'bottom-center', offset: [0, -10] });
     map.addOverlay(overlay);
 
-    map.on('click', function(e) {
-        const feature = map.forEachFeatureAtPixel(e.pixel, f => f);
+    function popupHtml(feature) {
         if (feature) {
-            overlay.setPosition(e.coordinate);
-
             let text = "";
-            console.log(feature);
             switch (feature.get('type')) {
                 case 'summit':
                     text = `
@@ -159,10 +161,65 @@ function makeMap(geojson, styleFor, coords, zoom) {
                         </table>
                     `;
             }
-            popup.innerHTML = text;
-        } else {
-            overlay.setPosition(undefined);
+            return text;
         }
+        return '';
+    }
+
+    // Which feature the popup is currently describing. `pointermove` fires on every mouse
+    // position, and rebuilding the body each time would re-run the templates and the band
+    // lookup dozens of times a second, so the HTML is only replaced when the feature changes.
+    let described = null;
+
+    function showPopup(feature, coordinate) {
+        const html = feature ? popupHtml(feature) : '';
+        if (!html) {                       // no feature, or one the switch does not describe
+            described = null;
+            overlay.setPosition(undefined);
+            return;
+        }
+        if (feature !== described) {
+            popup.innerHTML = html;
+            described = feature;
+        }
+        // Anchored to the mark itself rather than to the cursor, so it does not jitter while
+        // the pointer moves around inside a marker. Lines have no single point to sit on.
+        const geometry = feature.getGeometry();
+        overlay.setPosition(geometry && geometry.getType() === 'Point'
+            ? geometry.getCoordinates()
+            : coordinate);
+    }
+
+    // The highlight rings must not be hoverable themselves: they sit on top of the very markers
+    // they annotate, so hit-testing them would hand back a ring instead of the peak and the
+    // tooltip would blank out the moment a highlight appeared.
+    function featureAt(pixel) {
+        return map.forEachFeatureAtPixel(pixel, f => f,
+            { layerFilter: layer => !(layer.get('name') || '').startsWith('highlight') });
+    }
+
+    function hovered(feature, coordinate) {
+        showPopup(feature, coordinate);
+        if (onHover) onHover(feature);
+    }
+
+    map.on('pointermove', function(e) {
+        if (e.dragging) {                  // panning: the popup would trail the drag
+            hovered(null);
+            return;
+        }
+        const feature = featureAt(e.pixel);
+        map.getTargetElement().style.cursor = feature ? 'pointer' : '';
+        hovered(feature, e.coordinate);
+    });
+
+    // pointermove stops firing once the cursor leaves the canvas, which would otherwise leave
+    // the last popup stuck on screen.
+    map.getViewport().addEventListener('pointerleave', () => hovered(null));
+
+    // Touch devices have no hover at all, so a tap still opens the popup.
+    map.on('click', function(e) {
+        hovered(featureAt(e.pixel), e.coordinate);
     });
 
     const opacitySlider = document.getElementById('map-opacity');
@@ -494,6 +551,86 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
     let keyColLayer = null;
     let isolationPointLayer = null;
 
+    // Hover highlight. Two sources rather than one, because the pieces belong at different
+    // depths: the connecting line goes above the lineage lines but under the markers, while the
+    // grown parent triangle has to sit *above* the summit layer or the peak's own marker would
+    // be drawn on top of it and hide the effect.
+    const highlightLineSource = new ol.source.Vector();
+    const highlightPointSource = new ol.source.Vector();
+    let summitsByPk = null;
+    let colsByPk = null;
+    let highlightedPk = null;
+    let highlightFrame = null;
+
+    // Advance the parent's grow-and-shine, repainting each frame. Style functions read
+    // highlightProgress, so a render is what makes the new value visible.
+    function animateHighlight(start) {
+        const elapsed = performance.now() - start;
+        setHighlightProgress(elapsed / HIGHLIGHT_MS);
+        map.render();
+        highlightFrame = elapsed < HIGHLIGHT_MS
+            ? requestAnimationFrame(() => animateHighlight(start))
+            : null;
+    }
+
+    function clearHighlight() {
+        if (highlightFrame !== null) {
+            cancelAnimationFrame(highlightFrame);
+            highlightFrame = null;
+        }
+        highlightedPk = null;
+        highlightLineSource.clear();
+        highlightPointSource.clear();
+    }
+
+    function highlight(feature) {
+        const pk = feature && feature.get('type') === 'summit' ? feature.get('pk') : null;
+        // pointermove fires constantly; without this the sources would be rebuilt and the
+        // animation restarted on every mouse position inside the same marker.
+        if (pk === highlightedPk) return;
+        clearHighlight();
+        if (pk === null || !summitsByPk) return;
+        highlightedPk = pk;
+
+        const col = colsByPk[feature.get('kc')];
+        if (col) {
+            highlightPointSource.addFeature(new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(col.geometry.coordinates)),
+                type: 'highlight_col',
+            }));
+        }
+
+        // The parent of the hierarchy currently drawn, not always the prominence one: lighting up
+        // a prominence parent while the map shows isolation lineage would contradict the lines.
+        const mode = document.querySelector('input[name="tree"]:checked');
+        const modeName = mode && mode.value;
+        const parentAttr = lineageParentAttr(modeName) || 'prominence_parent';
+        const parent = summitsByPk[feature.get(parentAttr)];
+        if (!parent) return;
+
+        highlightPointSource.addFeature(new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat(parent.geometry.coordinates)),
+            type: 'highlight_parent',
+            prom: parent.properties.prom,     // the triangle is sized from the parent's own marker
+        }));
+
+        // Same waypoint the lineage layer routes through, so the highlight lies exactly over the
+        // line it is highlighting instead of cutting its own corner.
+        const useRouting = routeToggle && routeToggle.checked;
+        const waypoint = lineageWaypoint(modeName, feature.getProperties(), useRouting, colsByPk);
+        const path = [feature.getGeometry().getCoordinates()];   // already in map projection
+        if (waypoint) path.push(ol.proj.fromLonLat(waypoint));
+        path.push(ol.proj.fromLonLat(parent.geometry.coordinates));
+
+        highlightLineSource.addFeature(new ol.Feature({
+            geometry: new ol.geom.LineString(path),
+            type: 'highlight_line',
+        }));
+
+        setHighlightProgress(0);
+        animateHighlight(performance.now());
+    }
+
     function rebuildOverlayLayers() {
         if (keyColLayer) {
             map.removeLayer(keyColLayer);
@@ -544,11 +681,26 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         summitsData = summits;
         colsData = cols;
 
-        const { map: m, tileLayer, vectorLayer } = makeMap(summits, styleFor, [22, 49], 11);
+        summitsByPk = {};
+        summits.features.forEach(f => { summitsByPk[f.properties.pk] = f; });
+        colsByPk = {};
+        cols.features.forEach(f => { colsByPk[f.properties.pk] = f; });
+
+        const { map: m, tileLayer, vectorLayer } = makeMap(summits, styleFor, [22, 49], 11,
+                                                          highlight);
         map = m;
         summitLayer = vectorLayer;
         summitLayer.set('name', 'summits');
         renderProminenceLegend();
+
+        // Both names start with "highlight" — that prefix is what featureAt() filters on, so
+        // neither layer can ever be hit-tested and steal the hover from the peak underneath.
+        [['highlight-lines', highlightLineSource, Z_HIGHLIGHT_LINE],
+         ['highlight-marks', highlightPointSource, Z_HIGHLIGHT_MARK]].forEach(([name, source, z]) => {
+            const layer = new ol.layer.Vector({ source: source, style: styleFor, zIndex: z });
+            layer.set('name', name);
+            map.addLayer(layer);
+        });
 
         const opacitySlider = document.getElementById('map-opacity');
         if (opacitySlider) {

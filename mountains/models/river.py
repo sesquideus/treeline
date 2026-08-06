@@ -78,6 +78,12 @@ class RiverQuerySet(models.QuerySet):
 
 
 class River(GeoModel):
+    MOUTH_CHOICES = (
+        ('L', 'left'),
+        ('R', 'right'),
+        ('O', 'other'),
+    )
+
     source = models.OneToOneField('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
     summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True, related_name='rivers',
@@ -90,6 +96,7 @@ class River(GeoModel):
 
     mouth = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     mouth_altitude = models.FloatField(null=True, blank=True)
+    mouth_side = models.CharField(max_length=1, choices=MOUTH_CHOICES, null=True, blank=True)
 
     parent = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='tributaries')
 

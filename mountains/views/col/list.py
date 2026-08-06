@@ -14,7 +14,7 @@ class ListView(OrderableListView):
         'altitude': 'point__altitude',
         'minor-name': 'key_for__point__name',
         'minor-alt': 'key_for__point__altitude',
-        'prominence': 'prominence',
+        'depth': 'depth',
         'major-name': 'key_for__prominence_parent__point__name',
         'major-alt': 'key_for__prominence_parent__point__altitude',
         'river-name': 'confluence_river__source__name',
