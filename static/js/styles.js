@@ -18,33 +18,44 @@ const SUMMIT_SCALE_EXPONENT = 1 / 3;
 const MAX_PROMINENCE = 8848.86;   // Mount Everest
 
 // Size is a continuous encoding and cannot show a threshold; colour does that. The cutoffs
-// are the ones that carry meaning in the domain: 1500 m is the ultra definition, 600 m and
-// 200 m the conventional steps below it, then 100 m and 30 m — the latter being the usual
-// cutoff for counting as an independent summit at all.
-// A multi-hue ramp in the style of inferno/magma: gold → amber → orange → red → magenta →
-// violet, monotone in lightness (0.820 → 0.241) with 160° of hue travel on top of it. The
-// one-hue-per-ramp rule is deliberately broken: six steps of a single hue put adjacent bands
-// only ΔE 6.4 apart, close enough that the bottom half of the legend read as one colour.
-// Steps are spaced *unevenly on purpose* — ΔL grows from 0.073 at the top to 0.145 at the
+// are the ones that carry meaning in the domain: 1500 m is the ultra definition, 600 m,
+// 300 m and 200 m the conventional steps below it, then 100 m and 30 m — the latter being
+// the usual cutoff for counting as an independent summit at all.
+// A multi-hue ramp in the style of inferno/magma: yellow → amber → orange → red → magenta →
+// purple → indigo, monotone in lightness (0.819 → 0.226) with 200° of hue travel on top of
+// it. The one-hue-per-ramp rule is deliberately broken: seven steps of a single hue put
+// adjacent bands barely ΔE 5 apart, close enough that the legend would read as one colour.
+// Steps are spaced *unevenly on purpose* — ΔL grows from 0.090 at the top to 0.127 at the
 // bottom, and hue likewise. Marker area shrinks with prominence, so the low bands have the
 // least ink to carry their colour and need the most separation to stay distinguishable: the
-// bottom pairs sit at ΔE 17–19, the top ones at 9–13, where the marks are large enough to
-// read a smaller difference. Worst pair under simulated protanopia/deuteranopia is 7.2.
+// bottom pairs sit at ΔE 15–17, the top ones at 12–14, where the marks are large enough to
+// read a smaller difference. Hue travel is what pays for the seventh band: 200° across seven
+// steps against 160° across six, which keeps every adjacent pair at ΔE 12.4 or better where
+// the six-band ramp bottomed out at 9.4 and squeezing a seventh step into it dropped that to
+// 9.3. Lightness range is unchanged — extending it would have cost the top band the little
+// contrast it has. Worst adjacent pair under simulated deuteranopia is 9.0 (ultra against
+// major, which collapse onto lightness alone); under protanopia 8.9 (small against
+// subsidiary). Both were ~7 with a seventh band on the old ramp.
+// What the extra hue travel costs: the dark end lands on indigo rather than violet, so
+// subsidiary summits sit near the blue of cols and rivers and are told apart by lightness
+// and marker shape rather than hue. Pulling the travel back to ~185° returns a violet end
+// and gives up about ΔE 1 per pair.
 // Ramp direction: light for the big peaks, dark for the small ones. It runs against the
 // usual "darker means more" convention, and it works here only because size carries the
 // magnitude too — an ultra is a large, pale, ink-outlined mark, a subsidiary bump a small
 // dark dot. Reverse the colour column to put it back the conventional way round.
-// The cost of a vivid top end: the gold clears only 1.7:1 against the surface and 1.2:1
+// The cost of a vivid top end: the yellow clears only 1.7:1 against the surface and 1.2:1
 // against forest-green tiles, under the 2:1 an ordinal ramp's lightest step is supposed to
-// hold, so it leans on SUMMIT_OUTLINE for its edge. Darkening it toward #c5af00 buys that
-// contrast back and costs the vibrancy.
+// hold, so it leans on SUMMIT_OUTLINE for its edge. Darkening it toward #bfbb00 buys that
+// contrast back (2.0:1) and costs the vibrancy.
 const PROMINENCE_BANDS = [
-    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#d6c900' },
-    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#d9a400' },
-    { min: 200,  key: 'notable',    label: 'notable (200–600 m)',  colour: '#d36f00' },
-    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#c60129' },
-    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#7a0057' },
-    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#2e004d' },
+    { min: 1500, key: 'ultra',      label: 'ultra (≥ 1500 m)',     colour: '#cfcb26' },
+    { min: 600,  key: 'major',      label: 'major (600–1500 m)',   colour: '#d99a1f' },
+    { min: 300,  key: 'notable',    label: 'notable (300–600 m)',  colour: '#da6217' },
+    { min: 200,  key: 'modest',     label: 'modest (200–300 m)',   colour: '#d01841' },
+    { min: 100,  key: 'minor',      label: 'minor (100–200 m)',    colour: '#9a0f6b' },
+    { min: 30,   key: 'small',      label: 'small (30–100 m)',     colour: '#57087a' },
+    { min: 0,    key: 'subsidiary', label: 'subsidiary (< 30 m)',  colour: '#07035e' },
 ];
 const PROMINENCE_UNKNOWN = { key: 'unknown', label: 'unknown', colour: '#898781' };
 
