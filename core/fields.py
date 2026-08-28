@@ -69,14 +69,20 @@ class PointFormField(forms.MultiValueField):
 
 
 class RangeWidget(forms.MultiWidget):
-    """A "min" and a "max" number input on one line, separated by a dash."""
+    """
+    A "min" and a "max" number input on one line, separated by a dash.
+
+    The subwidgets are passed as a dict so they are named `<field>_min` / `<field>_max`
+    rather than MultiWidget's default `<field>_0` / `<field>_1` — these end up in the
+    filter querystring, where a readable name is worth more than a positional one.
+    """
     template_name = 'core/widgets/range.html'
 
     def __init__(self):
-        widgets = [
-            forms.NumberInput(attrs={'step': 'any', 'placeholder': 'min'}),
-            forms.NumberInput(attrs={'step': 'any', 'placeholder': 'max'}),
-        ]
+        widgets = {
+            'min': forms.NumberInput(attrs={'step': 'any', 'placeholder': 'min'}),
+            'max': forms.NumberInput(attrs={'step': 'any', 'placeholder': 'max'}),
+        }
         super().__init__(widgets=widgets)
 
     def decompress(self, value):

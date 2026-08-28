@@ -25,6 +25,10 @@ uv run python manage.py test mountains.tests.Foo   # one test case/method
 ./db_import.sh                       # DROP + recreate `treeline` DB from a pg_restore dump
 ```
 
+Running the tests needs a role that may create databases; if `manage.py test` reports
+"permission denied to create database", grant it once as a superuser:
+`ALTER ROLE kvik CREATEDB;`.
+
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,
 localhost — see `treeline/settings.py`. `db_import.sh` pulls the SQL dump from a remote host

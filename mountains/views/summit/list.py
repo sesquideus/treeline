@@ -35,8 +35,11 @@ class MountainListView(OrderableListView):
         'isolation': 'isolation',
         'slope': 'slope',
         'slope-parent': 'slope_parent__point__name',
+        'slope-parent-dist': 'dd',
+        'slope-parent-alt-diff': 'dh',
         'horizon': ('angle', {'nulls': 'first'}),
         'horizon-parent': 'horizon_parent__point__name',
+        'horizon-parent-dist': 'distance_to_horizon',
     }
 
     def parse_get_arguments(self):

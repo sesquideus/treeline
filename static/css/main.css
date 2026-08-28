@@ -280,6 +280,10 @@ tr th {
     font-weight: 500;
 }
 
+tr.superhead th {
+    background-color: black;
+}
+
 td, th {
     padding: 0.3em 0.5em;
     white-space: nowrap;

@@ -76,7 +76,10 @@ class SummitQuerySet(models.QuerySet):
     def with_horizon_parent(self):
         r = 6371000.0
         return self.select_related('horizon_parent__point').annotate(
-            beta=Distance('horizon_parent__point__location', 'point__location') / Value(r),
+            # Not `distance_to_horizon_parent`: that name is already a model method returning km,
+            # and an annotation would shadow it on every queryset that calls this.
+            distance_to_horizon=Distance('horizon_parent__point__location', 'point__location'),
+            beta=F('distance_to_horizon') / Value(r),
             angle=ATan(
                 ((Value(r) + F('horizon_parent__point__altitude')) * Cos(F('beta')) - (Value(r) + F('point__altitude'))) /
                 ((Value(r) + F('horizon_parent__point__altitude')) * Sin(F('beta')))
