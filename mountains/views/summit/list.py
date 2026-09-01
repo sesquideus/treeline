@@ -31,6 +31,7 @@ class MountainListView(OrderableListView):
         'key-col': 'key_col__point__name',
         'key-col-alt': 'key_col__point__altitude',
         'key-col-dist': 'distance_to_key_col',
+        'key-col-slope': 'slope_to_key_col',
         'nhn': 'isolation_parent__point__name',
         'isolation': 'isolation',
         'slope': 'slope',
@@ -52,6 +53,7 @@ class MountainListView(OrderableListView):
             .with_point()
             .with_prominence()
             .with_distance_to_key_col()
+            .with_slope_to_key_col()
             .with_isolation()
             .with_slope_parent()
             .with_horizon_parent()

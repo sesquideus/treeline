@@ -166,6 +166,9 @@ class SummitDetailGeoJSON(BaseDetailView):
         'key_col__point',
         'key_col__confluence_river__source',
         'prominence_parent__point',
+    ).prefetch_related(
+        'point__countries',
+        'key_col__point__countries',
     ).annotate(
         prominence=F('point__altitude') - F('key_col__point__altitude'),
     )

@@ -7,7 +7,11 @@ from mountains.models import Summit
 
 class SummitTreeView(TreeView):
     def get_queryset(self):
-        return Summit.objects.with_prominence().with_isolation().with_slope_parent().with_horizon_parent()
+        # `with_countries()`: to_dict() serializes the flags, and without the prefetch that is
+        # one query per node.
+        return (Summit.objects
+                .with_prominence().with_isolation().with_slope_parent().with_horizon_parent()
+                .with_countries())
 
 
 class ProminenceJsonView(SummitTreeView):

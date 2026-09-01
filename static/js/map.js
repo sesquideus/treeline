@@ -13,6 +13,16 @@ const Z_HIGHLIGHT_MARK = 45;   // above the summits: the grown parent replaces i
 // wired up here; anything else that should react to hovering — the key col and parent
 // highlight, for one — goes through the callback rather than adding a second pointermove
 // listener, so the hit test still runs once per mouse position.
+// Country flags for a popup caption, same images the tables use. Wrapped in one nowrap span
+// so the caption never breaks between a name and its flags, or in the middle of a pair.
+function flagsHtml(codes) {
+    if (!codes || !codes.length) return '';
+    const images = codes.map(code =>
+        `<img class="flag" src="https://flagpedia.net/data/flags/mini/${code}.png" alt="${code}">`
+    ).join('');
+    return `<span class="flags">${images}</span>`;
+}
+
 function makeMap(geojson, styleFor, coords, zoom, onHover) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
@@ -53,7 +63,8 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
     });
 
     const popup = document.createElement('div');
-    popup.style.cssText = 'background:#fff;padding:6px 10px;border-radius:4px;font:14px sans-serif;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);';
+    popup.className = 'map-popup';
+    popup.style.cssText ='background:#fff;padding:6px 10px;border-radius:4px;font:14px sans-serif;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);';
     document.body.appendChild(popup);
 
     const overlay = new ol.Overlay({ element: popup, positioning: 'bottom-center', offset: [0, -10] });
@@ -63,9 +74,44 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         if (feature) {
             let text = "";
             switch (feature.get('type')) {
-                case 'summit':
+                case 'summit': {
+                    const keyCol = feature.get('key_col');
+                    const keyColRows = keyCol
+                        ? `
+                            <tr>
+                                <th>key col</th>
+                                <td>${keyCol.name ?? 'unnamed'}</td>
+                            </tr>
+                            <tr>
+                                <th>↳ altitude</th>
+                                <td class="altitude">${keyCol.alt?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <th>↳ distance</th>
+                                <td class="distance">${keyCol.dist != null
+                                    ? (keyCol.dist / 1000).toFixed(3)
+                                    : '?'}</td>
+                            </tr>
+                            <tr>
+                                <th>↳ drop</th>
+                                <td class="altitude">${keyCol.drop?.toFixed(1) ?? '?'}</td>
+                            </tr>
+                            <tr>
+                                <th>↳ slope</th>
+                                <td class="slope">${keyCol.slope != null
+                                    ? (keyCol.slope * 1000).toFixed(2)
+                                    : '?'}</td>
+                            </tr>
+                          `
+                        : `
+                            <tr>
+                                <th>key col</th>
+                                <td>—</td>
+                            </tr>
+                          `;
                     text = `
                         <h3 class="mountain">
+                            ${flagsHtml(feature.get('countries'))}
                             ${feature.get('name') ?? 'unnamed peak'}
                         </h3>
                         <table class="tooltip">
@@ -81,9 +127,11 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
                                 <th>class</th>
                                 <td>${prominenceBand(feature.get('prom')).label}</td>
                             </tr>
+                            ${keyColRows}
                         </table>
                     `;
                     break;
+                }
                 case 'col': {
                     const confluence = feature.get('confluence');
                     const confluenceRows = confluence
@@ -108,6 +156,12 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
                                 <th>↳ altitude</th>
                                 <td class="altitude">${confluence.alt?.toFixed(1) ?? '?'}</td>
                             </tr>
+                            <tr>
+                                <th>↳ distance</th>
+                                <td class="distance">${confluence.dist != null
+                                    ? (confluence.dist / 1000).toFixed(3)
+                                    : '?'}</td>
+                            </tr>
                           `
                         : `
                             <tr>
@@ -117,6 +171,7 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
                           `;
                     text = `
                         <h3 class="col">
+                            ${flagsHtml(feature.get('countries'))}
                             ${feature.get('name') ?? 'unknown'}
                         </h3>
                         <table>
@@ -198,8 +253,39 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
             { layerFilter: layer => !(layer.get('name') || '').startsWith('highlight') });
     }
 
+    // A col under the cursor always shows its way down to the confluence, whatever the
+    // col–confluence toggle is set to. It needs nothing but the feature's own properties, so
+    // it lives here rather than in the onHover callback and works on the detail map too.
+    // The "highlight" prefix keeps the line out of hit testing — it starts on the very marker
+    // it belongs to, and hovering it instead of the col would clear it again.
+    const confluenceHoverSource = new ol.source.Vector();
+    const confluenceHoverLayer = new ol.layer.Vector({
+        source: confluenceHoverSource,
+        style: confluenceLineStyle,
+        zIndex: Z_HIGHLIGHT_LINE,
+    });
+    confluenceHoverLayer.set('name', 'highlight-confluence');
+    map.addLayer(confluenceHoverLayer);
+
+    let confluenceShown = null;
+
+    function showConfluence(feature) {
+        const col = feature && feature.get('type') === 'col' ? feature : null;
+        if (col === confluenceShown) return;    // same col: leave the line alone
+        confluenceShown = col;
+        confluenceHoverSource.clear();
+
+        const confluence = col && col.get('confluence');
+        if (!confluence || confluence.lon == null) return;
+        confluenceHoverSource.addFeature(confluenceLine(
+            col.getGeometry().getCoordinates(),    // already in the view projection
+            ol.proj.fromLonLat([confluence.lon, confluence.lat]),
+        ));
+    }
+
     function hovered(feature, coordinate) {
         showPopup(feature, coordinate);
+        showConfluence(feature);
         if (onHover) onHover(feature);
     }
 
@@ -247,6 +333,27 @@ const SLOPE_COLOUR_B             = [180, 220, 255, 1];
 
 const HORIZON_COLOUR_A           = [180, 50,  180, 1];
 const HORIZON_COLOUR_B           = [255, 200, 255, 1];
+
+const CONFLUENCE_COLOUR_A        = [255, 100, 255, 1];   // pink at the col
+const CONFLUENCE_COLOUR_B        = [255, 200, 255, 1];   // pale pink at the confluence
+
+// One definition of the pink col → confluence line, shared by the layer the toggle switches
+// on and the one a hovered col draws for itself, so the two cannot drift apart.
+function confluenceLineStyle(feature) {
+    return segmentStyles(
+        denseCoords(feature.getGeometry().getCoordinates()),
+        CONFLUENCE_COLOUR_A,
+        CONFLUENCE_COLOUR_B,
+    );
+}
+
+// Both endpoints in the view projection.
+function confluenceLine(colCoord, confluenceCoord) {
+    return new ol.Feature({
+        geometry: new ol.geom.LineString([colCoord, confluenceCoord]),
+        type: 'confluence_line',
+    });
+}
 
 function lineageStyle(mode, useRouting) {
     return feature => {
@@ -453,22 +560,15 @@ function buildConfluenceLayer(cols, visible = true) {
 
         const colCoord = feature.geometry.coordinates;
 
-        vectorSource.addFeature(new ol.Feature({
-            geometry: new ol.geom.LineString([
-                ol.proj.fromLonLat(colCoord),
-                ol.proj.fromLonLat([confluence.lon, confluence.lat]),
-            ]),
-            type: 'confluence_line',
-        }));
+        vectorSource.addFeature(confluenceLine(
+            ol.proj.fromLonLat(colCoord),
+            ol.proj.fromLonLat([confluence.lon, confluence.lat]),
+        ));
     });
 
     const layer = new ol.layer.Vector({
         source: vectorSource,
-        style: feature => segmentStyles(
-            denseCoords(feature.getGeometry().getCoordinates()),
-            [255, 100, 255, 1],    // blue at col
-            [255, 200, 255, 1],    // cyan at confluence
-        ),
+        style: confluenceLineStyle,
         visible: visible,
     });
     layer.set('name', 'col_confluence');

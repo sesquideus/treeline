@@ -58,6 +58,15 @@ class SummitQuerySet(models.QuerySet):
             distance_to_key_col=Distance('point__location', 'key_col__point__location')
         )
 
+    def with_slope_to_key_col(self):
+        # Signed like every other slope here — the way to the key col goes down, so the
+        # gradient is negative. `key_col_dh` is the drop as a negative height difference.
+        return self.annotate(
+            key_col_dh=F('key_col__point__altitude') - F('point__altitude'),
+            key_col_dd=Distance('point__location', 'key_col__point__location'),
+            slope_to_key_col=F('key_col_dh') / F('key_col_dd'),
+        )
+
     def with_isolation(self):
         return self.select_related('point', 'isolation_parent__point').annotate(
             isolation=Distance('point__location', 'nearest_higher_point')
@@ -361,10 +370,37 @@ class Summit(GeoModel):
             }
         return None
 
-    def distance_to_key_col(self):
-        if self.key_col and self.key_col.point:
-            self.point.distance_to(self.key_col.point)
+    def compute_distance_to_key_col(self):
+        """
+        Distance to the key col as a measure. Named `compute_…` for the same reason as
+        `compute_slope_to_key_col()`: `distance_to_key_col` is an annotation.
+        """
+        annotated = getattr(self, 'distance_to_key_col', None)
+        if annotated is not None:
+            return annotated
+        if self.key_col and self.key_col.point and self.point:
+            return distance(
+                (self.point.location.y, self.point.location.x),
+                (self.key_col.point.location.y, self.key_col.point.location.x),
+            )
         return None
+
+    def compute_slope_to_key_col(self, key_col_distance=None):
+        """
+        Gradient from the summit down to its key col — negative, the col being the lower of
+        the two, unlike the slope to a parent. Named `compute_…` so it does
+        not collide with the `slope_to_key_col` annotation, which would shadow it. Callers
+        that already hold the distance pass it in rather than pay for a second geodesic.
+        """
+        annotated = getattr(self, 'slope_to_key_col', None)
+        if annotated is not None:
+            return annotated
+        if not (self.key_col and self.key_col.point and self.point):
+            return None
+        d = key_col_distance if key_col_distance is not None else self.compute_distance_to_key_col()
+        if not d or not d.m:
+            return None
+        return (self.key_col.point.altitude - self.point.altitude) / d.m
 
     def slope_to_parent(self):
         if self.slope_parent and self.slope_parent.point:
@@ -401,12 +437,30 @@ class Summit(GeoModel):
             return self.point.angle_to(self.horizon_parent_std.point, refraction=0.14)
         return None
 
+    def key_col_dict(self):
+        """
+        The key col as the map popup needs it — name, altitude, and the three numbers that
+        describe the way down to it. `kc` stays the id the client joins on.
+        """
+        if not (self.key_col and self.key_col.point and self.point):
+            return None
+        col_distance = self.compute_distance_to_key_col()
+        return {
+            'pk': self.key_col_id,
+            'name': self.key_col.point.name,
+            'alt': self.key_col.point.altitude,
+            'dist': col_distance.m if col_distance is not None else None,
+            'drop': self.point.altitude - self.key_col.point.altitude,
+            'slope': self.compute_slope_to_key_col(col_distance),
+        }
+
     def to_dict(self):
         prominence = self.compute_prominence()
         isolation = self.compute_isolation()
         return {
             'pk': self.pk,
             'name': self.point.name if self.point else None,
+            'countries': [c.code for c in self.point.countries.all()] if self.point else [],
             'alt': self.point.altitude if self.point else None,
             'lat': self.point.location.y if self.point and self.point.location else None,
             'lon': self.point.location.x if self.point and self.point.location else None,
@@ -422,6 +476,7 @@ class Summit(GeoModel):
                 'lon': self.nearest_higher_point.x if self.nearest_higher_point else None,
             },
             'kc': self.key_col_id,
+            'key_col': self.key_col_dict(),
         }
 
     def to_geojson(self):
@@ -450,7 +505,7 @@ class Summit(GeoModel):
             current = Summit.objects.select_related(
                 'point',
                 'key_col__point',
-            ).get(pk=current.prominence_parent_id)
+            ).prefetch_related('point__countries').get(pk=current.prominence_parent_id)
             ancestors.append(current.to_dict())
         return ancestors
 
@@ -464,7 +519,7 @@ class Summit(GeoModel):
             visited.add(current.isolation_parent_id)
             current = Summit.objects.select_related(
                 'point',
-            ).get(pk=current.isolation_parent_id)
+            ).prefetch_related('point__countries').get(pk=current.isolation_parent_id)
             ancestors.append(current.to_dict())
         return ancestors
 
@@ -474,7 +529,7 @@ class Summit(GeoModel):
             for c in Summit.objects.select_related(
                 'point',
                 'key_col__point',
-            ).filter(prominence_parent=self)
+            ).prefetch_related('point__countries').filter(prominence_parent=self)
         ]
 
     def isolation_children_list(self):
@@ -482,7 +537,7 @@ class Summit(GeoModel):
             c.to_dict()
             for c in Summit.objects.select_related(
                 'point',
-            ).filter(isolation_parent=self)
+            ).prefetch_related('point__countries').filter(isolation_parent=self)
         ]
 
     def is_complete(self):

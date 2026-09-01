@@ -43,6 +43,7 @@
                     <td class="link">{% object_link mountain.key_col 'col' attr='name' %}</td>
                     <td class="altitude">{{ mountain.key_col.point.altitude|altitude }}</td>
                     <td class="distance">{{ mountain.distance_to_key_col.m|distance }}</td>
+                    <td class="slope" style="color: {{ mountain.slope_to_key_col|slope_colour }};">{{ mountain.slope_to_key_col|slope }}</td>
 
                     <td class="altitude">
                         {% if mountain.island_high_point %}&#x1F3DD;{% endif %}
@@ -53,13 +54,13 @@
                     <td class="altitude">{{ mountain.prominence_parent.point.altitude|altitude }}</td>
                     <td class="distance">{{ mountain.distance_to_parent.m|distance }}</td>
 
-                    <td class="distance">{{ mountain.compute_isolation.m|distance }}</td>
+                    <td class="distance">{{ mountain.isolation.m|distance }}</td>
                     <td class="link">{% object_link mountain.isolation_parent 'mountain' attr='name' %}</td>
                     <td class="slope" style="color: {{ mountain.slope|slope_colour }};">{{ mountain.slope|slope }}</td>
                     <td class="link">{% object_link mountain.slope_parent 'mountain' %}</td>
                     <td class="distance">{{ mountain.dd.m|distance }}</td>
                     <td class="altitude">{{ mountain.dh|diff_altitude }}</td>
-                    <td class="angle" style="color: {{ mountain.angle_to_horizon_parent|angle_colour }};">{{ mountain.angle_to_horizon_parent|angle_above_horizon }}</td>
+                    <td class="angle" style="color: {{ mountain.angle|angle_colour }};">{{ mountain.angle|angle_above_horizon }}</td>
                     <td class="link">{% object_link mountain.horizon_parent 'mountain' %}</td>
                     <td class="distance">{{ mountain.distance_to_horizon.m|distance }}</td>
                 </tr>

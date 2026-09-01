@@ -34,9 +34,10 @@ inline in a view. A new derived metric is a new `with_*` method.
 | `with_point()` | `select_related('point')` — the baseline for almost everything |
 | `with_prominence()` | `prominence`, `dominance`, `distance_to_parent`; prefetches parent and key col |
 | `with_distance_to_key_col()` | `distance_to_key_col` |
+| `with_slope_to_key_col()` | `key_col_dh`, `key_col_dd`, `slope_to_key_col` (descent gradient) |
 | `with_isolation()` | `isolation`, joins `isolation_parent__point` |
 | `with_slope_parent()` | `dh`, `dd`, `slope` |
-| `with_horizon_parent()` | `beta`, `angle` (refraction-free) |
+| `with_horizon_parent()` | `distance_to_horizon`, `beta`, `angle` (refraction-free) |
 | `with_ultras()` | `with_prominence()` plus boolean `ultra` (P ≥ 1500 m) |
 | `with_countries()`, `with_confluence()`, `with_full_name()` | prefetches / display name |
 | `with_complete()` | `has_point`, `has_key_col`, `has_prominence_parent`, `has_isolation`, `complete` |

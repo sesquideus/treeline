@@ -4,7 +4,7 @@
     <th></th>
     <th></th>
     <th colspan="2">identity</th>
-    <th colspan="3">key col</th>
+    <th colspan="4">key col</th>
     <th colspan="2">prominence</th>
     <th colspan="3">parent summit</th>
     <th colspan="2">isolation</th>
@@ -17,8 +17,9 @@
     {% th_orderable 'name' 'name' %}
     {% th_orderable 'altitude' 'altitude' %}
     {% th_orderable 'key-col' 'key col' %}
-    {% th_orderable 'key-col-alt' 'key col alt' long="altitude of key col" %}
-    {% th_orderable 'key-col-dist' long='distance to key col' %}
+    {% th_orderable 'key-col-alt' 'altitude' long="altitude of key col" %}
+    {% th_orderable 'key-col-dist' 'distance' long='distance to key col' %}
+    {% th_orderable 'key-col-slope' 'slope' long="gradient from the summit down to its key col" %}
 
     {% th_orderable 'prominence' 'prom' long="prominence" %}
     {% th_orderable 'dominance' 'dom' long="dominance" %}

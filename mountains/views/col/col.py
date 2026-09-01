@@ -25,7 +25,7 @@ class DetailView(DjangoDetailView):
 
 class ColTreeView(TreeView):
     def get_queryset(self):
-        return Col.objects.with_rivers().with_minor()
+        return Col.objects.with_rivers().with_minor().with_point().with_countries()
 
 
 class GeoJsonView(ColTreeView, FlatGeoJsonView):

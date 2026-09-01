@@ -29,6 +29,18 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 INTERNAL_IPS = config('INTERNAL_IPS', cast=Csv())
 
+# The toolbar's Templates panel walks and deep-compares every template context it has seen.
+# On the mountain list — two thousand rows, each row a context frame — that is ~20 million
+# model comparisons and 30 s per request, five times the render it is supposed to be
+# measuring. The other two are the defaults for DISABLE_PANELS; keep them.
+DEBUG_TOOLBAR_CONFIG = {
+    'DISABLE_PANELS': {
+        'debug_toolbar.panels.profiling.ProfilingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+        'debug_toolbar.panels.templates.TemplatesPanel',
+    },
+}
+
 # Application definition
 
 INSTALLED_APPS = ([

@@ -103,6 +103,21 @@ img.flag {
     border: 1px solid hsla(0, 0%, 0%, 10%);
 }
 
+/* Flags are separate inline images, so a line may break between two of them or between the
+   last one and the name they belong to. Both look like a rendering fault, hence the nowrap —
+   on the caption of the map popup (built in map.js) as well as on any run of flags. */
+.flags {
+    white-space: nowrap;
+}
+
+.flags img.flag {
+    margin-right: 0.2em;
+}
+
+.map-popup h3 {
+    white-space: nowrap;
+}
+
 /* The list filters (`form.filter`, rendered by `as_ul`): one wide, low band across the top
    of the page instead of a tall stack — the table below is the point of the page. Each field
    is an `li`, so they become flex items laid side by side and wrapped as the width allows. */

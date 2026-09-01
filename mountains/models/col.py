@@ -4,6 +4,7 @@ from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
+from core.functions.world import distance
 from mountains.models.base import GeoModel
 
 
@@ -74,10 +75,22 @@ class Col(GeoModel):
     def get_absolute_url(self):
         return reverse('col', kwargs={'pk': self.pk})
 
+    def distance_to_confluence(self):
+        """ Geodesic distance from the col down to its confluence (the river mouth) """
+        if not (self.point and self.point.location
+                and self.confluence_river and self.confluence_river.mouth):
+            return None
+        return distance(
+            (self.point.location.y, self.point.location.x),
+            (self.confluence_river.mouth.y, self.confluence_river.mouth.x),
+        )
+
     def to_dict(self):
+        confluence_distance = self.distance_to_confluence()
         return {
             'pk': self.pk,
             'name': self.point.name if self.point else None,
+            'countries': [c.code for c in self.point.countries.all()] if self.point else [],
             'lat': self.point.location.y if self.point else None,
             'lon': self.point.location.x if self.point else None,
             'alt': self.point.altitude if self.point else None,
@@ -88,6 +101,7 @@ class Col(GeoModel):
                 'lon': self.confluence_river.mouth.x,
                 'lat': self.confluence_river.mouth.y,
                 'alt': self.confluence_river.mouth_altitude,
+                'dist': confluence_distance.m if confluence_distance is not None else None,
             } if self.confluence_river else None,
             'key_for': self.key_for.point.name if hasattr(self, 'key_for') else None,
         } if self.point else None

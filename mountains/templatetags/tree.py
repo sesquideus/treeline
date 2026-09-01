@@ -157,10 +157,14 @@ def slope(sl):
 
 @register.filter
 def slope_colour(slope):
-    """ Nice colour for slopes (in m / km) green to red"""
+    """
+    Nice colour for slopes (in m / km) green to red. Steepness, not direction: the slope down
+    to a key col is negative, and without the absolute value it would run off to blue instead
+    of to red as it gets steeper.
+    """
     if not slope:
         return "grey";
-    return f"hsl({120 - 400 * slope}, 60%, 40%)"
+    return f"hsl({120 - 400 * abs(slope)}, 60%, 40%)"
 
 
 @register.filter
