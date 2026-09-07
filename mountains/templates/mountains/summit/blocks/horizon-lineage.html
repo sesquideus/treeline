@@ -4,5 +4,9 @@
     Horizon lineage
 </h3>
 <table class="lineage">
-    {% render_horizon_lineage mountain %}
+    {% if mountain.horizon_parent %}
+        {% render_horizon_lineage mountain %}
+    {% else %}
+        This summit has a clear horizon.
+    {% endif %}
 </table>

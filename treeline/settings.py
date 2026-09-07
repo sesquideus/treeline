@@ -62,8 +62,13 @@ INSTALLED_APPS = ([
 ])
 
 MIDDLEWARE = [
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.middleware.security.SecurityMiddleware',
+    # The GeoJSON endpoints are hundreds of KiB of repetitive JSON and compress about 5:1.
+    # Nothing served here mixes a secret with attacker-supplied text, so the BREACH caveat
+    # in the Django docs does not apply. The toolbar has to come after it, or it measures a
+    # response that is compressed again behind its back (debug_toolbar.W003).
+    'django.middleware.gzip.GZipMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

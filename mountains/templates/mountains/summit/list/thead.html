@@ -1,16 +1,8 @@
 {% load cairn %}
 
-<tr class="superhead">
-    <th></th>
-    <th></th>
-    <th colspan="2">identity</th>
-    <th colspan="4">key col</th>
-    <th colspan="2">prominence</th>
-    <th colspan="3">parent summit</th>
-    <th colspan="2">isolation</th>
-    <th colspan="4">slope</th>
-    <th colspan="3">horizon</th>
-</tr>
+{% if not invert %}
+    {% include 'mountains/summit/list/superhead.html' %}
+{% endif %}
 <tr class="subheader">
     <th>order</th>
     <th>countries</th>
@@ -39,3 +31,6 @@
     {% th_orderable 'horizon-parent' 'horizon parent' %}
     {% th_orderable 'horizon-parent-dist' 'dist to horizon parent' long="distance to horizon parent" %}
 </tr>
+{% if invert %}
+    {% include 'mountains/summit/list/superhead.html' %}
+{% endif %}

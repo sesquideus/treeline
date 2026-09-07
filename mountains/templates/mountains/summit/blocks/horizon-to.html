@@ -23,7 +23,7 @@
                 {{ summit.dh|diff_altitude }}
             </td>
             <td class="distance">
-                {{ summit.distance|floatformat:3 }}
+                {{ summit.distance.km|floatformat:3 }}
             </td>
             <td class="angle">{{ summit.hhp_angle|angle_above_horizon }}</td>
             <td class="angle">{{ summit.hhp_angle_std|angle_above_horizon }}</td>

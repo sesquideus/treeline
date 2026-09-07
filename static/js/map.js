@@ -9,12 +9,14 @@ const Z_OVERLAY_POINTS = 30;
 const Z_SUMMITS        = 40;
 const Z_HIGHLIGHT_MARK = 45;   // above the summits: the grown parent replaces its own marker
 
-// `onHover` is optional and receives the feature under the cursor (or null). The tooltip is
-// wired up here; anything else that should react to hovering — the key col and parent
-// highlight, for one — goes through the callback rather than adding a second pointermove
-// listener, so the hit test still runs once per mouse position.
-// Country flags for a popup caption, same images the tables use. Wrapped in one nowrap span
-// so the caption never breaks between a name and its flags, or in the middle of a pair.
+// Where the global map opens. Slovakia is where the data is dense — the collection reaches
+// round the world now, and fitting all of it opens on a view nothing can be read from. As an
+// extent rather than a centre and zoom, so the whole country is in frame on any window.
+const HOME_EXTENT = [16.83, 47.73, 22.57, 49.61];   // lon/lat, Slovakia
+
+// Country flags for a popup caption, same images the tables use, to the right of the name.
+// Wrapped in one nowrap span so the caption never breaks between the name and its flags, or
+// in the middle of a pair.
 function flagsHtml(codes) {
     if (!codes || !codes.length) return '';
     const images = codes.map(code =>
@@ -23,6 +25,265 @@ function flagsHtml(codes) {
     return `<span class="flags">${images}</span>`;
 }
 
+// Detail-page URLs. The source of truth is mountains/urls.py — 'summit-detail', 'col' and
+// 'river-detail'; kept here as three one-liners rather than reversed per object server-side,
+// which would be thousands of reverse() calls on the flat endpoints.
+const summitUrl = pk => pk != null ? `/summit/${pk}/` : null;
+const colUrl    = pk => pk != null ? `/col/${pk}/` : null;
+const riverUrl  = pk => pk != null ? `/river/${pk}/` : null;
+
+// Every reference to another object is a link, styled with the site's object classes
+// (`a.mountain`, `a.col`, `a.river` in main.css) so it carries the same colour and ⛰ ∪ 〰
+// glyph as {% object_link %} does in the templates. Unlinkable labels stay plain text.
+function objectLink(kind, url, label) {
+    if (label == null) return null;
+    return url ? `<a class="${kind}" href="${url}">${label}</a>` : label;
+}
+
+// The caption links to the feature's own detail page. The h3 already carries the object
+// class, so the anchor inside it inherits the colour and adds no second glyph.
+function popupCaption(cls, url, name, codes) {
+    const label = url ? `<a href="${url}">${name}</a>` : name;
+    return `<h3 class="${cls}">${label} ${flagsHtml(codes)}</h3>`;
+}
+
+// A popup body is one table; a section is a caption cell down its left edge, spanning the
+// section's rows, so the group is named without spending a row on the name. Labels and
+// values keep the same two columns from the first section to the last. A section with no
+// rows left in it is dropped rather than rendered as a caption with nothing beside it.
+function popupSection(caption, rows) {
+    const cells = rows.filter(Boolean);
+    if (!cells.length) return '';
+    // A section that is a single unlabelled line has no label column to speak of: the
+    // caption takes it, and the value stays in the column every other section's values are
+    // in. Anywhere else the caption spans the section's rows instead.
+    const lone = cells.length === 1 && cells[0].startsWith(MERGED_ROW);
+    if (lone) {
+        const spine = `<th class="section" colspan="2">${caption}</th>`;
+        return cells[0]
+            .replace('<td colspan="2"', '<td')
+            .replace('<tr class="merged">', `<tr class="merged">${spine}`);
+    }
+    const spine = `<th class="section" rowspan="${cells.length}">${caption}</th>`;
+    return cells
+        .map((row, i) => i === 0 ? row.replace('<tr>', `<tr>${spine}`) : row)
+        .join('');
+}
+
+function popupTable(sections) {
+    const body = sections.filter(Boolean).join('');
+    return body ? `<table class="tooltip">${body}</table>` : '';
+}
+
+// The opening of a row that carries no label of its own — one of the merged lines, whose
+// figures and arrows say what they are. `popupSection()` recognises it by this prefix.
+const MERGED_ROW = '<tr class="merged">';
+
+function popupRow(label, value, cls) {
+    if (value == null) return '';
+    const attrs = cls ? ` class="${cls}"` : '';
+    // Without a label the value takes the label column too, rather than leaving an empty
+    // header cell beside it.
+    return label
+        ? `<tr><th>${label}</th><td${attrs}>${value}</td></tr>`
+        : `${MERGED_ROW}<td colspan="2"${attrs}>${value}</td></tr>`;
+}
+
+// The unit is CSS (`.altitude::after` and friends), so these emit bare numbers. `?` keeps a
+// row that is part of the feature's identity visible even when the value is missing.
+const asAltitude = m => m != null ? m.toFixed(1) : null;
+const asKm       = m => m != null ? (m / 1000).toFixed(3) : null;
+// A gradient, a height difference against something else, or an angle above the horizon can
+// go either way, so the sign is always shown — as `slope` and `diff_altitude` do in the
+// mountain list. A distance or an altitude is never negative and carries no sign.
+const signed     = text => text != null && !text.startsWith('-') ? `+${text}` : text;
+const asSlope    = s => signed(s != null ? (s * 1000).toFixed(2) : null);
+const asDegrees  = a => signed(a != null ? (a * 180 / Math.PI).toFixed(3) : null);
+const orQuery    = v => v != null ? v : '?';
+
+// "48.12345° N, 17.25346° E" — a coordinate pair reads as one fact, so it goes in one cell.
+// The degree marks are in the text rather than from `.angle::after`, which would leave a
+// stray one at the end of the pair.
+function positionValue(lon, lat) {
+    if (lon == null || lat == null) return null;
+    return `${Math.abs(lat).toFixed(5)}°&nbsp;${lat >= 0 ? 'N' : 'S'}, `
+         + `${Math.abs(lon).toFixed(5)}°&nbsp;${lon >= 0 ? 'E' : 'W'}`;
+}
+
+// The feature's own position, taken from its geometry — in the view projection, and only a
+// point has one — rather than from the payload, so it is there before any detail arrives.
+function featurePosition(feature) {
+    const geometry = feature.getGeometry();
+    if (!geometry || geometry.getType() !== 'Point') return null;
+    return positionValue(...ol.proj.toLonLat(geometry.getCoordinates()));
+}
+
+// "Sairecabur 5991.0 m" — an altitude belongs beside the name it qualifies rather than on a
+// row of its own. No brackets: the unit already tells the reader what the number is. Written
+// out, the cell no longer being an `.altitude` one.
+function withAltitude(label, alt) {
+    const altitude = asAltitude(alt);
+    return altitude != null ? `${label} ${altitude}&nbsp;m` : label;
+}
+
+// "Veľký kopec ↘ ↗ Kráľova hoľa" — the peak a col belongs to and the higher one across it,
+// the arrows tracing the way down into the saddle and up out of it. Either half may be
+// unknown, in which case the arrows go with it.
+function betweenPeaks(feature) {
+    const minor = objectLink('mountain', summitUrl(feature.get('key_for_pk')),
+                             feature.get('key_for'));
+    const major = objectLink('mountain', summitUrl(feature.get('major_pk')),
+                             feature.get('major'));
+    if (minor && major) return `${minor}&nbsp;↘&nbsp;↗&nbsp;${major}`;
+    return minor ?? major;
+}
+
+// "11.500 km → western ridge of Babiná", "+5.87 m/km ↗ Sairecabur 5991.0 m": the figure that
+// defines a relation and the thing it points at, on one line. The spine already says which
+// relation this is, so the row carries no label, and the unit is written out — a cell holding
+// two kinds of value cannot take it from `.distance::after` and friends.
+function towardsRow(value, target, arrow = '→') {
+    if (value == null && target == null) return '';
+    if (target == null) return popupRow('', value, 'name');
+    return popupRow('', value != null ? `${value}&nbsp;${arrow} ${target}` : target, 'name');
+}
+
+const kmText    = m => { const km = asKm(m); return km != null ? `${km}&nbsp;km` : null; };
+const slopeText = s => { const v = asSlope(s); return v != null ? `${v}&nbsp;m/km` : null; };
+const angleText = a => { const v = asDegrees(a); return v != null ? `${v}°` : null; };
+
+// The summit a relation points at, with its altitude beside it.
+function relationTarget(relation) {
+    return withAltitude(
+        objectLink('mountain', summitUrl(relation.pk), relation.name ?? 'unnamed'),
+        relation.alt);
+}
+
+// The prominence band as the marker shows it: a triangle in the band's colour, which is the
+// same value `styles.js` fills the summit marker with. Colour never carries the band on its
+// own — the band's name is the triangle's tooltip, and the page legend spells the ramp out.
+function bandMark(prominence) {
+    const band = prominenceBand(prominence);
+    return `<span class="band" style="color: ${band.colour}" title="${band.label}">▲</span>`;
+}
+
+
+function popupHtml(feature) {
+    if (!feature) return '';
+    switch (feature.get('type')) {
+        case 'summit': {
+            const keyCol = feature.get('key_col');
+            const parent = feature.get('parent');
+            const ilp = feature.get('ilp');
+            const nhn = feature.get('nhn');
+            const slope = feature.get('slope');
+            const horizon = feature.get('horizon');
+            // The nearest higher point and the summit it belongs to read as one phrase —
+            // "western ridge of Babiná" — and collapse to whichever half is known.
+            const ilpParent = ilp
+                ? objectLink('mountain', summitUrl(feature.get('isolation_parent')), ilp.parent)
+                : null;
+            const nhnPhrase = ilp && ilp.name && ilpParent
+                ? `${ilp.name} of ${ilpParent}`
+                : (ilp && ilp.name) ?? ilpParent;
+            return popupCaption('mountain', summitUrl(feature.get('pk')),
+                                feature.get('name') ?? 'unnamed peak', feature.get('countries'))
+                + popupTable([
+                    popupSection('summit', [
+                        popupRow('position', featurePosition(feature)),
+                        popupRow('altitude', orQuery(asAltitude(feature.get('alt'))), 'altitude'),
+                        popupRow('prominence', bandMark(feature.get('prom'))
+                                 + orQuery(asAltitude(feature.get('prom'))), 'altitude'),
+                    ]),
+                    // One line, like the four relations below it. No drop, because a key
+                    // col's drop *is* the prominence the summit section already gives, and
+                    // no gradient — that is the slope section's business.
+                    keyCol ? popupSection('key col', [
+                        towardsRow(kmText(keyCol.dist), withAltitude(
+                            objectLink('col', colUrl(keyCol.pk), keyCol.name ?? 'unnamed'),
+                            keyCol.alt)),
+                    ]) : '',
+                    parent ? popupSection('parent',
+                                          [towardsRow(kmText(parent.dist),
+                                                      relationTarget(parent))]) : '',
+                    ilp ? popupSection('isolation',
+                                       [towardsRow(kmText(ilp.dist), nhnPhrase)]) : '',
+                    // The neighbour itself, and peak to peak — the isolation above is
+                    // measured to the ground, which is usually short of the summit.
+                    nhn ? popupSection('NHN',
+                                       [towardsRow(kmText(nhn.dist),
+                                                   relationTarget(nhn))]) : '',
+                    slope ? popupSection('slope',
+                                         [towardsRow(slopeText(slope.slope),
+                                                     relationTarget(slope), '↗')]) : '',
+                    horizon ? popupSection('horizon',
+                                           [towardsRow(angleText(horizon.angle),
+                                                       relationTarget(horizon), '↗')]) : '',
+                ]);
+        }
+        case 'col': {
+            const confluence = feature.get('confluence');
+            const river = feature.get('river');
+            const riverLink = river
+                ? objectLink('river', riverUrl(river.pk), river.name)
+                : null;
+            const parentRiverLink = river && river.parent
+                ? objectLink('river', riverUrl(river.parent_pk), river.parent)
+                : null;
+            return popupCaption('col', colUrl(feature.get('pk')),
+                                feature.get('name') ?? 'unnamed col', feature.get('countries'))
+                + popupTable([
+                    popupSection('col', [
+                        popupRow('altitude', orQuery(asAltitude(feature.get('alt'))), 'altitude'),
+                        // The two slopes that meet here: down from the peak whose key col
+                        // this is, up to the higher ground it hangs off.
+                        popupRow('between', betweenPeaks(feature), 'name'),
+                        popupRow('depth', asAltitude(feature.get('depth')), 'altitude'),
+                    ]),
+                    popupSection('confluence', [
+                        // The river the col drains into, and the one that receives it in turn.
+                        popupRow('river', parentRiverLink
+                            ? `${riverLink}&nbsp;→&nbsp;${parentRiverLink}`
+                            : riverLink, 'name'),
+                        popupRow('altitude', confluence ? asAltitude(confluence.alt) : null, 'altitude'),
+                        popupRow('distance', confluence ? asKm(confluence.dist) : null, 'distance'),
+                        popupRow('position', confluence
+                            ? positionValue(confluence.lon, confluence.lat)
+                            : null),
+                    ]),
+                ]);
+        }
+        case 'river': {
+            const parent = feature.get('parent');
+            const source = feature.get('source');
+            const mouth = feature.get('mouth');
+            return popupCaption('river', riverUrl(feature.get('pk')),
+                                feature.get('name') ?? 'unknown', null)
+                + popupTable([
+                    popupSection('river', [
+                        popupRow('flows into', parent
+                            ? objectLink('river', riverUrl(parent.id), parent.name)
+                            : '—', 'name'),
+                    ]),
+                    source ? popupSection('source', [
+                        popupRow('altitude', asAltitude(source.alt), 'altitude'),
+                        popupRow('position', positionValue(source.lon, source.lat)),
+                    ]) : '',
+                    mouth ? popupSection('mouth', [
+                        popupRow('altitude', asAltitude(mouth.alt), 'altitude'),
+                        popupRow('position', positionValue(mouth.lon, mouth.lat)),
+                    ]) : '',
+                ]);
+        }
+        default:
+            return '';
+    }
+}
+
+// `onHover` is optional and receives the feature under the cursor (or null). The tooltip is
+// wired up here; anything else that should react to hovering — the key col and parent
+// highlight, for one — goes through the callback rather than adding a second pointermove
+// listener, so the hit test still runs once per mouse position.
 function makeMap(geojson, styleFor, coords, zoom, onHover) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
@@ -55,171 +316,32 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         view: new ol.View({ center: ol.proj.fromLonLat(coords), zoom: zoom }),
     });
 
-    vectorLayer.getSource().once('change', function() {
-        const extent = vectorLayer.getSource().getExtent();
-        if (extent && isFinite(extent[0])) {
-            map.getView().fit(extent, { padding: [60, 60, 60, 60] });
-        }
-    });
+    // Fitting the data is for the single-summit maps, which are handed a centre but no zoom
+    // and would otherwise open at an arbitrary scale. The global map passes a zoom and keeps
+    // it: its collection now spans the world, so fitting it would open on a view where every
+    // marker sits on top of its neighbours.
+    if (zoom === undefined) {
+        vectorLayer.getSource().once('change', function() {
+            const extent = vectorLayer.getSource().getExtent();
+            if (extent && isFinite(extent[0])) {
+                map.getView().fit(extent, { padding: [60, 60, 60, 60] });
+            }
+        });
+    }
 
     const popup = document.createElement('div');
     popup.className = 'map-popup';
-    popup.style.cssText ='background:#fff;padding:6px 10px;border-radius:4px;font:14px sans-serif;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);';
+    // Chrome only — the body's own type and spacing live in `.map-popup` in main.css.
+    // `pointer-events: none`: the popup never stands between the cursor and the map, so it
+    // goes the moment the pointer leaves the feature. Its links stay clickable by tap (see
+    // main.css), which is how they are reached on a touch screen; with a mouse they are
+    // there to say what the popup is pointing at.
+    popup.style.cssText ='background:#fff;padding:5px 8px;border-radius:4px;font:13px/1.3 sans-serif;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,0.3);';
     document.body.appendChild(popup);
 
-    const overlay = new ol.Overlay({ element: popup, positioning: 'bottom-center', offset: [0, -10] });
+    const overlay = new ol.Overlay({ element: popup, positioning: 'bottom-center',
+                                     offset: [0, -10] });
     map.addOverlay(overlay);
-
-    function popupHtml(feature) {
-        if (feature) {
-            let text = "";
-            switch (feature.get('type')) {
-                case 'summit': {
-                    const keyCol = feature.get('key_col');
-                    const keyColRows = keyCol
-                        ? `
-                            <tr>
-                                <th>key col</th>
-                                <td>${keyCol.name ?? 'unnamed'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ altitude</th>
-                                <td class="altitude">${keyCol.alt?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ distance</th>
-                                <td class="distance">${keyCol.dist != null
-                                    ? (keyCol.dist / 1000).toFixed(3)
-                                    : '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ drop</th>
-                                <td class="altitude">${keyCol.drop?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ slope</th>
-                                <td class="slope">${keyCol.slope != null
-                                    ? (keyCol.slope * 1000).toFixed(2)
-                                    : '?'}</td>
-                            </tr>
-                          `
-                        : `
-                            <tr>
-                                <th>key col</th>
-                                <td>—</td>
-                            </tr>
-                          `;
-                    text = `
-                        <h3 class="mountain">
-                            ${flagsHtml(feature.get('countries'))}
-                            ${feature.get('name') ?? 'unnamed peak'}
-                        </h3>
-                        <table class="tooltip">
-                            <tr>
-                                <th>altitude</th>
-                                <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>prominence</th>
-                                <td class="altitude">${feature.get('prom')?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>class</th>
-                                <td>${prominenceBand(feature.get('prom')).label}</td>
-                            </tr>
-                            ${keyColRows}
-                        </table>
-                    `;
-                    break;
-                }
-                case 'col': {
-                    const confluence = feature.get('confluence');
-                    const confluenceRows = confluence
-                        ? `
-                            <tr>
-                                <th>confluence</th>
-                                <td class="link river">
-                                    <a href="">
-                                        ${confluence.name ?? 'unnamed'}
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th>↳ latitude</th>
-                                <td class="angle">${confluence.lat?.toFixed(5) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ longitude</th>
-                                <td class="angle">${confluence.lon?.toFixed(5) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ altitude</th>
-                                <td class="altitude">${confluence.alt?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <th>↳ distance</th>
-                                <td class="distance">${confluence.dist != null
-                                    ? (confluence.dist / 1000).toFixed(3)
-                                    : '?'}</td>
-                            </tr>
-                          `
-                        : `
-                            <tr>
-                                <td>confluence</td>
-                                <td>—</td>
-                            </tr>
-                          `;
-                    text = `
-                        <h3 class="col">
-                            ${flagsHtml(feature.get('countries'))}
-                            ${feature.get('name') ?? 'unknown'}
-                        </h3>
-                        <table>
-                            <tr>
-                                <td>name</td>
-                                <td>${feature.get('name') ?? 'unnamed col'}</td>
-                            </tr>
-                            <tr>
-                                <td>key col for</td>
-                                <td>${feature.get('key_for') ?? '???'}</td>
-                            </tr>
-                            <tr>
-                                <td>altitude</td>
-                                <td class="altitude">${feature.get('alt')?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            <tr>
-                                <td>depth</td>
-                                <td class="altitude">${feature.get('depth')?.toFixed(1) ?? '?'}</td>
-                            </tr>
-                            ${confluenceRows}
-                        </table>
-                    `;
-                    break;
-                }
-                case 'river':
-                    text = `
-                        <h3 class="river">
-                            ${feature.get('name') ?? 'unknown'}
-                        </h3>
-                        <table>
-                            <tr>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td>flows into</td>
-                                <td>
-                                    ${feature.get('parent')
-                                        ? `<a href="river/${feature.get('parent')['id']}">${feature.get('parent')['name']}</a>`
-                                        : '—'}
-                                </td>
-                            </tr>
-                        </table>
-                    `;
-            }
-            return text;
-        }
-        return '';
-    }
 
     // Which feature the popup is currently describing. `pointermove` fires on every mouse
     // position, and rebuilding the body each time would re-run the templates and the band
@@ -289,6 +411,8 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         if (onHover) onHover(feature);
     }
 
+    // Showing and hiding follow the cursor with nothing in between — no timer, no state to
+    // reconcile: whatever is under the pointer right now is what the popup describes.
     map.on('pointermove', function(e) {
         if (e.dragging) {                  // panning: the popup would trail the drag
             hovered(null);
@@ -303,7 +427,8 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
     // the last popup stuck on screen.
     map.getViewport().addEventListener('pointerleave', () => hovered(null));
 
-    // Touch devices have no hover at all, so a tap still opens the popup.
+    // Touch devices have no hover at all, so a tap still opens the popup — and, there being
+    // no pointermove to follow, leaves it open for a second tap on one of its links.
     map.on('click', function(e) {
         hovered(featureAt(e.pixel), e.coordinate);
     });
@@ -315,7 +440,16 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         });
     }
 
-    return { map, tileLayer, vectorLayer };
+    // Popup contents can arrive after the popup is already open — properties are merged onto
+    // the feature when its viewport detail lands — so the caller needs a way to re-render
+    // what is on screen. `described` is the feature the current body was built from.
+    function refreshPopup() {
+        if (!described) return;
+        const html = popupHtml(described);
+        if (html) popup.innerHTML = html;
+    }
+
+    return { map, tileLayer, vectorLayer, refreshPopup };
 }
 
 const PROMINENCE_PEAK_TO_COL_A   = [180, 0,   255, 1];   // purple
@@ -336,6 +470,14 @@ const HORIZON_COLOUR_B           = [255, 200, 255, 1];
 
 const CONFLUENCE_COLOUR_A        = [255, 100, 255, 1];   // pink at the col
 const CONFLUENCE_COLOUR_B        = [255, 200, 255, 1];   // pale pink at the confluence
+// The sisters' lines are the same run of pink, lightened: they answer a question about the
+// col under the cursor, and its own line should stay the strongest thing on screen.
+const CONFLUENCE_SISTER_A        = [255, 170, 255, 1];
+const CONFLUENCE_SISTER_B        = [255, 225, 255, 1];
+// The rivers are water, and they are drawn over the blue of the rivers layer — pink there
+// read as another col line. A light blue lifts the two channels out of the darker course
+// beneath them without leaving the hue the map already uses for rivers.
+const CONFLUENCE_RIVER_COLOUR    = 'rgba(110, 205, 255, 0.95)';
 
 // One definition of the pink col → confluence line, shared by the layer the toggle switches
 // on and the one a hovered col draws for itself, so the two cannot drift apart.
@@ -347,11 +489,38 @@ function confluenceLineStyle(feature) {
     );
 }
 
-// Both endpoints in the view projection.
-function confluenceLine(colCoord, confluenceCoord) {
+// The course of a river, drawn over the blue of the rivers layer in the confluence pink, so
+// a hovered col shows which water it drains into. Solid and a little heavier than the
+// col → confluence lines, which are a gradient: a channel is one thing, not a direction.
+function confluenceRiverStyle() {
+    return new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: CONFLUENCE_RIVER_COLOUR, width: 5 }),
+        zIndex: Z_LINE,
+    });
+}
+
+function confluenceSisterStyle(feature) {
+    return segmentStyles(
+        denseCoords(feature.getGeometry().getCoordinates()),
+        CONFLUENCE_SISTER_A,
+        CONFLUENCE_SISTER_B,
+    );
+}
+
+function confluenceGroupStyle(feature) {
+    switch (feature.get('type')) {
+        case 'confluence_river': return confluenceRiverStyle();
+        case 'confluence_sister': return confluenceSisterStyle(feature);
+        default: return styleFor(feature);      // the rings on the sister cols themselves
+    }
+}
+
+// Both endpoints in the view projection. `type` picks the style: the hovered col's own line
+// is a `confluence_line`, a sister's the lighter `confluence_sister`.
+function confluenceLine(colCoord, confluenceCoord, type = 'confluence_line') {
     return new ol.Feature({
         geometry: new ol.geom.LineString([colCoord, confluenceCoord]),
-        type: 'confluence_line',
+        type: type,
     });
 }
 
@@ -533,14 +702,13 @@ function buildKeyColLayer(summits, cols) {
         if (!col) return;
 
         vectorSource.addFeature(new ol.Feature({
+            // The whole property set rather than a hand-picked subset. The popup reads
+            // `countries` and `river` too, and anything Col.to_dict() grows next; a key
+            // missing here shows up only as a row silently absent from the popup.
+            ...col.properties,
             geometry: new ol.geom.Point(ol.proj.fromLonLat(col.geometry.coordinates)),
-            name: col.properties.name,
-            alt: col.properties.alt,
             pk: kcPk,
             type: 'col',
-            key_for: col.properties.key_for,
-            depth: col.properties.depth,
-            confluence: col.properties.confluence,
         }));
     });
 
@@ -613,13 +781,30 @@ function buildIsolationPointLayer(summits) {
 
 let currentMode = 'prominence';
 
+// A summit with no parent in the hierarchy on show gets a glyph instead of a line going
+// nowhere — and which glyph says which kind of nothing it is. The computation stamps
+// `slope_computed` / `horizon_computed` whether or not it finds a parent, so a missing one
+// with the stamp means "looked, there is none" (crown, empty set) and without it "nobody has
+// looked" (question mark). `top` settles the slope case on its own: nothing is higher than
+// that summit, so no slope parent can exist whether the action has run or not.
+const ROOTLESS_MARK = {
+    horizon: {
+        parent: 'horizon_parent', computed: 'horizon_computed',
+        root: 'horizon_king', missing: 'horizon_unknown',
+    },
+    slope: {
+        parent: 'slope_parent', computed: 'slope_computed',
+        root: 'slope_root', missing: 'slope_unknown',
+    },
+};
+
 function summitStyleFor(feature) {
-    if (feature.get('type') === 'summit'
-            && currentMode === 'horizon'
-            && !feature.get('horizon_parent')) {
-        return styleFor({ get: k => k === 'type' ? 'horizon_king' : feature.get(k) });
-    }
-    return styleFor(feature);
+    if (feature.get('type') !== 'summit') return styleFor(feature);
+    const mark = ROOTLESS_MARK[currentMode];
+    if (!mark || feature.get(mark.parent)) return styleFor(feature);
+    const settled = feature.get(mark.computed) || feature.get('top');
+    const type = settled ? mark.root : mark.missing;
+    return styleFor({ get: k => k === 'type' ? type : feature.get(k) });
 }
 
 function buildRiversLayer(rivers) {
@@ -636,20 +821,27 @@ function buildRiversLayer(rivers) {
         style: new ol.style.Style({
             stroke: new ol.style.Stroke({
                 color: '#1a40f9',
-                width: 3,
+                // Thin: there are hundreds of them, and the highlight below has to be able
+                // to sit on top of one and be seen.
+                width: 2,
             }),
         }),
     });
 }
 
-function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
-    let map, lineageLayer, summitLayer;
+function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDetailUrl) {
+    let map, lineageLayer, summitLayer, refreshPopup;
     let summitsData, colsData;
 
     const routeToggle = document.getElementById('toggle-routing');
 
     let keyColLayer = null;
     let isolationPointLayer = null;
+    let keyColFeatureByPk = {};
+    let summitFeatureByPk = {};
+    let colsByRiver = {};          // river pk → the cols that drain into it
+    let riversByPk = {};
+    let summitByKeyCol = {};       // col pk → the summit whose key col it is
 
     // Hover highlight. Two sources rather than one, because the pieces belong at different
     // depths: the connecting line goes above the lineage lines but under the markers, while the
@@ -692,19 +884,36 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
         if (pk === null || !summitsByPk) return;
         highlightedPk = pk;
 
-        const col = colsByPk[feature.get('kc')];
-        if (col) {
-            highlightPointSource.addFeature(new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat(col.geometry.coordinates)),
-                type: 'highlight_col',
-            }));
-        }
+        // The peak itself, grown: the marker under the cursor answers the hover before the
+        // eye has found the parent at the other end of the line.
+        highlightPointSource.addFeature(new ol.Feature({
+            geometry: new ol.geom.Point(feature.getGeometry().getCoordinates()),
+            type: 'highlight_summit',
+            prom: feature.get('prom'),
+        }));
 
         // The parent of the hierarchy currently drawn, not always the prominence one: lighting up
         // a prominence parent while the map shows isolation lineage would contradict the lines.
         const mode = document.querySelector('input[name="tree"]:checked');
         const modeName = mode && mode.value;
         const parentAttr = lineageParentAttr(modeName) || 'prominence_parent';
+        const useRouting = routeToggle && routeToggle.checked;
+
+        // Whatever the lineage routes through gets a ring: the key col in prominence mode,
+        // the nearest higher point in isolation mode when one is recorded, nothing in the
+        // other two — and nothing at all with routing off, where the line runs straight to
+        // the parent and a ring would sit on empty ground. `lineageWaypoint()` decides all
+        // of that already, and it is the same call the highlight line uses below, so the
+        // ring cannot land off the line.
+        const waypoint = lineageWaypoint(modeName, feature.getProperties(), useRouting, colsByPk);
+        if (waypoint) {
+            highlightPointSource.addFeature(new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat(waypoint)),
+                type: 'highlight_waypoint',
+            }));
+        }
+
+        // The parent of the hierarchy on show — prominence, isolation, slope or horizon.
         const parent = summitsByPk[feature.get(parentAttr)];
         if (!parent) return;
 
@@ -714,10 +923,8 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
             prom: parent.properties.prom,     // the triangle is sized from the parent's own marker
         }));
 
-        // Same waypoint the lineage layer routes through, so the highlight lies exactly over the
-        // line it is highlighting instead of cutting its own corner.
-        const useRouting = routeToggle && routeToggle.checked;
-        const waypoint = lineageWaypoint(modeName, feature.getProperties(), useRouting, colsByPk);
+        // Through the same waypoint, so the highlight lies exactly over the line it is
+        // highlighting instead of cutting its own corner.
         const path = [feature.getGeometry().getCoordinates()];   // already in map projection
         if (waypoint) path.push(ol.proj.fromLonLat(waypoint));
         path.push(ol.proj.fromLonLat(parent.geometry.coordinates));
@@ -729,6 +936,159 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
         setHighlightProgress(0);
         animateHighlight(performance.now());
+    }
+
+    // --- popup detail ------------------------------------------------------------------
+    // The three endpoints above serve skeletons: position, name, prominence and the ids the
+    // joins below need. Altitudes, countries, key col, parent, isolation and river are read
+    // by the popup of one feature at a time, so they are fetched for the current viewport
+    // (mountains/views/viewport.py) and merged onto the features already loaded — the popup
+    // builder reads feature properties and does not care when they arrived.
+    const DETAIL_LIMIT = 300;
+    const DETAIL_DEBOUNCE_MS = 250;
+    const detailHeld = { summit: new Set(), col: new Set() };
+    const detailUrl = { summit: summitsDetailUrl, col: colsDetailUrl };
+    let detailTimer = null;
+    let detailExtent = null;       // the extent already asked for, in EPSG:4326
+
+    function applyDetail(kind, payload) {
+        Object.entries(payload).forEach(([key, detail]) => {
+            const pk = Number(key);
+            detailHeld[kind].add(pk);
+            if (kind === 'summit') {
+                if (summitFeatureByPk[pk]) summitFeatureByPk[pk].setProperties(detail);
+                if (summitsByPk[pk]) Object.assign(summitsByPk[pk].properties, detail);
+            } else {
+                // Merged into the raw GeoJSON as well: buildKeyColLayer() spreads those
+                // properties into fresh features every time the overlay is rebuilt.
+                if (colsByPk[pk]) Object.assign(colsByPk[pk].properties, detail);
+                if (keyColFeatureByPk[pk]) keyColFeatureByPk[pk].setProperties(detail);
+            }
+        });
+        if (refreshPopup) refreshPopup();      // the open popup may be one of them
+    }
+
+    function fetchDetail(kind, query) {
+        if (!detailUrl[kind]) return;
+        fetch(`${detailUrl[kind]}?${query}`)
+            .then(r => r.ok ? r.json() : {})
+            .then(payload => applyDetail(kind, payload))
+            .catch(() => {});                  // detail is an enrichment, never load-critical
+    }
+
+    // A feature hovered before its viewport batch arrived — one pk, straight away.
+    function requestDetailFor(feature) {
+        if (!feature) return;
+        const kind = feature.get('type');
+        if (kind !== 'summit' && kind !== 'col') return;
+        const pk = feature.get('pk');
+        if (pk == null || detailHeld[kind].has(pk)) return;
+        detailHeld[kind].add(pk);              // in flight: do not ask again on the next move
+        fetchDetail(kind, `pks=${pk}`);
+    }
+
+    function requestViewportDetail() {
+        if (!map) return;
+        const extent = ol.proj.transformExtent(
+            map.getView().calculateExtent(map.getSize()), 'EPSG:3857', 'EPSG:4326');
+        // Zooming in asks for a subset of what has already been asked for.
+        if (detailExtent && ol.extent.containsExtent(detailExtent, extent)) return;
+        detailExtent = extent;
+        const bbox = extent.map(v => v.toFixed(5)).join(',');
+        ['summit', 'col'].forEach(kind =>
+            fetchDetail(kind, `bbox=${bbox}&limit=${DETAIL_LIMIT}`));
+    }
+
+    function scheduleViewportDetail() {
+        clearTimeout(detailTimer);
+        detailTimer = setTimeout(requestViewportDetail, DETAIL_DEBOUNCE_MS);
+    }
+
+    function onHover(feature) {
+        highlight(feature);
+        showConfluenceGroup(feature);
+        requestDetailFor(feature);
+    }
+
+    // Hovering a col lights up the whole confluence, not just its own line down to it: every
+    // sister col — the cols draining into the same river — draws its line to the same mouth,
+    // and the two rivers meeting there are traced in the same pink. The col's own line comes
+    // from makeMap(), which needs no data beyond the feature and so works on the detail map
+    // too; this needs the whole collection and therefore lives here.
+    const confluenceGroupSource = new ol.source.Vector();
+    // Point marks belong above the summits, the lines below them: the same split as the
+    // summit highlight, and for the same reason.
+    const confluencePointSource = new ol.source.Vector();
+    let groupShownFor = null;
+
+
+    function markLike(feature, type, extra = {}) {
+        return new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat(feature.geometry.coordinates)),
+            type: type,
+            ...extra,
+        });
+    }
+
+    function riverCourse(river) {
+        return new ol.Feature({
+            geometry: new ol.geom.LineString(
+                river.geometry.coordinates.map(c => ol.proj.fromLonLat(c))),
+            type: 'confluence_river',
+        });
+    }
+
+    function showConfluenceGroup(feature) {
+        const type = feature && feature.get('type');
+        // Keyed by type as well as pk: a river and a col can share an id, and the two are
+        // different highlights.
+        const key = type === 'col' || type === 'river' ? `${type}:${feature.get('pk')}` : null;
+        if (key === groupShownFor) return;     // pointermove fires far more often than this
+        groupShownFor = key;
+        confluenceGroupSource.clear();
+        confluencePointSource.clear();
+        if (key === null) return;
+
+        if (type === 'river') {
+            // The course under the cursor, lifted out of the tangle it crosses.
+            const river = riversByPk[feature.get('pk')];
+            if (river) confluenceGroupSource.addFeature(riverCourse(river));
+            return;
+        }
+
+        // The two peaks the col sits between — the summit whose key col it is and the higher
+        // ground that summit hangs off, the pair the popup names — grown, like a summit
+        // under the cursor. Both come from the summit skeleton, so they are known whether or
+        // not the col's own detail has arrived yet.
+        const minor = summitByKeyCol[feature.get('pk')];
+        const major = minor && summitsByPk[minor.properties.prominence_parent];
+        [minor, major].forEach(peak => {
+            if (peak) confluencePointSource.addFeature(
+                markLike(peak, 'highlight_summit', { prom: peak.properties.prom }));
+        });
+
+        const confluence = feature.get('confluence');
+        if (!confluence || confluence.lon == null) return;
+        const mouth = ol.proj.fromLonLat([confluence.lon, confluence.lat]);
+
+        (colsByRiver[confluence.river] || []).forEach(col => {
+            if (col.properties.pk === feature.get('pk')) return;   // makeMap draws that one
+            const at = ol.proj.fromLonLat(col.geometry.coordinates);
+            confluenceGroupSource.addFeature(confluenceLine(at, mouth, 'confluence_sister'));
+            // Ringed, to say it shares the confluence the line runs to.
+            confluencePointSource.addFeature(markLike(col, 'confluence_col'));
+        });
+
+        // The river the col drains into and the one that receives it: the two channels that
+        // meet at this confluence. Either may be missing its course, rivers with fewer than
+        // two waypoints being left out of the rivers endpoint altogether.
+        const river = riversByPk[confluence.river];
+        const parent = river && river.properties.parent
+            ? riversByPk[river.properties.parent.id]
+            : null;
+        [river, parent].forEach(r => {
+            if (r) confluenceGroupSource.addFeature(riverCourse(r));
+        });
     }
 
     function rebuildOverlayLayers() {
@@ -746,6 +1106,10 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
         if (mode === 'prominence' && useRouting) {
             keyColLayer = buildKeyColLayer(summitsData, colsData);
+            keyColFeatureByPk = {};
+            keyColLayer.getSource().getFeatures().forEach(f => {
+                keyColFeatureByPk[f.get('pk')] = f;
+            });
             keyColLayer.set('name', 'keycols');
             keyColLayer.setZIndex(Z_OVERLAY_POINTS);
             map.addLayer(keyColLayer);
@@ -783,14 +1147,33 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
         summitsByPk = {};
         summits.features.forEach(f => { summitsByPk[f.properties.pk] = f; });
+        summitByKeyCol = {};
+        summits.features.forEach(f => {
+            if (f.properties.kc != null) summitByKeyCol[f.properties.kc] = f;
+        });
         colsByPk = {};
-        cols.features.forEach(f => { colsByPk[f.properties.pk] = f; });
+        colsByRiver = {};
+        cols.features.forEach(f => {
+            colsByPk[f.properties.pk] = f;
+            const river = f.properties.confluence && f.properties.confluence.river;
+            if (river != null) (colsByRiver[river] = colsByRiver[river] || []).push(f);
+        });
+        riversByPk = {};
+        rivers.features.forEach(f => { riversByPk[f.properties.pk] = f; });
 
-        const { map: m, tileLayer, vectorLayer } = makeMap(summits, styleFor, [22, 49], 11,
-                                                          highlight);
+        const { map: m, tileLayer, vectorLayer, refreshPopup: refresh } =
+            makeMap(summits, styleFor, [19.7, 48.7], 8, onHover);
         map = m;
+        refreshPopup = refresh;
         summitLayer = vectorLayer;
         summitLayer.set('name', 'summits');
+        summitLayer.getSource().getFeatures().forEach(f => {
+            summitFeatureByPk[f.get('pk')] = f;
+        });
+        // Before the first viewport detail request below, so that it asks for the peaks
+        // actually on screen.
+        map.getView().fit(ol.proj.transformExtent(HOME_EXTENT, 'EPSG:4326', 'EPSG:3857'),
+                          { padding: [20, 20, 20, 20] });
         renderProminenceLegend();
 
         // Both names start with "highlight" — that prefix is what featureAt() filters on, so
@@ -801,6 +1184,22 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
             layer.set('name', name);
             map.addLayer(layer);
         });
+
+        const confluenceGroupLayer = new ol.layer.Vector({
+            source: confluenceGroupSource,
+            style: confluenceGroupStyle,
+            zIndex: Z_HIGHLIGHT_LINE,
+        });
+        confluenceGroupLayer.set('name', 'highlight-confluence-group');
+        map.addLayer(confluenceGroupLayer);
+
+        const confluencePointLayer = new ol.layer.Vector({
+            source: confluencePointSource,
+            style: styleFor,
+            zIndex: Z_HIGHLIGHT_MARK,
+        });
+        confluencePointLayer.set('name', 'highlight-confluence-marks');
+        map.addLayer(confluencePointLayer);
 
         const opacitySlider = document.getElementById('map-opacity');
         if (opacitySlider) {
@@ -834,6 +1233,9 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl) {
 
 
         rebuildLineage();
+
+        map.on('moveend', scheduleViewportDetail);
+        requestViewportDetail();       // the peaks the reader starts out looking at
 
         document.querySelectorAll('input[name="tree"]').forEach(r =>
             r.addEventListener('change', rebuildLineage)

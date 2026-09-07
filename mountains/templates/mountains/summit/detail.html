@@ -11,12 +11,12 @@
 {% endblock headextra %}
 
 {% block title %}
-    &#x26F0; {{ mountain.point.name }}
+    &#x26F0; {{ mountain.point.display_name }}
     ({{ mountain.point.altitude }} m)
 {% endblock title %}
 
 {% block page_title %}
-    <span class="mountain">{{ mountain.point.name }}</span> ({{ mountain.point.altitude }} m)
+    <span class="mountain">{{ mountain.point.display_name }}</span> ({{ mountain.point.altitude }} m)
     {{ mountain.point|flags }}
     <a class="edit" href="{{ mountain.admin_change_url }}">&#x1F589;</a>
 {% endblock page_title %}
@@ -49,7 +49,7 @@
                 </span>
                 {{ offset.dist|distance }}
                 {{ mountain.isolation_name }} of
-                {{ parent.point.name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
+                {{ parent.point.display_name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
             {% else %}
                 (data not available)
             {% endif %}
@@ -60,6 +60,8 @@
     {% include "mountains/summit/blocks/slope-lineage.html" %}
     {% include "mountains/summit/blocks/horizon-lineage.html" %}
     {% include "mountains/summit/blocks/horizon-lineage-std.html" %}
+
+    {% include "mountains/summit/blocks/horizon-children.html" %}
 
     {% include "mountains/summit/blocks/parent-for.html" %}
     {% include "mountains/summit/blocks/isolation-for.html" %}

@@ -1,2 +1,2 @@
-from .col import DetailView, GeoJsonView, ColTreeView
+from .col import DetailView, DetailJsonView, GeoJsonView, ColTreeView
 from .list import ListView

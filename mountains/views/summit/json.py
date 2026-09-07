@@ -165,6 +165,7 @@ class SummitDetailGeoJSON(BaseDetailView):
         'point',
         'key_col__point',
         'key_col__confluence_river__source',
+        'key_col__confluence_river__parent__source',
         'prominence_parent__point',
     ).prefetch_related(
         'point__countries',

@@ -11,6 +11,8 @@ urlpatterns = [
     path('horizon-forest', views.HorizonTreeView.as_view(), name='horizon-forest'),
 
     path('summits/geo.json', views.summit.GeoJsonView.as_view(), name='summits-geojson'),
+    # Popup detail for a viewport; see mountains/views/viewport.py
+    path('summits/detail.json', views.summit.DetailJsonView.as_view(), name='summits-detail-json'),
 
     path('prominence-tree.json', views.summit.tree.ProminenceJsonView.as_view(), name='prominence-tree-json'),
 
@@ -18,6 +20,7 @@ urlpatterns = [
 
     path('rivers/geo.json', views.river.GeoJsonView.as_view(), name='rivers-geojson'),
     path('cols/geo.json/', views.col.GeoJsonView.as_view(), name='cols-geojson'),
+    path('cols/detail.json', views.col.DetailJsonView.as_view(), name='cols-detail-json'),
 
     path('summit/<int:pk>/', views.MountainDetailView.as_view(), name='summit-detail'),
     path('summit/<int:pk>/geo.json/', views.SummitDetailGeoJSON.as_view(), name='summit-detail-geojson'),

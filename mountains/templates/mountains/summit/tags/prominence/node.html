@@ -2,7 +2,7 @@
 
 {% for summit in nodes %}
     <li class="tree-node">
-        <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.name }}</a>
+        <a class="mountain" href="{% url 'summit-detail' summit.id %}">{{ summit.point.display_name }}</a>
         ({{ summit.point.altitude }} m) &#x2198;
         <span class="prominence">{{ summit.prominence|floatformat:1 }} m</span>
         {% if summit.island_high_point %}

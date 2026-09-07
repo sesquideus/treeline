@@ -129,12 +129,40 @@ local copies of `styleFor`, `segmentStyles`, and `denseCoords` that shadowed the
 so edits to `styles.js` had no effect on that page. That block is gone. If a styling change
 appears not to work, check first that no template is redefining the function.
 
-`views.map` still serializes a whole FeatureCollection into the template context for a
-`{{ geojson }}` variable nothing reads any more — dead work on every request.
+**Skeleton and detail.** `/summits/geo.json` and `/cols/geo.json/` no longer serve
+`to_geojson()`. They serve *skeletons* — `SummitQuerySet.skeleton_features()` and
+`ColQuerySet.skeleton_features()`, built from `values_list` without instantiating a single
+model — carrying only what the map draws and joins with: position, `name`, `prom`, the four
+`*_parent` ids, `kc`, and the position of `ilp` (cols: position and `confluence` position).
+Everything else a popup shows comes from `/summits/detail.json` and `/cols/detail.json`
+(`mountains/views/viewport.py`), which take `?bbox=minLon,minLat,maxLon,maxLat&limit=`
+or `?pks=`, return `{pk: to_detail_dict()}` ordered by prominence / col depth (nulls last,
+or an unknown prominence would crowd the ultras out of the limit), and are merged onto the
+loaded features in the browser.
 
-Endpoints: `/summits/geo.json`, `/rivers/geo.json`, `/cols/geo.json/` (flat, via
-`FlatGeoJsonView`), `/summit/<pk>/geo.json/` (assembled server-side in
-`views/summit/json.py`), and the tree JSON views under `views/tree/tree.py` whose
+A summit's detail is one dict per popup section, all built the same way — `key_col_dict()`,
+`parent_dict()` (prominence), `nhn_dict()`, `slope_parent_dict()`, `horizon_parent_dict()`
+— each preferring the `with_*` annotation over a geodesic through `Summit._distance_m()`.
+They land under `key_col`, `parent`, `nhn`, `slope` and `horizon`: **not** `slope_parent` /
+`horizon_parent`, which are the parent *ids* in the skeleton that the lineage joins on, and
+which an object of the same name would overwrite. Adding a popup field means putting it in
+`to_detail_dict()`, not in the skeleton; adding something the *map* draws means the
+skeleton, and both keep the property names of `to_dict()`.
+
+Payload discipline is the reason for the split: the full summit collection is 294 KiB
+gzipped and 0.78 s of Python, the skeleton 94 KiB and 0.02 s.
+
+**Caching.** Every payload that depends on the data and nothing else goes through
+`CachedJsonMixin` (`views/tree/tree.py`) and `mountains/views/cache.py`: subclasses
+implement `build_payload()` instead of `get()`, keys carry a version integer, and
+`mountains/signals.py` bumps that version on any write to `NamedPoint`, `Summit`, `Col`,
+`River` or `Confluence`. There is no partial invalidation — a save drops everything. With
+`GZipMiddleware` now in `MIDDLEWARE`, a warm map load is ~240 KiB gzipped.
+
+Endpoints: `/summits/geo.json`, `/cols/geo.json/` (skeletons), `/rivers/geo.json` (still
+full, via `FlatGeoJsonView`), `/summits/detail.json`, `/cols/detail.json` (viewport detail),
+`/summit/<pk>/geo.json/` (assembled server-side in `views/summit/json.py`, still `to_dict()`
+based), and the tree JSON views under `views/tree/tree.py` whose
 `build_tree(summits, parent_attr)` nests `to_dict()` payloads by any `*_parent_id`.
 
 ## Views
@@ -149,9 +177,25 @@ Tree views (`SummitTreeView` and its subclasses) flatten a queryset into `{paren
 in Python; subclasses supply `parent_fk` and `sort_function` as static methods. `preprocess()`
 is the hook for per-object values a template needs that SQL did not annotate.
 
+The summit detail page is where the per-request cost concentrates, and two things in
+`views/summit/summit.py` keep it down — undo either and the page goes back to seconds:
+
+- `prime_lineages(summit)` fills the four `*_parent` chains with one query for every parent
+  link in the table plus one for the summits on this summit's chains, then primes Django's FK
+  cache by assigning the related objects. The lineage tags recurse through those links, and
+  the chains run to fifteen levels: `select_related` cannot cover that, and paying for four
+  levels of joins measured slower than this does at any depth.
+- `MountainDetailView.ranked_against_this()` annotates distance, height difference, slope and
+  both horizon angles *against a fixed point* — the same expressions as `with_slope_parent()`
+  and `with_horizon_parent()` with the parent replaced by this summit — so the "slope to" and
+  "horizon to" tables are ordered and sliced in SQL. In Python that was four geodesics per
+  summit, ~7900 of them, and 95 % of the page.
+
 Admin actions on `SummitAdmin` are generators decorated with cairn's `@admin_action`; they
 `yield` the name of each changed object for progress reporting. The three compute actions are
-brute-force O(n²) loops in Python.
+brute-force O(n²) loops in Python, and each stamps `slope_computed` / `horizon_computed` /
+`horizon_std_computed` whether or not it finds a parent — that stamp is what tells a missing
+parent apart from an uncomputed one on the map.
 
 ## Commands
 

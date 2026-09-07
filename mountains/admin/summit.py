@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.gis.db.models import PointField
 from django.contrib.gis.geos import Point
+from django.utils import timezone
 
 from cairn.admin import ModelAdmin
 from cairn.admin.modeladmin import admin_action
@@ -93,19 +94,28 @@ class SummitAdmin(ModelAdmin):
             .exclude(point__isnull=True)
             #            .filter(Q(slope_source__isnull=True) | Q(slope_source=source))
         )
+        # The parent has to be higher, so the highest summit of all can have none. That used
+        # to be a check on the name 'Mount Everest'; it is the altitude that matters.
+        highest = max((s.point.altitude for s in all_summits if s.point.altitude is not None),
+                      default=None)
 
         for summit in queryset.select_related('point'):
-            if summit.point.name == 'Mount Everest':
-                continue
+            # `slope_computed` is stamped either way: a null parent then means "looked, found
+            # nothing" rather than "never looked", which is a distinction the map draws.
+            fields = ['slope_computed']
+            summit.slope_computed = timezone.now()
 
-            best = max(
-                [s for s in all_summits if s.pk != summit.pk],
-                key=lambda x: summit.point.slope_to(x.point),
-            )
+            if summit.point.altitude != highest:
+                best = max(
+                    [s for s in all_summits if s.pk != summit.pk],
+                    key=lambda x: summit.point.slope_to(x.point),
+                )
+                if summit.slope_parent_id != best.pk and summit.point.altitude < best.point.altitude:
+                    summit.slope_parent = best
+                    fields.append('slope_parent')
 
-            if summit.slope_parent_id != best.pk and summit.point.altitude < best.point.altitude:
-                summit.slope_parent = best
-                summit.save(update_fields=['slope_parent'])
+            summit.save(update_fields=fields)
+            if 'slope_parent' in fields:
                 yield summit.point.name
 
     def _compute_horizon_parent(self, all_summits, summit, refraction: float = 0.0):
@@ -130,14 +140,20 @@ class SummitAdmin(ModelAdmin):
         )
 
         for summit in queryset.select_related('point'):
+            # Stamped either way; see compute_slope_parent().
+            fields = ['horizon_computed']
+            summit.horizon_computed = timezone.now()
+
             best = max(
                 [s for s in all_summits if s.pk != summit.pk],
                 key=lambda x: summit.point.angle_to(x.point),
             )
-
             if summit.horizon_parent_id != best.pk and summit.point.angle_to(best.point) > 0:
                 summit.horizon_parent = best
-                summit.save(update_fields=['horizon_parent'])
+                fields.append('horizon_parent')
+
+            summit.save(update_fields=fields)
+            if 'horizon_parent' in fields:
                 yield summit.point.name
 
     @admin_action(description='Compute horizon parent (std)')
@@ -147,14 +163,20 @@ class SummitAdmin(ModelAdmin):
         )
 
         for summit in queryset.select_related('point'):
+            # Stamped either way; see compute_slope_parent().
+            fields = ['horizon_std_computed']
+            summit.horizon_std_computed = timezone.now()
+
             best = max(
                 [s for s in all_summits if s.pk != summit.pk],
                 key=lambda x: summit.point.angle_to(x.point, refraction=0.14),
             )
-
             if summit.horizon_parent_std_id != best.pk and summit.point.angle_to(best.point, refraction=0.14) > 0:
                 summit.horizon_parent_std = best
-                summit.save(update_fields=['horizon_parent_std'])
+                fields.append('horizon_parent_std')
+
+            summit.save(update_fields=fields)
+            if 'horizon_parent_std' in fields:
                 yield summit.point.name
 
     @admin.display(description="Location", ordering="point__location")

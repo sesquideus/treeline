@@ -1,0 +1,14 @@
+{% load cairn tree %}
+
+<h3>
+    Horizon children
+</h3>
+<table class="lineage">
+    {% for child in mountain.horizon_children.by_angle %}
+        <tr>
+            <td>{% object_link child 'mountain' attr='name' %}</td>
+            <td class="altitude">{{ child.point.altitude|altitude }}</td>
+            <td class="angle">{{ child.angle|degrees|floatformat:2 }}</td>
+        </tr>
+    {% endfor %}
+</table>

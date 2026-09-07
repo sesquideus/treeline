@@ -1,7 +1,9 @@
-from django.db.models import Q
+from django.db.models import F, Q
+from django.views import View
 from django.views.generic import DetailView as DjangoDetailView, ListView as DjangoListView
 
-from ..tree.tree import FlatGeoJsonView, TreeView
+from ..tree.tree import CachedJsonMixin, TreeView
+from ..viewport import ViewportDetailView
 from ...models import Col
 
 
@@ -28,5 +30,23 @@ class ColTreeView(TreeView):
         return Col.objects.with_rivers().with_minor().with_point().with_countries()
 
 
-class GeoJsonView(ColTreeView, FlatGeoJsonView):
-    object_name = 'cols'
+class GeoJsonView(CachedJsonMixin, View):
+    """
+    Every col, as the skeleton the global map draws from: its position and the position of
+    its confluence, which the pink line runs to. Popup detail comes from `DetailJsonView`.
+    """
+
+    def build_payload(self):
+        return {
+            'type': 'FeatureCollection',
+            'features': Col.objects.skeleton_features(),
+        }
+
+
+class DetailJsonView(ColTreeView, ViewportDetailView):
+    """
+    Popup detail for the cols in a viewport — the deepest first, `depth` being the
+    annotation `ColTreeView`'s queryset already carries, along with the rivers and countries
+    a col popup shows.
+    """
+    ordering = (F('depth').desc(nulls_last=True),)

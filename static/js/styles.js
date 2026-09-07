@@ -185,6 +185,23 @@ function summitMarker(color, radius = 6, { outline = SUMMIT_OUTLINE, zIndex = Z_
     });
 }
 
+// The ordinary marker with a glyph riding above it. Used for the roots of a hierarchy, which
+// have no parent to draw a line to and would otherwise look like any other peak.
+function markedSummit(prom, glyph, offsetY = -10) {
+    return [
+        summitMarker(prominenceBand(prom).colour, prominenceRadius(prom),
+                     { zIndex: prominenceZIndex(prom) }),
+        new ol.style.Style({
+            text: new ol.style.Text({
+                text: glyph,
+                font: '14px sans-serif',
+                offsetY: offsetY,
+            }),
+            zIndex: prominenceZIndex(prom),
+        }),
+    ];
+}
+
 function colMarker(colour, size) {
     return new ol.style.Style({
         image: new ol.style.Circle({
@@ -243,8 +260,9 @@ const isolationCircleStyle = new ol.style.Style({
 });
 
 
-// Hover highlight: a ring drawn around the key col and the parent of whichever peak is under
-// the cursor. Cyan is deliberately outside the prominence ramp's warm gold-to-violet range, so
+// Hover highlight: a ring drawn around the parent of whichever peak is under the cursor, and
+// around the waypoint its lineage passes through — the key col in prominence mode, the
+// nearest higher point in isolation mode. Cyan is deliberately outside the prominence ramp's warm gold-to-violet range, so
 // a ring never reads as another band; and it is a ring rather than a fill so the marker it
 // annotates stays visible, colour and size intact, inside it. The white halo underneath keeps
 // it legible on the forested green parts of the basemap as well as the pale ones.
@@ -276,6 +294,21 @@ function lighten(hex, amount) {
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
     const mix = c => Math.round(c + (255 - c) * amount);
     return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+// The summit under the cursor: its own marker, grown. Less than the parent's
+// HIGHLIGHT_GROW and without the cyan shine — this one is not being pointed *at*, it is
+// simply the thing being read, and it has to stay the same colour and shape to stay
+// recognisable as its own prominence band.
+const HIGHLIGHT_HOVER_GROW = 1.4;
+
+function highlightSummit(prom) {
+    const eased = easeOutBack(highlightProgress);
+    return summitMarker(
+        prominenceBand(prom).colour,
+        prominenceRadius(prom) * (1 + (HIGHLIGHT_HOVER_GROW - 1) * eased),
+        { zIndex: prominenceZIndex(prom) + 1 },
+    );
 }
 
 function highlightParent(prom) {
@@ -320,7 +353,12 @@ function highlightLine() {
     ];
 }
 
-function highlightRing(radius) {
+// A col sharing the hovered col's confluence. Ringed in the confluence pink rather than the
+// hover cyan: it belongs to the pink group of lines converging on the river mouth, not to the
+// summit-hover highlight, and the two can be on screen at once.
+const CONFLUENCE_MARK = 'rgba(230, 60, 230, 0.95)';
+
+function highlightRing(radius, colour = HIGHLIGHT_COLOUR) {
     return [
         new ol.style.Style({
             image: new ol.style.Circle({
@@ -332,7 +370,7 @@ function highlightRing(radius) {
         new ol.style.Style({
             image: new ol.style.Circle({
                 radius: radius,
-                stroke: new ol.style.Stroke({ color: HIGHLIGHT_COLOUR, width: 2.5 }),
+                stroke: new ol.style.Stroke({ color: colour, width: 2.5 }),
             }),
             zIndex: Z_POINT,
         }),
@@ -350,7 +388,9 @@ function styleFor(feature) {
         case 'col':                     return colMarker();
         // The col keeps a ring — it is a fixed 5px circle, so a ring at 10 clears it — while the
         // parent is redrawn as its own triangle, grown and lit, rather than annotated.
-        case 'highlight_col':           return highlightRing(10);
+        case 'highlight_summit':        return highlightSummit(prom);
+        case 'highlight_waypoint':      return highlightRing(10);
+        case 'confluence_col':          return highlightRing(8, CONFLUENCE_MARK);
         case 'highlight_parent':        return highlightParent(prom);
         case 'highlight_line':          return highlightLine();
         case 'isolation_point':         return dot('#f1c40f');
@@ -363,18 +403,15 @@ function styleFor(feature) {
         case 'prominence_line_second':  return gradientLine(feature, RED, YELLOW);
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
         case 'slope_line':              return gradientLine(feature, RED, YELLOW);
-        case 'horizon_king':            return [
-            summitMarker(prominenceBand(prom).colour, prominenceRadius(prom),
-                         { zIndex: prominenceZIndex(prom) }),
-            new ol.style.Style({
-                text: new ol.style.Text({
-                    text: '👑',
-                    font: '14px sans-serif',
-                    offsetY: -10,
-                }),
-                zIndex: prominenceZIndex(prom),
-            }),
-        ];
+        // A summit with nothing above it in the hierarchy on show: the crown for a horizon
+        // king, a question mark where a slope parent was never worked out.
+        case 'horizon_king':            return markedSummit(prom, '👑');
+        // Two kinds of missing parent, told apart: nothing higher exists (so there can be
+        // no parent) versus nobody has computed one. The question mark sits higher than the
+        // crown — the glyph has no flat base and reads as touching the triangle otherwise.
+        case 'slope_root':              return markedSummit(prom, '∅', -16);
+        case 'slope_unknown':           return markedSummit(prom, '❓', -17);
+        case 'horizon_unknown':         return markedSummit(prom, '❓', -17);
         default: return [];
     }
 }

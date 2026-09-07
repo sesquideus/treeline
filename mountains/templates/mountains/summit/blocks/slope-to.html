@@ -43,7 +43,7 @@
                 {{ summit.dh|floatformat:1 }}
             </td>
             <td class="distance">
-                {{ summit.distance|floatformat:3 }}
+                {{ summit.distance.km|floatformat:3 }}
             </td>
             <td class="slope">
                 {{ summit.slope|multiply:1000|floatformat:3 }}

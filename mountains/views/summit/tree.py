@@ -1,11 +1,9 @@
-from django.http import JsonResponse
-
-from mountains.views.tree.tree import TreeView
+from mountains.views.tree.tree import CachedJsonMixin, TreeView
 
 from mountains.models import Summit
 
 
-class SummitTreeView(TreeView):
+class SummitTreeView(CachedJsonMixin, TreeView):
     def get_queryset(self):
         # `with_countries()`: to_dict() serializes the flags, and without the prefetch that is
         # one query per node.
@@ -15,29 +13,21 @@ class SummitTreeView(TreeView):
 
 
 class ProminenceJsonView(SummitTreeView):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            'tree': self.build_tree(list(self.get_queryset()), 'prominence_parent_id')
-        })
+    def build_payload(self):
+        return {'tree': self.build_tree(list(self.get_queryset()), 'prominence_parent_id')}
 
 
 class IsolationJsonView(SummitTreeView):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            'tree': self.build_tree(list(self.get_queryset()), 'isolation_parent_id')
-        })
+    def build_payload(self):
+        return {'tree': self.build_tree(list(self.get_queryset()), 'isolation_parent_id')}
 
 
 class SlopeJsonView(SummitTreeView):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            'tree': self.build_tree(list(self.get_queryset()), 'slope_parent_id')
-        })
+    def build_payload(self):
+        return {'tree': self.build_tree(list(self.get_queryset()), 'slope_parent_id')}
 
 
 class HorizonJsonView(SummitTreeView):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            'tree': self.build_tree(list(self.get_queryset()), 'horizon_parent_id')
-        })
+    def build_payload(self):
+        return {'tree': self.build_tree(list(self.get_queryset()), 'horizon_parent_id')}
 

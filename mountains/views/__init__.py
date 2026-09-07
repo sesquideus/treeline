@@ -93,88 +93,13 @@ def summit_map(request):
 
 
 def map(request):
-    summits = Summit.objects.select_related(
-        'point',
-        'isolation_parent__point',
-    ).filter(point__isnull=False)
-
-    features = []
-
-    for s in summits:
-        features.append({
-            'type': 'Feature',
-            'geometry': {
-                'type': 'Point',
-                'coordinates': [s.point.location.x, s.point.location.y],
-            },
-            'properties': {
-                'name': f"{s.point.name} ({s.point.altitude} m)",
-                'type': 'summit',
-            }
-        })
-
-        if s.nearest_higher_point:
-            dist = distance(
-                (s.point.location.y, s.point.location.x),
-                (s.nearest_higher_point.y, s.nearest_higher_point.x),
-            )
-            if s.isolation_parent:
-                iso_label = (
-                    f"{s.isolation_name} of {s.isolation_parent.point.name} "
-                    f"({dist.km:.3} km)"
-                )
-            else:
-                iso_label = f"{dist} km"
-
-            features.append({
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'Point',
-                    'coordinates': [s.nearest_higher_point.x, s.nearest_higher_point.y],
-                },
-                'properties': {
-                    'name': iso_label,
-                    'type': 'isolation_point',
-                }
-            })
-
-            # First leg: summit → isolation point (thick green)
-            features.append({
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'LineString',
-                    'coordinates': [
-                        [s.point.location.x, s.point.location.y],
-                        [s.nearest_higher_point.x, s.nearest_higher_point.y],
-                    ]
-                },
-                'properties': {
-                    'type': 'isolation_line_first',
-                    'from': s.point.name,
-                    'to': s.isolation_name or '',
-                }
-            })
-
-            # Second leg: isolation point → isolation parent summit (thick purple)
-            if s.isolation_parent and s.isolation_parent.point:
-                features.append({
-                    'type': 'Feature',
-                    'geometry': {
-                        'type': 'LineString',
-                        'coordinates': [
-                            [s.nearest_higher_point.x, s.nearest_higher_point.y],
-                            [s.isolation_parent.point.location.x, s.isolation_parent.point.location.y],
-                        ]
-                    },
-                    'properties': {
-                        'type': 'isolation_line_second',
-                        'from': s.isolation_name or '',
-                        'to': s.isolation_parent.point.name,
-                    }
-                })
-
-    geojson = json.dumps({'type': 'FeatureCollection', 'features': features}, ensure_ascii=False)
-    return render(request, 'mountains/maps/isolation_map.html', {'geojson': geojson})
+    """
+    The global map page. Everything on it is fetched from the flat GeoJSON endpoints by
+    `initGlobalMap()`; the view itself only renders the shell. It used to build a whole
+    FeatureCollection here — summits, isolation points and both isolation legs, one geodesic
+    per summit — and pass it as `geojson`, which no template has read for a long time.
+    """
+    return render(request, 'mountains/maps/isolation_map.html')
 
 
 def summit_detail_map(request, pk):

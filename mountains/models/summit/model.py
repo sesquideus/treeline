@@ -126,10 +126,89 @@ class SummitQuerySet(models.QuerySet):
             complete=Q(has_point=True) & Q(has_key_col=True) & Q(has_prominence_parent=True) & Q(has_isolation=True)
         )
 
+    def skeleton_features(self):
+        """
+        GeoJSON features carrying only what the global map *draws and joins with* — the rest
+        of a summit's properties are read by the popup of the one feature under the cursor
+        and are served separately by the viewport detail endpoint.
+
+        Built straight from `values_list`, without instantiating models: that is the whole
+        point of the split — an order of magnitude cheaper than `to_geojson()` per summit.
+        The property names are the client API (`static/js/map.js`, `static/js/styles.js`
+        read `prom`, `kc`, `ilp` and the `*_parent` ids by name), so they must match
+        `to_dict()` exactly. `name` is here so a popup has a caption before its detail
+        arrives.
+        """
+        rows = list(self.values_list(
+            'pk', 'point__location', 'point__name', 'point__altitude',
+            'key_col__point__altitude', 'island_high_point',
+            'prominence_parent_id', 'isolation_parent_id', 'slope_parent_id',
+            'horizon_parent_id', 'key_col_id', 'nearest_higher_point',
+            'slope_computed', 'horizon_computed',
+        ))
+        # The highest summit in the collection. A slope parent has to be *higher* than its
+        # child (see the compute action), so for that one summit a missing slope parent is
+        # the truth rather than a gap in the data — and the map says so with a different
+        # glyph. Every other missing one means nobody has computed it yet.
+        highest = max((row[3] for row in rows if row[3] is not None), default=None)
+        features = []
+        for (pk, location, name, altitude, col_altitude, island,
+             prominence_parent, isolation_parent, slope_parent, horizon_parent,
+             key_col, nearest_higher_point, slope_computed, horizon_computed) in rows:
+            if location is None:
+                continue
+            # Same island-high-point branch as with_prominence(): for those the sea is the
+            # col, and a plain subtraction would leave them without a prominence band.
+            if island:
+                prominence = altitude
+            elif col_altitude is not None and altitude is not None:
+                prominence = altitude - col_altitude
+            else:
+                prominence = None
+            features.append({
+                'type': 'Feature',
+                'geometry': {'type': 'Point', 'coordinates': [location.x, location.y]},
+                'properties': {
+                    'type': 'summit',
+                    'pk': pk,
+                    'name': name,
+                    'prom': prominence,
+                    'prominence_parent': prominence_parent,
+                    'isolation_parent': isolation_parent,
+                    'slope_parent': slope_parent,
+                    'horizon_parent': horizon_parent,
+                    'kc': key_col,
+                    # Only on the summit nothing is higher than; see `highest` above.
+                    **({'top': True} if altitude is not None and altitude == highest else {}),
+                    # Only where a parent is missing, which is the one case the map asks:
+                    # was it looked for and not found, or never looked for at all?
+                    **({'slope_computed': True}
+                       if slope_parent is None and slope_computed else {}),
+                    **({'horizon_computed': True}
+                       if horizon_parent is None and horizon_computed else {}),
+                    # Only the position: the lineage layer routes through it, and the
+                    # isolation point layer marks it. Its name and distance are detail.
+                    'ilp': {
+                        'lon': nearest_higher_point.x,
+                        'lat': nearest_higher_point.y,
+                    } if nearest_higher_point else None,
+                },
+            })
+        return features
+
     def only_complete(self):
         return self.with_complete().filter(
             complete=True,
         )
+
+    def by_angle(self):
+        """
+        Ordered by the angle above the horizon. `with_point()` because
+        `with_horizon_parent()` joins the *parent's* point and not the summit's own, and a
+        row about a summit asks for its name and its altitude before anything else — one
+        query apiece without it.
+        """
+        return self.with_point().with_horizon_parent().order_by('angle')
 
 class Summit(GeoModel):
     class Meta:
@@ -174,6 +253,19 @@ class Summit(GeoModel):
                                            related_name='horizon_children_std',
                                            help_text='The summit that is the highest point above the local horizon '
                                                      'with standard coefficient of refraction (0.14)')
+
+    # When each of those was last worked out, stamped by the admin actions that compute them.
+    # Without it a null parent is two different states at once: nothing to point at, or
+    # nobody has looked yet — and the map has no way to say which. A timestamp rather than a
+    # flag because the answer can go stale: a run predating a newly added summit may have
+    # missed the parent that summit would have been.
+    slope_computed = models.DateTimeField(null=True, blank=True,
+                                          help_text='When the slope parent was last computed')
+    horizon_computed = models.DateTimeField(null=True, blank=True,
+                                            help_text='When the horizon parent was last computed')
+    horizon_std_computed = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the horizon parent (std) was last computed')
 
     objects = SummitQuerySet.as_manager()
 
@@ -314,6 +406,11 @@ class Summit(GeoModel):
             return None
 
     def compute_isolation(self):
+        # Prefer the `isolation` annotation from with_isolation(): serializing a few thousand
+        # summits otherwise runs a geodesic apiece for a number SQL has already produced.
+        annotated = getattr(self, 'isolation', None)
+        if annotated is not None:
+            return annotated
         if self.point and self.nearest_higher_point:
             return distance(
                 (self.point.location.y, self.point.location.x),
@@ -370,37 +467,41 @@ class Summit(GeoModel):
             }
         return None
 
-    def compute_distance_to_key_col(self):
+    def _distance_m(self, other_point, annotation=None):
         """
-        Distance to the key col as a measure. Named `compute_…` for the same reason as
-        `compute_slope_to_key_col()`: `distance_to_key_col` is an annotation.
+        Metres from this summit to another point, preferring `annotation` — a `Distance` a
+        with_* method has already computed in SQL — over a geodesic in Python. Every popup
+        section that quotes a distance goes through here.
         """
-        annotated = getattr(self, 'distance_to_key_col', None)
-        if annotated is not None:
-            return annotated
-        if self.key_col and self.key_col.point and self.point:
-            return distance(
-                (self.point.location.y, self.point.location.x),
-                (self.key_col.point.location.y, self.key_col.point.location.x),
-            )
-        return None
+        if annotation:
+            measure = getattr(self, annotation, None)
+            if measure is not None:
+                return measure.m
+        if not (self.point and self.point.location and other_point and other_point.location):
+            return None
+        return distance(
+            (self.point.location.y, self.point.location.x),
+            (other_point.location.y, other_point.location.x),
+        ).m
 
     def compute_slope_to_key_col(self, key_col_distance=None):
         """
         Gradient from the summit down to its key col — negative, the col being the lower of
         the two, unlike the slope to a parent. Named `compute_…` so it does
         not collide with the `slope_to_key_col` annotation, which would shadow it. Callers
-        that already hold the distance pass it in rather than pay for a second geodesic.
+        that already hold the distance in metres pass it in rather than pay for a second
+        geodesic.
         """
         annotated = getattr(self, 'slope_to_key_col', None)
         if annotated is not None:
             return annotated
         if not (self.key_col and self.key_col.point and self.point):
             return None
-        d = key_col_distance if key_col_distance is not None else self.compute_distance_to_key_col()
-        if not d or not d.m:
+        dist_m = (key_col_distance if key_col_distance is not None
+                  else self._distance_m(self.key_col.point, 'distance_to_key_col'))
+        if not dist_m:
             return None
-        return (self.key_col.point.altitude - self.point.altitude) / d.m
+        return (self.key_col.point.altitude - self.point.altitude) / dist_m
 
     def slope_to_parent(self):
         if self.slope_parent and self.slope_parent.point:
@@ -437,6 +538,80 @@ class Summit(GeoModel):
             return self.point.angle_to(self.horizon_parent_std.point, refraction=0.14)
         return None
 
+    def parent_dict(self):
+        """
+        The prominence parent as the map popup needs it — the way *up*, so `rise` and `slope`
+        are positive, mirroring the negative pair in `key_col_dict()`.
+        """
+        if not (self.prominence_parent and self.prominence_parent.point and self.point):
+            return None
+        dist_m = self._distance_m(self.prominence_parent.point, 'distance_to_parent')
+        rise = self.prominence_parent.point.altitude - self.point.altitude
+        return {
+            'pk': self.prominence_parent_id,
+            'name': self.prominence_parent.point.name,
+            'alt': self.prominence_parent.point.altitude,
+            'dist': dist_m,
+            'rise': rise,
+            'slope': rise / dist_m if dist_m else None,
+        }
+
+    def nhn_dict(self):
+        """
+        The nearest higher neighbour: the summit the nearest higher *ground* belongs to. Its
+        distance is peak to peak, which is not the isolation — that is measured to the ground
+        itself and is reported in `ilp`.
+        """
+        if not (self.isolation_parent and self.isolation_parent.point and self.point):
+            return None
+        return {
+            'pk': self.isolation_parent_id,
+            'name': self.isolation_parent.point.name,
+            'alt': self.isolation_parent.point.altitude,
+            'dist': self._distance_m(self.isolation_parent.point),
+        }
+
+    def slope_parent_dict(self):
+        """
+        The slope parent and the climb to it. `dd`, `dh` and `slope` are the annotation names
+        `with_slope_parent()` uses, and all three are read from there when present.
+        """
+        if not (self.slope_parent and self.slope_parent.point and self.point):
+            return None
+        dist_m = self._distance_m(self.slope_parent.point, 'dd')
+        rise = getattr(self, 'dh', None)
+        if rise is None:
+            rise = self.slope_parent.point.altitude - self.point.altitude
+        slope = getattr(self, 'slope', None)
+        if slope is None:
+            slope = rise / dist_m if dist_m else None
+        return {
+            'pk': self.slope_parent_id,
+            'name': self.slope_parent.point.name,
+            'alt': self.slope_parent.point.altitude,
+            'dist': dist_m,
+            'rise': rise,
+            'slope': slope,
+        }
+
+    def horizon_parent_dict(self):
+        """
+        The horizon parent and its angle above the horizon — radians, refraction-free, as
+        both the `angle` annotation and `angle_to_horizon_parent()` compute it.
+        """
+        if not (self.horizon_parent and self.horizon_parent.point and self.point):
+            return None
+        angle = getattr(self, 'angle', None)
+        if angle is None:
+            angle = self.angle_to_horizon_parent()
+        return {
+            'pk': self.horizon_parent_id,
+            'name': self.horizon_parent.point.name,
+            'alt': self.horizon_parent.point.altitude,
+            'dist': self._distance_m(self.horizon_parent.point, 'distance_to_horizon'),
+            'angle': angle,
+        }
+
     def key_col_dict(self):
         """
         The key col as the map popup needs it — name, altitude, and the three numbers that
@@ -444,14 +619,14 @@ class Summit(GeoModel):
         """
         if not (self.key_col and self.key_col.point and self.point):
             return None
-        col_distance = self.compute_distance_to_key_col()
+        dist_m = self._distance_m(self.key_col.point, 'distance_to_key_col')
         return {
             'pk': self.key_col_id,
             'name': self.key_col.point.name,
             'alt': self.key_col.point.altitude,
-            'dist': col_distance.m if col_distance is not None else None,
+            'dist': dist_m,
             'drop': self.point.altitude - self.key_col.point.altitude,
-            'slope': self.compute_slope_to_key_col(col_distance),
+            'slope': self.compute_slope_to_key_col(dist_m),
         }
 
     def to_dict(self):
@@ -471,12 +646,42 @@ class Summit(GeoModel):
             'horizon_parent': self.horizon_parent_id,
             'ilp': {
                 'name': self.isolation_name,
+                'parent': self.isolation_parent.point.name if self.isolation_parent else None,
                 'dist': isolation.m if isolation is not None else None,
                 'lat': self.nearest_higher_point.y if self.nearest_higher_point else None,
                 'lon': self.nearest_higher_point.x if self.nearest_higher_point else None,
             },
             'kc': self.key_col_id,
             'key_col': self.key_col_dict(),
+            'parent': self.parent_dict(),
+        }
+
+    def to_detail_dict(self):
+        """
+        The half of `to_dict()` that only the popup reads: no geometry and no parent ids,
+        those are in the skeleton feature the client already holds. Merged onto that feature
+        when the viewport detail arrives, which is why the keys must not drift from
+        `to_dict()`.
+        """
+        isolation = self.compute_isolation()
+        return {
+            'name': self.point.name if self.point else None,
+            'alt': self.point.altitude if self.point else None,
+            'countries': [c.code for c in self.point.countries.all()] if self.point else [],
+            'key_col': self.key_col_dict(),
+            'parent': self.parent_dict(),
+            'nhn': self.nhn_dict(),
+            # Not `slope_parent` / `horizon_parent`: those keys are the parent ids in the
+            # skeleton, and the client joins its lineage lines on them.
+            'slope': self.slope_parent_dict(),
+            'horizon': self.horizon_parent_dict(),
+            'ilp': {
+                'name': self.isolation_name,
+                'parent': self.isolation_parent.point.name if self.isolation_parent else None,
+                'dist': isolation.m if isolation is not None else None,
+                'lat': self.nearest_higher_point.y if self.nearest_higher_point else None,
+                'lon': self.nearest_higher_point.x if self.nearest_higher_point else None,
+            },
         }
 
     def to_geojson(self):
@@ -553,7 +758,5 @@ class Summit(GeoModel):
         return "(unnamed)"
 
     def name(self):
-        if self.point.name:
-            return f"{self.point.name}"
-        else:
-            return f"unnamed ({self.point.location.y:.3f}° {self.point.location.x:.3f}° {self.point.altitude:.0f} m)"
+        # `{% object_link summit 'mountain' attr='name' %}` reads this, as do the trees.
+        return self.point.display_name()

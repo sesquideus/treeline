@@ -1,5 +1,6 @@
 import math
 
+from django.db.models import Prefetch
 from django.utils.safestring import mark_safe
 from django.contrib.gis.db import models
 
@@ -8,6 +9,19 @@ from cairn.models import AdminModel
 from core.functions.world import distance
 from core.models import Language, Country
 from core.templatetags.countries import flag
+
+
+class NamedPointQuerySet(models.QuerySet):
+    def with_names(self):
+        """
+        The multilingual `PointName` rows with their languages. The lookup is `names` — the
+        related name on `PointName.point`; `name` is this model's own CharField, and
+        prefetching it raises.
+        """
+        return self.prefetch_related(
+            Prefetch('names',
+                     queryset=PointName.objects.select_related('language'))
+        )
 
 
 class NamedPoint(AdminModel):
@@ -22,6 +36,8 @@ class NamedPoint(AdminModel):
     countries = models.ManyToManyField(Country)
     source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL)
 
+    objects = NamedPointQuerySet.as_manager()
+
     def __str__(self):
         if self.name is not None:
             return f"{self.name} ({self.altitude}\u00A0m)"
@@ -31,6 +47,26 @@ class NamedPoint(AdminModel):
         if self.name is not None:
             return f"{self.name} ({self.altitude:.1f}\u00A0m)"
         return "(unnamed)"
+
+    def coordinates(self, digits=5):
+        """ Where it is, written out: '49.16451° N 19.90312° E'. """
+        if not self.location:
+            return None
+        latitude, longitude = self.location.y, self.location.x
+        return (f"{abs(latitude):.{digits}f}° {'N' if latitude >= 0 else 'S'} "
+                f"{abs(longitude):.{digits}f}° {'E' if longitude >= 0 else 'W'}")
+
+    def display_name(self):
+        """
+        What to print for this point: its name, or where it is when it has none —
+        '(unnamed 49.16451° N 19.90312° E)'. Names are nullable and cols in particular are
+        usually unnamed, so a template that prints `point.name` prints `None`; this is what
+        it should print instead.
+        """
+        if self.name:
+            return self.name
+        coordinates = self.coordinates()
+        return f"(unnamed {coordinates})" if coordinates else "(unnamed)"
 
     def flags(self):
         return mark_safe(' '.join([flag(country.code) for country in self.countries.all()]))

@@ -1,6 +1,27 @@
 from django.http import JsonResponse
 from django.views import View
 
+from mountains.views.cache import cached_json
+
+
+class CachedJsonMixin:
+    """
+    A JSON view whose payload depends on the data and nothing else — no query string, no
+    user. Such a payload is built once and served from the cache until the next write to
+    the geographic models; see mountains/views/cache.py.
+
+    Subclasses implement `build_payload()` instead of `get()`. The cache name defaults to
+    the view's dotted path, since several modules here define a `GeoJsonView`.
+    """
+
+    def build_payload(self):
+        raise NotImplementedError
+
+    def get(self, request, *args, **kwargs):
+        cls = type(self)
+        return JsonResponse(cached_json(f'{cls.__module__}.{cls.__qualname__}',
+                                        self.build_payload))
+
 
 class TreeView(View):
     @staticmethod
@@ -16,28 +37,24 @@ class TreeView(View):
         return roots
 
 
-class FlatJsonView(TreeView):
+class FlatJsonView(CachedJsonMixin, TreeView):
     object_name = 'objects'
 
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            self.object_name: [o.to_dict() for o in self.get_queryset()],
-        })
+    def build_payload(self):
+        return {self.object_name: [o.to_dict() for o in self.get_queryset()]}
 
 
-class TreeJsonView(TreeView):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
-            'tree': self.build_tree(list(self.get_queryset()), 'prominence_parent_id')
-        })
+class TreeJsonView(CachedJsonMixin, TreeView):
+    def build_payload(self):
+        return {'tree': self.build_tree(list(self.get_queryset()), 'prominence_parent_id')}
 
 
-class FlatGeoJsonView(View):
-    def get(self, request, *args, **kwargs):
-        return JsonResponse({
+class FlatGeoJsonView(CachedJsonMixin, View):
+    def build_payload(self):
+        return {
             'type': 'FeatureCollection',
             'features': [
                 f for o in self.get_queryset()
                 if (f := o.to_geojson()) is not None
             ],
-        })
+        }
