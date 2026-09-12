@@ -70,10 +70,12 @@ class RiverQuerySet(models.QuerySet):
 
     def with_db_status(self):
         return self.annotate(
-            complete=Q(source__location__isnull=False) & Q(source__altitude__isnull=False) & \
-                     Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) & \
-                     Q(parent__isnull=False) & \
-                     (Q(summit__isnull=False) | Q(branches_off__isnull=False)),
+            complete=(
+                Q(source__location__isnull=False) & Q(source__altitude__isnull=False) &
+                Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) &
+                Q(parent__isnull=False) & Q(parent_summit__isnull=False) &
+                (Q(source_summit__isnull=False) | Q(branches_off__isnull=False))
+            ),
         )
 
 
