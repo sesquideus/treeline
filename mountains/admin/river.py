@@ -8,20 +8,30 @@ from ..models import River
 
 @admin.register(River)
 class RiverAdmin(PointModelAdmin):
-    list_display = ['source__name', 'flags', 'source_latitude', 'source_longitude', 'source_altitude', 'summit:link',
-                    'branches_off:link',
-                    'mouth', 'mouth_altitude:.1f', 'parent:link', 'is_complete']
+    list_display = ['source__name', 'flags', 'source_latitude', 'source_longitude', 'source_altitude',
+                    'source_summit:link', 'parent_summit:link', 'branches_off:link',
+                    'mouth', 'mouth_altitude:.1f', 'mouth_side', 'parent:link', 'is_complete']
     fieldsets = (
         ('Identity', {
             'fields': (
                 'source',
-                'summit',
                 'branches_off',
             )
         }),
         ('Mouth', {
-            'fields': ('mouth', 'mouth_altitude', 'parent')
-        })
+            'fields': (
+                'mouth',
+                'mouth_altitude',
+                'parent',
+                'mouth_side',
+            ),
+         }),
+        ('Summits', {
+            'fields': (
+                'summit',
+                'parent_summit',
+            )
+        }),
     )
     search_fields = ['source__name']
 

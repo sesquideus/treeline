@@ -79,15 +79,20 @@ class RiverQuerySet(models.QuerySet):
 
 class River(GeoModel):
     MOUTH_CHOICES = (
-        ('L', 'left'),
-        ('R', 'right'),
-        ('O', 'other'),
+        ('L', 'left'),      # Left tributary
+        ('R', 'right'),     # Right tributary
+        ('O', 'other'),     # Not decidable
+        ('N', 'none'),      # Sea or otherwise not applicable
     )
 
     source = models.OneToOneField('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
 
-    summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True, related_name='rivers',
-                               help_text='Nearest up-slope summit to the source')
+    source_summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='rivers',
+                                      help_text='Dominant up-slope summit from the source')
+    parent_summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='drains',
+                                      help_text='Highest summit within the watershed')
 
     branches_off = models.ForeignKey('River', on_delete=models.SET_NULL, null=True, blank=True,
                                      default=None,

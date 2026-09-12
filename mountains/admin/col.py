@@ -3,7 +3,6 @@ from django.contrib import admin
 from cairn.admin import ModelAdmin
 from django.utils.safestring import mark_safe
 
-from core.templatetags.countries import flags
 from ..models import Col, NamedPoint
 
 

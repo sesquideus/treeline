@@ -89,11 +89,13 @@ class Col(GeoModel):
 
     def __str__(self):
         if self.point.name:
-            return f"{self.point.name} ({self.point.altitude}\u00A0m)"
+            fragment = f"{self.point.name}"
         elif hasattr(self, 'key_for'):
-            return f"unnamed → {self.key_for.point.name} ({self.point.altitude}\u00A0m)"
+            fragment = f"unnamed → {self.key_for.point.name}"
         else:
-            return f"unnamed col"
+            fragment = f"unnamed col"
+
+        return f"{fragment} ({self.point.altitude}\u00A0m)"
 
     def name(self):
         if self.point.name:
@@ -138,7 +140,6 @@ class Col(GeoModel):
             'river': {
                 'pk': self.confluence_river_id,
                 'name': self.confluence_river.name(),
-                # The river this one flows into, for the "Latorica → Bodrog" arrow.
                 'parent': self.confluence_river.parent.name() if self.confluence_river.parent else None,
                 'parent_pk': self.confluence_river.parent_id,
             } if self.confluence_river else None,
