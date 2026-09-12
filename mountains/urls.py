@@ -19,6 +19,7 @@ urlpatterns = [
     path('map', views.map, name='map'),
 
     path('rivers/geo.json', views.river.GeoJsonView.as_view(), name='rivers-geojson'),
+    path('ranges/geo.json', views.range.GeoJsonView.as_view(), name='ranges-geojson'),
     path('cols/geo.json/', views.col.GeoJsonView.as_view(), name='cols-geojson'),
     path('cols/detail.json', views.col.DetailJsonView.as_view(), name='cols-detail-json'),
 
@@ -39,6 +40,9 @@ urlpatterns = [
     path('river-tree', views.river.RiverForestView.as_view(), name='river-tree'),
     path('river/<int:pk>/', views.river.DetailView.as_view(), name='river-detail'),
     path('rivers', views.river.ListView.as_view(), name='river-list'),
+
+    path('range/<int:pk>/', views.range.DetailView.as_view(), name='range-detail'),
+    path('ranges', views.range.ListView.as_view(), name='range-list'),
 
     path('confluences', views.confluence.ListView.as_view(), name='confluence-list'),
     path('confluence/<int:pk>/', views.confluence.DetailView.as_view(), name='confluence'),

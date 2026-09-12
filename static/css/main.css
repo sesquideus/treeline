@@ -317,7 +317,7 @@ a.object {
     text-decoration: none;
 }
 
-a.mountain, a.col, a.river {
+a.mountain, a.col, a.river, a.range {
     text-decoration: none;
 }
 
@@ -336,6 +336,11 @@ a.mountain, a.col, a.river {
 .river::before {
     content: "\3030\00A0";
     /* content: "\224B\00A0"; */
+}
+
+.range { color: darkslategray; }
+.range::before {
+    content: "\1F5FB\00A0";
 }
 
 abbr {

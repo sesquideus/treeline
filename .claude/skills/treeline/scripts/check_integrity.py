@@ -11,7 +11,8 @@ WARNs are states that are legal but usually indicate missing or stale data.
 from django.db.models import F, Q
 
 from core.functions.world import distance
-from mountains.models import Col, NamedPoint, River, Summit
+from mountains.models import (Col, NamedPoint, Range, RangeSystem, River, Summit,
+                              SummitRange)
 
 errors = []
 warnings = []
@@ -253,6 +254,34 @@ for a, b in zip(located, located[1:]):
         warn('near-duplicate-points', a,
              f'"{a}" and "{b}" are {d:.0f} m apart — possible duplicate')
 
+# --- ranges -----------------------------------------------------------------
+
+# `path` is the only denormalised state in the database, and the only one of these three
+# that no constraint can catch: a stale path does not raise, it quietly returns the wrong
+# set of summits.
+for range_ in Range.objects.select_related('parent', 'system'):
+    expected = f"{range_.parent.path if range_.parent_id else ''}{range_.pk}."
+    if range_.path != expected:
+        err('range-path-stale', range_,
+            f'{range_} has path "{range_.path}" but its parent implies "{expected}"')
+    if range_.parent_id and range_.parent.system_id != range_.system_id:
+        err('range-parent-system', range_,
+            f'{range_} is in {range_.system} but its parent {range_.parent} '
+            f'is in {range_.parent.system}')
+
+for membership in SummitRange.objects.select_related('range__system', 'system', 'summit__point'):
+    if membership.system_id != membership.range.system_id:
+        err('range-membership-system', membership,
+            f'{membership.summit} is recorded in {membership.system} '
+            f'but {membership.range} belongs to {membership.range.system}')
+
+# The curation backlog, in the shape of the isolation one above: legal, but unfinished.
+for system in RangeSystem.objects.all():
+    unplaced = Summit.objects.exclude(range_memberships__system=system).count()
+    if unplaced:
+        warn('range-unassigned', system,
+             f'{unplaced} summits have no range in {system}')
+
 # --- report -----------------------------------------------------------------
 
 total = Summit.objects.count()
@@ -260,7 +289,8 @@ complete = Summit.objects.only_complete().count()
 
 print()
 print(f'{total} summits, {complete} complete ({complete / total:.0%}), '
-      f'{Col.objects.count()} cols, {River.objects.count()} rivers')
+      f'{Col.objects.count()} cols, {River.objects.count()} rivers, '
+      f'{Range.objects.count()} ranges in {RangeSystem.objects.count()} systems')
 print()
 
 for name, bucket in (('ERROR', errors), ('WARN', warnings)):

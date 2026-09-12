@@ -47,6 +47,11 @@ inline in a view. A new derived metric is a new `with_*` method.
 prefetches `key_for` with prominence), `with_rivers()`, `with_countries()`, `with_full_name()`.
 `RiverQuerySet`: `with_source()`, `with_parent()`, `with_tributaries()`, `with_cols()`,
 `with_displacement()`, `with_direct_length()`, `with_db_status()`.
+`RangeQuerySet`: `with_system()`, `with_parent()`, `roots()`, `with_direct_summit_count()`.
+
+Tree navigation on `Range` is *not* on the queryset — `ancestors()`, `self_and_descendants()`,
+`all_summits()`, `high_point()` all start from an instance, and `mountains/test_querysets.py`
+builds every registered queryset method with no arguments.
 
 Two rules that keep these composable:
 
@@ -165,6 +170,12 @@ full, via `FlatGeoJsonView`), `/summits/detail.json`, `/cols/detail.json` (viewp
 based), and the tree JSON views under `views/tree/tree.py` whose
 `build_tree(summits, parent_attr)` nests `to_dict()` payloads by any `*_parent_id`.
 
+`Range.to_geojson()` emits `type: 'range'` and returns None when the range has no `area`,
+which is most of them — `FlatGeoJsonView` drops those, so the layer is empty rather than
+broken while the hierarchy is still nominal. `static/js/map.js: buildRangesLayer()` draws it
+beneath everything (`Z_RANGES = 5`) and opts the layer out of hit testing, or a polygon
+spanning the viewport would win every click and make the summits under it unselectable.
+
 ## Views
 
 List views subclass cairn's `OrderableListView`: declare `ORDERING` mapping public keys to
@@ -226,8 +237,6 @@ Check here before "fixing" something that is simply unwired:
 - `mountains/forms/namedpoint.py: NamedPointInlineForm` (and `ColAdminForm`, `SummitAdminForm`)
   is imported nowhere in the admin and reads `p.latitude` / `p.country`, which are not fields
   on `NamedPoint` (`location` and `countries` are). It cannot work as written.
-- `mountains/models/range.py: Range` is not exported from `models/__init__.py` and its `parent`
-  FK omits the required `on_delete`.
 - `mountains/models.py` and `mountains/admin.py` are leftover Django stubs shadowed by the
   packages of the same name.
 - `styles.js` references an undefined `YELLOW` constant in the `prominence_line_second` and

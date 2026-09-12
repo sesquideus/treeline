@@ -9,3 +9,5 @@
 .distance-val {
     font-variant-numeric: tabular-nums;
 }
+/* The range changelist is a tree: `tree_name` indents by depth and `path` orders it. */
+.range-indent { white-space: pre; }

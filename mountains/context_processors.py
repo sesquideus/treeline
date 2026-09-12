@@ -3,6 +3,7 @@ MAIN_MENU = [
     {'label': 'Statistics',         'url_name': 'statistics'},
     {'label': 'List of mountains',  'url_name': 'mountain-list'},
     {'label': 'List of cols',       'url_name': 'col-list'},
+    {'label': 'List of ranges',     'url_name': 'range-list'},
 
     {'label': 'Prominence tree',    'url_name': 'prominence-tree'},
     {'label': 'Isolation tree',     'url_name': 'isolation-tree'},

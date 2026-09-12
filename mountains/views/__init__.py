@@ -9,7 +9,7 @@ from ..models import Summit
 from .summit import (ProminenceForestView, IsolationForestView, MountainDetailView, SlopeTreeView, HorizonTreeView,
                      SummitDetailGeoJSON, SummitCompareView)
 from .river import river
-from . import confluence, col
+from . import confluence, col, range
 from .statistics import StatisticsView
 
 

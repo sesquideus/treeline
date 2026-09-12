@@ -1,14 +1,20 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.gis.db.models import PointField
 from django.contrib.gis.geos import Point
+from django.db import transaction
+from django.template.response import TemplateResponse
 from django.utils import timezone
+from django.utils.html import format_html_join
 
 from cairn.admin import ModelAdmin
-from cairn.admin.modeladmin import admin_action
+from cairn.admin.modeladmin import NA, admin_action
 
 from core.fields import PointFormField
 from mountains import models
-from mountains.models import NamedPoint, Summit, Col
+from mountains.forms.range import AssignRangeForm
+from mountains.models import NamedPoint, Summit, SummitRange, Col
+from .range import (RangeAssignedFilter, RangeFilter, RangeSystemFilter,
+                    SummitRangeInline)
 
 
 @admin.register(models.Summit)
@@ -51,10 +57,14 @@ class SummitAdmin(ModelAdmin):
                     'prominence', 'prominence_parent:link',
                     'isolation', 'isolation_parent:link',
                     'nhp_latitude', 'nhp_longitude',
-                    'slope_parent:link', 'horizon_parent:link']
+                    'slope_parent:link', 'horizon_parent:link',
+                    'range_display']
 
-    actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std', 'compute_points']
+    actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std',
+               'compute_points', 'assign_to_range']
     search_fields = ['point__name']
+    inlines = [SummitRangeInline]
+    list_filter = [RangeAssignedFilter, RangeSystemFilter, RangeFilter]
     list_select_related = ['point', 'key_col__point',
                            'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
     readonly_fields = ['location_display']
@@ -217,7 +227,75 @@ class SummitAdmin(ModelAdmin):
         return super().get_queryset(request).select_related(
             'point', 'key_col__point',
             'prominence_parent__point', 'isolation_parent__point'
-        )
+        ).prefetch_related('range_memberships__range', 'range_memberships__system')
+
+    @admin.display(description='Range')
+    def range_display(self, obj):
+        """Every system's range for this summit. Prefetched above; never a query per row."""
+        memberships = obj.range_memberships.all()
+        if not memberships:
+            return NA
+        # `related_link` is cairn's, the same helper the `:link` directive uses, and it
+        # returns SafeString — so format_html_join passes it through unescaped.
+        return format_html_join(', ', '{}',
+                                ((self.related_link(m.range),) for m in memberships))
+
+    @admin.action(description='Assign to a range…')
+    def assign_to_range(self, request, queryset):
+        """
+        Bulk-assign, via a confirmation page carrying the range chooser.
+
+        Not `@admin_action` like the four above: that decorator reports a count and returns
+        None, and an action with an intermediate page has to return a response.
+        """
+        if 'apply' in request.POST:
+            form = AssignRangeForm(request.POST)
+            if form.is_valid():
+                target = form.cleaned_data['range']
+                assigned, moved = self._assign(queryset, target)
+                self.message_user(
+                    request,
+                    f'{target}: {assigned} assigned, {moved} moved from another range.',
+                    messages.SUCCESS)
+                return None                     # None sends the admin back to the changelist
+        else:
+            form = AssignRangeForm()
+
+        return TemplateResponse(request, 'admin/mountains/summit/assign_range.html', {
+            **self.admin_site.each_context(request),
+            'title': 'Assign summits to a range',
+            'opts': self.model._meta,
+            'form': form,
+            'summits': queryset.select_related('point')[:50],
+            'total': queryset.count(),
+            # The whole original POST goes back out as hidden inputs. Re-emitting only the
+            # ticked pks would drop `select_across`, and "select all 1680" would then quietly
+            # assign one page of them.
+            'post_data': request.POST,
+            'media': self.media + form.media,
+        })
+
+    @staticmethod
+    def _assign(queryset, target):
+        """
+        Three statements however many summits were selected.
+
+        `unique(summit, system)` means a summit already placed in this system has to be
+        *updated*: a plain create raises IntegrityError the first time anyone corrects a
+        mistake. Memberships in other systems are left alone.
+        """
+        summit_ids = list(queryset.values_list('pk', flat=True))
+        with transaction.atomic():
+            existing = set(SummitRange.objects
+                           .filter(summit_id__in=summit_ids, system=target.system)
+                           .values_list('summit_id', flat=True))
+            SummitRange.objects.filter(summit_id__in=existing, system=target.system) \
+                               .update(range=target)
+            SummitRange.objects.bulk_create([
+                SummitRange(summit_id=pk, system=target.system, range=target)
+                for pk in summit_ids if pk not in existing
+            ])
+        return len(summit_ids) - len(existing), len(existing)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'horizon_parent':

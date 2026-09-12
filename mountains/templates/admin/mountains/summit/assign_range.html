@@ -1,0 +1,36 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}{{ block.super }}{{ media }}{% endblock %}
+
+{% block content %}
+    <form method="post">{% csrf_token %}
+        <p>
+            Assigning <strong>{{ total }}</strong> summit{{ total|pluralize }} to one range.
+            A summit stores only its deepest range; the ranges above come from that one.
+            Any of these already placed in the same classification will be moved, not doubled.
+        </p>
+
+        {{ form.as_div }}
+
+        {% comment %}
+            The whole original POST goes back out untouched. Re-emitting just the ticked
+            primary keys would drop `select_across`, and "select all" would then silently
+            assign one page's worth instead of the full selection.
+        {% endcomment %}
+        {% for key, values in post_data.lists %}
+            {% if key != "csrfmiddlewaretoken" %}
+                {% for value in values %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+
+        <ul class="assign-preview">
+            {% for summit in summits %}<li>{{ summit }}</li>{% endfor %}
+            {% if total > summits|length %}<li>&hellip; and {{ total|add:"-50" }} more</li>{% endif %}
+        </ul>
+
+        <input type="submit" name="apply" value="Assign" class="default">
+        <a href="." class="button cancel-link">Cancel</a>
+    </form>
+{% endblock %}

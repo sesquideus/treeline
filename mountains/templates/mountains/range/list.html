@@ -1,0 +1,48 @@
+{% extends 'core/text-page.html' %}
+
+{% load tree cairn %}
+
+{% block title %}
+    &#x1F5FB; list of ranges
+{% endblock title %}
+
+{% block page_title %}
+    List of ranges
+{% endblock page_title %}
+
+{% block page_content %}
+    <p>
+        Every classification is its own tree — they carve the same rock in different places
+        and are alternatives to one another, not layers. The default order walks each tree
+        depth-first; sorting by any column deliberately flattens it.
+    </p>
+
+    <table class="sortable alternating">
+        <thead>
+            <tr>
+                <th>order</th>
+                {% th_orderable 'name' 'name' %}
+                {% th_orderable 'level' 'rank' long="what this classification calls the rank" %}
+                {% th_orderable 'system' 'classification' %}
+                <th>part of</th>
+                {% th_orderable 'summits' 'peaks' long="summits recorded at exactly this range, not counting its sub-ranges" %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for range in ranges %}
+                <tr>
+                    <td class="number">{{ forloop.counter }}</td>
+                    <td class="link" style="padding-left: {{ range.depth|multiply:1.5 }}em;">
+                        {% object_link range 'range' attr='name' %}
+                    </td>
+                    <td>{{ range.level_name|default:"" }}</td>
+                    <td>{{ range.system.code }}</td>
+                    <td class="link">{% object_link range.parent 'range' %}</td>
+                    <td class="number">{{ range.direct_summit_count }}</td>
+                </tr>
+            {% empty %}
+                {% empty_tr "No ranges in the database yet" %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock page_content %}

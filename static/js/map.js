@@ -1,6 +1,7 @@
 // Layer draw order. Layers are added and removed as modes change, so ordering is pinned
 // with an explicit zIndex rather than left to insertion order. Summits go on top: they are
 // the click targets, and a marker hidden under a lineage line cannot be hit.
+const Z_RANGES         = 5;    // backdrop: under everything, and never a click target
 const Z_RIVERS         = 10;
 const Z_CONFLUENCE     = 15;
 const Z_LINEAGE        = 20;
@@ -257,22 +258,30 @@ function popupHtml(feature) {
             const parent = feature.get('parent');
             const source = feature.get('source');
             const mouth = feature.get('mouth');
+            // The bank it joins on, drawn as `River.MOUTH_SIDE_MARKS` decided: left and
+            // right are named looking downstream, so the arrow leans the mirrored way.
+            const side = feature.get('mouth_side');
+            const sideMark = side
+                ? `<abbr class="mouth-side" title="${side.title}">${side.symbol}</abbr>&nbsp;`
+                : '';
             return popupCaption('river', riverUrl(feature.get('pk')),
                                 feature.get('name') ?? 'unknown', null)
                 + popupTable([
-                    popupSection('river', [
-                        popupRow('flows into', parent
-                            ? objectLink('river', riverUrl(parent.id), parent.name)
-                            : '—', 'name'),
-                    ]),
                     source ? popupSection('source', [
                         popupRow('altitude', asAltitude(source.alt), 'altitude'),
                         popupRow('position', positionValue(source.lon, source.lat)),
                     ]) : '',
-                    mouth ? popupSection('mouth', [
-                        popupRow('altitude', asAltitude(mouth.alt), 'altitude'),
-                        popupRow('position', positionValue(mouth.lon, mouth.lat)),
-                    ]) : '',
+                    // Where it ends and what receives it belong together: the river it
+                    // flows into leads, then the mouth's own altitude and position. No
+                    // `mouth ?` guard — the first row stands on its own, and the section
+                    // drops itself when every row in it is empty.
+                    popupSection('mouth', [
+                        popupRow('flows into', parent
+                            ? sideMark + objectLink('river', riverUrl(parent.id), parent.name)
+                            : '—', 'name'),
+                        popupRow('altitude', mouth ? asAltitude(mouth.alt) : null, 'altitude'),
+                        popupRow('position', mouth ? positionValue(mouth.lon, mouth.lat) : null),
+                    ]),
                 ]);
         }
         default:
@@ -372,7 +381,12 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
     // tooltip would blank out the moment a highlight appeared.
     function featureAt(pixel) {
         return map.forEachFeatureAtPixel(pixel, f => f,
-            { layerFilter: layer => !(layer.get('name') || '').startsWith('highlight') });
+            { layerFilter: layer => {
+                     const name = layer.get('name') || '';
+                     // Ranges are backdrop: a polygon covering the viewport would otherwise
+                     // win every hit test and make the summits under it unclickable.
+                     return !name.startsWith('highlight') && name !== 'ranges';
+                 } });
     }
 
     // A col under the cursor always shows its way down to the confluence, whatever the
@@ -807,6 +821,30 @@ function summitStyleFor(feature) {
     return styleFor({ get: k => k === 'type' ? type : feature.get(k) });
 }
 
+// Range polygons, drawn beneath everything else. Ranges without a boundary are dropped
+// server-side, so an entirely nominal hierarchy yields an empty collection and no layer
+// content — not an error.
+function buildRangesLayer(ranges) {
+    const vectorSource = new ol.source.Vector();
+    const format = new ol.format.GeoJSON();
+
+    vectorSource.addFeatures(format.readFeatures(ranges, {
+        featureProjection: 'EPSG:3857',
+    }));
+
+    const layer = new ol.layer.Vector({
+        source: vectorSource,
+        style: styleFor,
+    });
+    // Hit testing takes the topmost feature, and a range polygon covers the whole viewport;
+    // naming it 'highlight…' would be a lie, so instead the layer opts out of hit testing
+    // entirely and summits underneath stay clickable.
+    layer.set('name', 'ranges');
+    layer.setZIndex(Z_RANGES);
+    return layer;
+}
+
+
 function buildRiversLayer(rivers) {
     const vectorSource = new ol.source.Vector();
     const format = new ol.format.GeoJSON();
@@ -829,7 +867,8 @@ function buildRiversLayer(rivers) {
     });
 }
 
-function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDetailUrl) {
+function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDetailUrl,
+                       rangesUrl) {
     let map, lineageLayer, summitLayer, refreshPopup;
     let summitsData, colsData;
 
@@ -1141,7 +1180,10 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         fetch(summitsUrl).then(r => r.json()),
         fetch(riversUrl).then(r => r.json()),
         fetch(colsUrl).then(r => r.json()),
-    ]).then(([summits, rivers, cols]) => {
+        // Optional, so an older template that calls this with five arguments still works.
+        rangesUrl ? fetch(rangesUrl).then(r => r.json())
+                  : Promise.resolve({type: 'FeatureCollection', features: []}),
+    ]).then(([summits, rivers, cols, ranges]) => {
         summitsData = summits;
         colsData = cols;
 
@@ -1205,6 +1247,20 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         if (opacitySlider) {
             opacitySlider.addEventListener('input', function() {
                 tileLayer.setOpacity(this.value / 100);
+            });
+        }
+
+        // Added before the rivers so it sits at the bottom of the stack even if a browser
+        // ever disagreed about equal zIndexes; off by default, because the boundaries are
+        // context and the map is about peaks.
+        const rangesLayer = buildRangesLayer(ranges);
+        const rangesToggle = document.getElementById('toggle-ranges');
+        rangesLayer.setVisible(Boolean(rangesToggle && rangesToggle.checked));
+        map.addLayer(rangesLayer);
+
+        if (rangesToggle) {
+            rangesToggle.addEventListener('change', function() {
+                rangesLayer.setVisible(this.checked);
             });
         }
 

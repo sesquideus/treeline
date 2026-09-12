@@ -243,6 +243,19 @@ function isolationLimitPointStyle(colour, radius=6) {
     });
 }
 
+// Ranges are backdrop, not subject: a thin outline and a fill faint enough that summit
+// markers and lineage lines read clearly through a stack of nested ranges.
+const rangeStyle = new ol.style.Style({
+    stroke: new ol.style.Stroke({
+        color: 'rgba(70, 90, 60, 0.55)',
+        width: 1,
+    }),
+    fill: new ol.style.Fill({
+        color: 'rgba(120, 150, 100, 0.10)',
+    }),
+    zIndex: Z_AREA,
+});
+
 const isolationCircleStyle = new ol.style.Style({
     stroke: new ol.style.Stroke(
         {
@@ -396,6 +409,7 @@ function styleFor(feature) {
         case 'isolation_point':         return dot('#f1c40f');
         case 'isolation_parent':        return dot('#8e44ad');
         case 'encirclement_parent':     return summitMarker('#c0392b', 12);
+        case 'range':                   return rangeStyle;
         case 'isolation_circle':        return isolationCircleStyle;
         case 'isolation_line_first':    return gradientLine(feature, ISOLATION_BEGIN, ISOLATION_MID);
         case 'isolation_line_second':   return gradientLine(feature, ISOLATION_MID, ISOLATION_END);

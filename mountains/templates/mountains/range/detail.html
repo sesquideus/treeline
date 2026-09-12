@@ -1,0 +1,86 @@
+{% extends 'core/text-page.html' %}
+
+{% load tree cairn countries %}
+
+{% block title %}
+    &#x1F5FB; {{ range }}
+{% endblock title %}
+
+{% block page_title %}
+    <span class="range">{{ range.name }}</span>
+    {% if range.level_name %}<small>({{ range.level_name }})</small>{% endif %}
+    <a class="edit" href="{{ range.admin_change_url }}">&#x1F589;</a>
+{% endblock page_title %}
+
+{% block page_content %}
+    <p class="breadcrumb">
+        {{ range.system.name }}
+        {% for ancestor in ancestors %}
+            &rarr; {% object_link ancestor 'range' %}
+        {% endfor %}
+        &rarr; <b>{{ range.name }}</b>
+    </p>
+
+    {% if high_point %}
+        <p>
+            Highest summit {% object_link high_point 'mountain' attr='name' %}
+            (<span class="altitude">{{ high_point.point.altitude|altitude }}</span>).
+            {# Highest *in this database* — in a sparsely covered area that is not the
+               range's culminating point, and saying so beats implying otherwise. #}
+            <small>The highest recorded here, which in a thinly covered area is not
+            necessarily the range's true culminating point.</small>
+        </p>
+    {% endif %}
+
+    <h3>Sub-ranges</h3>
+    <table class="lineage">
+        <thead>
+            <tr><th>name</th><th>rank</th><th>peaks</th></tr>
+        </thead>
+        <tbody>
+            {% for child in children %}
+                <tr>
+                    <td class="link">{% object_link child 'range' attr='name' %}</td>
+                    <td>{{ child.level_name|default:"" }}</td>
+                    <td class="number">{{ child.direct_summit_count }}</td>
+                </tr>
+            {% empty %}
+                {% empty_tr "No sub-ranges — this is a leaf of its classification" %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Summits</h3>
+    <p>
+        Every summit recorded at this range or at any range below it. A summit stores only
+        its deepest range; the ones above come from that.
+    </p>
+    <table class="sortable alternating">
+        <thead>
+            <tr>
+                <th>order</th>
+                <th>country</th>
+                <th>name</th>
+                <th>altitude</th>
+                <th>prominence</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for summit in summits %}
+                <tr>
+                    <td class="number">{{ forloop.counter }}</td>
+                    <td>
+                        {% for country in summit.point.countries.all %}
+                            {% flaglet country.code %}
+                        {% endfor %}
+                    </td>
+                    <td class="link">{% object_link summit 'mountain' attr='name' %}</td>
+                    <td class="altitude">{{ summit.point.altitude|altitude }}</td>
+                    <td class="altitude">{{ summit.prominence|altitude }}</td>
+                </tr>
+            {% empty %}
+                {% empty_tr "No summits recorded in this range yet" %}
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock page_content %}

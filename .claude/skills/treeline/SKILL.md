@@ -55,6 +55,10 @@ checked by `scripts/check_integrity.py`.
 | `isolation_parent` set ⇒ `nearest_higher_point` set | The parent is an attribution of the ground; the ground itself is the measurement. |
 | `island_high_point` ⇒ no `key_col` | Its key col is the sea; prominence equals altitude. |
 | `river.mouth_altitude >= parent.mouth_altitude` | Water does not flow uphill into its receiving stream. |
+| A summit has at most one range per `RangeSystem` | Classifications are alternatives, not layers; two ranges in one system is a contradiction, and the database refuses it. |
+| `range.parent.system == range.system` | A tree belongs to one classification. |
+| `range.path == parent.path + id + '.'` | The path is denormalised from `parent`. A stale one returns a subtly wrong set of summits rather than raising. |
+| No cycle in `range.parent` | A range cannot contain itself; the path could not express it. |
 
 Warnings — legal states that almost always mean unfinished curation:
 
@@ -95,10 +99,15 @@ because each step depends on the previous one existing.
 4. **Isolation** — `nearest_higher_point` is the actual nearest higher *ground*, not the
    parent summit. `isolation_parent` attributes that ground to a summit, `isolation_name`
    describes it ("northern ridge of Kopa").
-5. **Slope and horizon parents** — never by hand. Admin actions on the summit changelist:
+5. **Range** — optional, and independent of everything above. A summit records only the
+   *deepest* range it belongs to, once per classification system; the ranges above come from
+   `Range.path`. Bulk work is the *Assign to a range…* action on the summit changelist;
+   `/ranges` lists the trees and a range's page shows every peak at or below it. A boundary
+   polygon (`Range.area`) is optional and only feeds the map layer.
+6. **Slope and horizon parents** — never by hand. Admin actions on the summit changelist:
    *Compute slope*, *Compute horizon parent*, *Compute horizon parent (std)*. They are
    O(n²) Python loops over every summit; fine at current scale, slow at 10× it.
-6. **Verify** — run the integrity script.
+7. **Verify** — run the integrity script.
 
 From the shell, validate explicitly:
 

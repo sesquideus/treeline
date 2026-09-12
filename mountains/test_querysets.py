@@ -23,9 +23,10 @@ from django.db import models as dm
 from django.test import TestCase
 
 from core.models import Country, Language
-from mountains.models import Col, Confluence, River, Summit
+from mountains.models import Col, Confluence, Range, River, Summit
 from mountains.models.point import NamedPoint, PointName
-from mountains.test_factories import make_col, make_point, make_summit
+from mountains.test_factories import (assign_range, make_col, make_point, make_range,
+                                      make_range_system, make_summit)
 
 #: apps whose querysets this sweep owns
 APP_LABELS = ('mountains', 'core', 'users')
@@ -126,6 +127,12 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
     NamedPoint: {
         'with_names': Case(cached=('names',)),
     },
+    Range: {
+        'with_system': Case(cached=('system',)),
+        'with_parent': Case(cached=('parent',)),
+        'roots': Case(),
+        'with_direct_summit_count': Case(annotations=('direct_summit_count',)),
+    },
 }
 
 
@@ -225,6 +232,14 @@ class QuerySetBehaviourTests(TestCase):
 
         for summit in (alpha, beta):
             summit.point.countries.add(country)
+
+        # A two-level range tree with both summits on the leaf, so `roots()` matches the
+        # top, `with_parent()`'s chain is non-null on the leaf, and the count is non-zero.
+        range_system = make_range_system('sk-geomorf', 'Geomorfologické členenie Slovenska')
+        tatry = make_range(range_system, 'Tatry', level_name='celok')
+        vysoke = make_range(range_system, 'Vysoké Tatry', tatry, level_name='podcelok')
+        for summit in (alpha, beta):
+            assign_range(summit, vysoke)
 
     def build(self, model, name):
         return getattr(model.objects.all(), name)()

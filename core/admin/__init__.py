@@ -1,1 +1,1 @@
-from .world import CountryAdmin, LanguageAdmin
+from .world import CountryAdmin, GeometryModelAdmin, LanguageAdmin, PointModelAdmin

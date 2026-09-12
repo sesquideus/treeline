@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Prefetch, F, Value, Q, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
+from django.utils.html import format_html
 
 from mountains.models.base import GeoModel
 from mountains.models.col import Col
@@ -47,7 +48,7 @@ class RiverQuerySet(models.QuerySet):
         return self.prefetch_related(
             Prefetch(
                 'branches',
-                queryset=River.objects.select_related('source'),
+                queryset=River.objects.with_source().with_full_name().order_by('-source__altitude'),
             )
         )
 
@@ -80,7 +81,7 @@ class River(GeoModel):
         ('L', 'left'),      # Left tributary
         ('R', 'right'),     # Right tributary
         ('O', 'other'),     # Not decidable
-        ('N', 'none'),      # Sea or otherwise not applicable
+        ('S', 'sea'),       # Reaches the sea, so no bank to name
     )
 
     source = models.OneToOneField('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
@@ -100,6 +101,20 @@ class River(GeoModel):
     mouth = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
     mouth_altitude = models.FloatField(null=True, blank=True)
     mouth_side = models.CharField(max_length=1, choices=MOUTH_CHOICES, null=True, blank=True)
+
+    #: The arrow shown for each `mouth_side`, with the wording behind it.
+    #:
+    #: Left and right bank are named looking *downstream*, so on a page or a map where the
+    #: main river runs downwards they fall on the mirrored side: a left-bank tributary comes
+    #: in from the right and curves left as it joins, which is the way round these arrows are
+    #: drawn. `None` for `mouth_side` is not the same as 'O' — 'O' records that the side was
+    #: looked at and could not be decided, `None` that nobody has looked.
+    MOUTH_SIDE_MARKS = {
+        'L': ('\u21b2', 'joins from the left bank, looking downstream'),
+        'R': ('\u21b3', 'joins from the right bank, looking downstream'),
+        'O': ('\u2193', 'joins, but the bank could not be decided'),
+        'S': ('\u224b', 'reaches the sea, so neither bank applies'),
+    }
 
     parent = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='tributaries')
 
@@ -136,6 +151,19 @@ class River(GeoModel):
     def get_absolute_url(self):
         return reverse('river-detail', kwargs={'pk': self.pk})
 
+    def mouth_side_mark(self):
+        """The arrow and its wording, or `None` while the side is unrecorded."""
+        mark = self.MOUTH_SIDE_MARKS.get(self.mouth_side)
+        return {'symbol': mark[0], 'title': mark[1]} if mark else None
+
+    def mouth_side_abbr(self):
+        """`mouth_side_mark()` as the `<abbr>` the templates print, or nothing at all."""
+        mark = self.mouth_side_mark()
+        if mark is None:
+            return ''
+        return format_html('<abbr class="mouth-side" title="{}">{}</abbr>',
+                           mark['title'], mark['symbol'])
+
     def to_dict(self):
         return {
             'pk': self.pk,
@@ -154,6 +182,9 @@ class River(GeoModel):
                 'lon': self.mouth.x,
                 'alt': self.mouth_altitude,
             } if self.mouth else None,
+            # Which bank of the parent this one joins; the popup prints it beside the
+            # parent's name, so it travels whether or not the mouth has coordinates.
+            'mouth_side': self.mouth_side_mark(),
         }
 
     def get_waypoints(self):

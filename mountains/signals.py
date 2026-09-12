@@ -6,10 +6,10 @@ cached payload; see mountains/views/cache.py for why it is all-or-nothing.
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from mountains.models import Col, Confluence, NamedPoint, River, Summit
+from mountains.models import Col, Confluence, NamedPoint, Range, River, Summit
 from mountains.views.cache import bump_data_version
 
-WATCHED = (NamedPoint, Summit, Col, River, Confluence)
+WATCHED = (NamedPoint, Summit, Col, River, Confluence, Range)
 
 
 @receiver(post_save)
