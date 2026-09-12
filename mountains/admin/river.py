@@ -28,7 +28,7 @@ class RiverAdmin(PointModelAdmin):
          }),
         ('Summits', {
             'fields': (
-                'summit',
+                'source_summit',
                 'parent_summit',
             )
         }),
