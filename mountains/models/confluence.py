@@ -4,11 +4,6 @@ from django.urls import reverse
 from cairn.models import AdminModel
 
 
-class ConfluenceQuerySet(models.QuerySet):
-    def with_siblings(self):
-        return self.prefetch_related('key_for__prominence_children__key_col')
-
-
 class Confluence(AdminModel):
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False)
 

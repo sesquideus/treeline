@@ -18,10 +18,6 @@ class RiverQuerySet(models.QuerySet):
     def with_parent(self):
         return self.select_related('parent').prefetch_related('parent__source__names')
 
-    def with_siblings(self):
-        return self.prefetch_related('key_for__prominence_children__key_col')
-
-
     def with_full_name(self):
         return self.annotate(
             full_name=Concat(

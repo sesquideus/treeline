@@ -25,9 +25,16 @@ uv run python manage.py test mountains.tests.Foo   # one test case/method
 ./db_import.sh                       # DROP + recreate `treeline` DB from a pg_restore dump
 ```
 
-Running the tests needs a role that may create databases; if `manage.py test` reports
-"permission denied to create database", grant it once as a superuser:
-`ALTER ROLE kvik CREATEDB;`.
+Running the tests builds a throwaway `test_treeline` database, which needs two one-time
+grants — `kvik` is neither a superuser nor able to create databases by default:
+
+```bash
+sudo -u postgres psql -c 'ALTER ROLE kvik CREATEDB'
+sudo -u postgres psql -d template1 -c 'CREATE EXTENSION postgis'   # so new DBs inherit it
+```
+
+Without the first, `manage.py test` reports "permission denied to create database"; without
+the second, it gets as far as `CREATE EXTENSION postgis` and stops at "must be superuser".
 
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,
