@@ -22,6 +22,8 @@
         {% endblock headextra %}
     </head>
     <body>
+        {# One hidden sprite for the whole site; `<use href="#...">` is same-document only. #}
+        {% include 'mountains/blocks/mouth-side-sprite.html' %}
         <div class="entire">
             {% include 'core/header.html' %}
             {% block submenu %}{% endblock submenu %}

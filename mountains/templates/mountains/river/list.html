@@ -25,8 +25,10 @@
                 {% th_orderable 'name' 'name' %}
                 {% th_orderable 'source_alt' 'altitude of source' %}
                 {% th_orderable 'parent' 'parent' %}
+                {% th_orderable 'watershed_hp' 'watershed high point' %}
                 {% th_orderable 'drop' 'drop' %}
                 {% th_orderable 'slope' 'slope' %}
+                {% th_orderable 'displacement' 'displacement' %}
             </tr>
         </thead>
         <tbody>
@@ -39,16 +41,11 @@
                     </td>
                     <td class="link">{% object_link river 'river' %}</td>
                     <td class="altitude">{{ river.source.altitude|altitude }}</td>
-                    <td class="link">{% object_link river.summit 'mountain' %}</td>
+                    <td class="link">{% object_link river.watershed_high_point 'mountain' attr='display_name' %}</td>
                     <td class="link">{% object_link river.parent 'river' %}</td>
                     <td class="altitude">{{ river.mouth_altitude|altitude }}</td>
 
                     <td class="distance">{{ river.displacement.m|distance }}</td>
-                    <td class="link">{% object_link mountain.isolation_parent 'mountain' %}</td>
-                    <td class="slope" style="color: {{ mountain.slope_to_parent|slope_colour }};">{{ mountain.slope_to_parent|slope }}</td>
-                    <td class="link">{% object_link mountain.slope_parent 'mountain' %}</td>
-                    <td class="angle" style="color: {{ mountain.angle_to_horizon_parent|angle_colour }};">{{ mountain.angle_to_horizon_parent|angle_above_horizon }}</td>
-                    <td class="link">{% object_link mountain.horizon_parent 'mountain' %}</td>
                 </tr>
             {% endfor %}
         </tbody>

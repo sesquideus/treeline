@@ -46,7 +46,17 @@ inline in a view. A new derived metric is a new `with_*` method.
 `ColQuerySet`: `with_point()`, `with_siblings()`, `with_minor()` (annotates `depth` and
 prefetches `key_for` with prominence), `with_rivers()`, `with_countries()`, `with_full_name()`.
 `RiverQuerySet`: `with_source()`, `with_parent()`, `with_tributaries()`, `with_cols()`,
-`with_displacement()`, `with_direct_length()`, `with_db_status()`.
+`with_displacement()`, `with_direct_length()`, `with_db_status()`, `with_source_summit()`,
+`with_watershed_high_point()`.
+
+A river names two landmarks and they are **different kinds of object**. `source_summit` is a
+`Summit` — the dominant peak above the source. `watershed_high_point` is a `NamedPoint` — the
+highest ground in the basin, which often is not catalogued as a summit at all. Their primary
+keys come from different, overlapping sequences, so `River.to_dict()` keeps them apart:
+`summit_dict()` emits a Summit pk, `point_dict()` emits a NamedPoint pk *plus* a separate
+`summit` key for the one case that needs it (the map hover, which can only look up summits).
+Collapsing the two builds `/summit/<namedpoint pk>/`, a link to an unrelated mountain that
+never 404s.
 `RangeQuerySet`: `with_system()`, `with_parent()`, `roots()`, `with_direct_summit_count()`.
 
 Tree navigation on `Range` is *not* on the queryset — `ancestors()`, `self_and_descendants()`,
@@ -170,11 +180,54 @@ full, via `FlatGeoJsonView`), `/summits/detail.json`, `/cols/detail.json` (viewp
 based), and the tree JSON views under `views/tree/tree.py` whose
 `build_tree(summits, parent_attr)` nests `to_dict()` payloads by any `*_parent_id`.
 
+A second Python/JS vocabulary works the same way: `River.MOUTH_SIDE_MARKS` maps each
+`mouth_side` to a sprite id, and both `River.mouth_side_abbr()` and the river popup in
+`static/js/map.js` build `<use href="#mouth-side-{code}">` from it. The symbols live in
+`mountains/blocks/mouth-side-sprite.html`, inlined once from `core/base.html` because
+`<use>` resolves only within the same document. A mark naming a symbol that is not there
+draws nothing and reports nothing.
+
 `Range.to_geojson()` emits `type: 'range'` and returns None when the range has no `area`,
 which is most of them — `FlatGeoJsonView` drops those, so the layer is empty rather than
 broken while the hierarchy is still nominal. `static/js/map.js: buildRangesLayer()` draws it
 beneath everything (`Z_RANGES = 5`) and opts the layer out of hit testing, or a polygon
 spanning the viewport would win every click and make the summits under it unselectable.
+
+The global map remembers what was on screen, in the URL fragment — position, lineage mode,
+layer toggles and base-map opacity:
+
+    #map=11.25/49.16451/20.13403&mode=isolation&cols=1
+
+The position keeps OpenStreetMap's `#map=<zoom>/<lat>/<lon>` shape; the rest ride alongside as
+`key=value`, and **only what differs from `MAP_DEFAULTS` is written**, so an untouched map
+leaves the address bar clean. `parseMapState`/`formatMapState` in `static/js/map.js` are pure
+and are run by the tests; `parseFragment` is hand-rolled rather than `URLSearchParams` for the
+same reason — that is a browser API, not part of the language, and quickjs does not have it.
+
+The DOM half: `moveend` and every control record through `history.replaceState` — never
+`pushState`, which would leave a history entry per pan — and a `hashchange` listener follows a
+fragment somebody pasted into an open tab. `applyMapControls(state, notify)` sets the inputs
+and, when asked, dispatches the events the existing listeners are already wired to, rather
+than reimplementing what each toggle does. It is called without notifying during startup,
+because the layers are built from the controls directly.
+
+The fragment rather than a query parameter because it never reaches the server, so it cannot
+vary a cached page or a JSON endpoint and stays clear of the list pages' real query
+parameters.
+
+### Testing the JavaScript
+
+`static/js/map.js` declares at its top level and executes nothing, so the tests can load it
+into `quickjs` (a dev dependency) against a few stubs and call the real `popupHtml()`.
+`mountains/test_js_runtime.py` is the harness — `popup_html(**properties)` renders a
+feature, `rows()` parses the result into `(section, label, value)` triples — and
+`mountains/test_river_popup.py` is the worked example.
+
+Prefer that to asserting on the source of `map.js`. A substring search cannot tell a link
+from plain text, cannot see a row move between sections, and cannot see an empty section
+render as a stray caption. Anything needing OpenLayers or a DOM — layer construction, hit
+testing, the hover highlights inside `initGlobalMap`'s closure — is still out of reach, and
+those are the only places a source assertion is still the right tool.
 
 ## Views
 

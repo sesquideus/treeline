@@ -347,6 +347,18 @@ abbr {
     text-decoration: none;
 }
 
+/* The confluence marks. Sized in em so they ride with the text, and `currentColor` in the
+   sprite means each one takes the colour of the cell it sits in. */
+svg.sprite { display: none; }
+
+svg.mouth-side {
+    width: 1.35em;
+    height: 1.35em;
+    vertical-align: -0.35em;
+}
+
+td.mouth-side { text-align: center; }
+
 span.error {
     color: red;
 }
@@ -429,7 +441,7 @@ tr.down {
 .slope { text-align: right; }
 
 .angle::after { content: "°"; }
-.slope::after { content: " m\00A0/\00A0km"; }
+.slope::after { content: " m/km"; }
 .distance::after { content: " km"; }
 .altitude::after { content: " m"; }
 

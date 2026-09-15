@@ -116,6 +116,8 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
     River: {
         'with_source': Case(cached=('source', 'source.names')),
         'with_parent': Case(cached=('parent', 'parent.source.names')),
+        'with_source_summit': Case(cached=('source_summit.point',)),
+        'with_watershed_high_point': Case(cached=('watershed_high_point.summit',)),
         'with_full_name': Case(annotations=('full_name',)),
         'with_displacement': Case(annotations=('displacement',)),
         'with_tributaries': Case(cached=('tributaries',)),
@@ -227,7 +229,7 @@ class QuerySetBehaviourTests(TestCase):
                            slope_parent=alpha, horizon_parent=alpha,
                            nearest_higher_point=Point(20.05, 49.05, srid=4326))
         river.source_summit = alpha
-        river.parent_summit = alpha
+        river.watershed_high_point = alpha.point
         river.save()
 
         for summit in (alpha, beta):

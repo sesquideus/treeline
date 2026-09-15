@@ -9,7 +9,7 @@ from ..models import River
 @admin.register(River)
 class RiverAdmin(PointModelAdmin):
     list_display = ['source__name', 'flags', 'source_latitude', 'source_longitude', 'source_altitude',
-                    'source_summit:link', 'parent_summit:link', 'branches_off:link',
+                    'source_summit:link', 'watershed_high_point:link', 'branches_off:link',
                     'mouth', 'mouth_altitude:.1f', 'mouth_side', 'parent:link', 'is_complete']
     fieldsets = (
         ('Identity', {
@@ -26,10 +26,12 @@ class RiverAdmin(PointModelAdmin):
                 'mouth_side',
             ),
          }),
-        ('Summits', {
+        # Not 'Summits': only the first of these is one. The high point of a basin is any
+        # named point, catalogued as a summit or not.
+        ('Summit and high point', {
             'fields': (
                 'source_summit',
-                'parent_summit',
+                'watershed_high_point',
             )
         }),
     )
@@ -40,7 +42,8 @@ class RiverAdmin(PointModelAdmin):
         return obj.complete
 
     def get_queryset(self, request):
-        return self.model.objects.with_db_status().with_source().with_parent()
+        return (self.model.objects.with_db_status().with_source().with_parent()
+                .with_source_summit().with_watershed_high_point())
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if isinstance(db_field, PointField):

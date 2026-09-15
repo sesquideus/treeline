@@ -101,7 +101,7 @@ class Col(GeoModel):
         if self.point.name:
             return f"{self.point.name}"
         elif hasattr(self, 'key_for'):
-            return f"→ {self.key_for.point.name}"
+            return f"→ {self.key_for.name()}"
         else:
             return f"unnamed col"
 

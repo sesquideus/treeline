@@ -254,6 +254,25 @@ for a, b in zip(located, located[1:]):
         warn('near-duplicate-points', a,
              f'"{a}" and "{b}" are {d:.0f} m apart — possible duplicate')
 
+# --- river watershed high points ---------------------------------------------
+
+# The high point of a basin is a NamedPoint, not necessarily a Summit — that is the whole
+# point of the field. What it cannot be is lower than the river's own source, since the
+# source is inside the basin it tops.
+for river_ in River.objects.select_related('source', 'watershed_high_point'):
+    high = river_.watershed_high_point
+    if high is None or river_.source is None:
+        continue
+    if high.altitude < river_.source.altitude:
+        err('watershed-high-point-below-source', river_,
+            f'{river_.name()} rises at {river_.source.altitude:.1f} m but its watershed '
+            f'high point {high.display_name()} is {high.altitude:.1f} m')
+
+unattributed = River.objects.filter(watershed_high_point__isnull=True).count()
+if unattributed:
+    warn('watershed-high-point-missing', None,
+         f'{unattributed} rivers have no watershed high point recorded')
+
 # --- ranges -----------------------------------------------------------------
 
 # `path` is the only denormalised state in the database, and the only one of these three

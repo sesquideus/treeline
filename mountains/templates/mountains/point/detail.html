@@ -1,0 +1,71 @@
+{% extends 'core/text-page.html' %}
+
+{% load tree cairn countries %}
+
+{% block title %}
+    &#x1F4CD; {{ point.display_name }}
+{% endblock title %}
+
+{% block page_title %}
+    {{ point.display_name }}
+    <a class="edit" href="{{ point.admin_change_url }}">&#x1F589;</a>
+{% endblock page_title %}
+
+{% block page_content %}
+    <p>
+        <span class="altitude">{{ point.altitude|altitude }}</span>
+        {% if point.coordinates %}at {{ point.coordinates }}{% endif %}
+        {{ point|flags }}
+    </p>
+
+    {% comment %}
+        A point is the anchor of at most one of each of these, and usually of none. Whichever
+        exist are where the real detail lives — this page deliberately does not repeat it.
+    {% endcomment %}
+    <h3>Catalogued as</h3>
+    <ul>
+        {% if point.summit %}<li>Summit &mdash; {% object_link point.summit 'mountain' attr='name' %}</li>{% endif %}
+        {% if point.col %}<li>Col &mdash; {% object_link point.col 'col' attr='name' %}</li>{% endif %}
+        {% if point.confluence %}<li>Confluence &mdash; {% object_link point.confluence 'confluence' %}</li>{% endif %}
+        {% if not point.summit and not point.col and not point.confluence %}
+            <li class="empty">Nothing &mdash; this is a named place in its own right.</li>
+        {% endif %}
+    </ul>
+
+    {% if point.names.all %}
+        <h3>Names</h3>
+        <table class="lineage">
+            <tbody>
+                {% for name in point.names.all %}
+                    <tr>
+                        <td>{{ name.name }}</td>
+                        <td>{{ name.language }}</td>
+                        <td>{% if name.local %}local{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <h3>High point of</h3>
+    <p>
+        Rivers whose whole watershed tops out here. A river's high point is any named point,
+        catalogued as a summit or not.
+    </p>
+    <table class="lineage">
+        <tbody>
+            {% for river in point.drains.all %}
+                <tr>
+                    <td class="link">{% object_link river 'river' %}</td>
+                    <td class="altitude">{{ river.mouth_altitude|altitude }}</td>
+                </tr>
+            {% empty %}
+                {% empty_tr "No river names this as its watershed high point" %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% for note in point.notes.all %}
+        <p>{{ note }}</p>
+    {% endfor %}
+{% endblock page_content %}

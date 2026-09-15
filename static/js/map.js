@@ -15,6 +15,97 @@ const Z_HIGHLIGHT_MARK = 45;   // above the summits: the grown parent replaces i
 // extent rather than a centre and zoom, so the whole country is in frame on any window.
 const HOME_EXTENT = [16.83, 47.73, 22.57, 49.61];   // lon/lat, Slovakia
 
+// What the reader had on screen last time, carried in the URL fragment:
+//
+//     #map=11.25/49.16451/20.13403&mode=isolation&cols=1
+//
+// The position keeps OpenStreetMap's "#map=<zoom>/<lat>/<lon>" shape so the format is
+// recognisable and a pasted link lands where it says; the rest of the controls ride
+// alongside it as ordinary key=value pairs.
+//
+// The fragment rather than query parameters, deliberately: it never reaches the server, so
+// it cannot vary a cached page or a JSON endpoint, needs no Django view to know about it,
+// and stays out of the way of the real query parameters the list pages use for filtering
+// and ordering.
+//
+// Only what differs from the defaults is written, so the common case stays short and a
+// reader who has changed nothing gets a clean "#map=..." rather than a wall of settings.
+const MAP_MODES = ['prominence', 'isolation', 'slope', 'horizon'];
+const MAP_TOGGLES = ['routing', 'rivers', 'cols', 'ranges'];
+const MAP_DEFAULTS = {
+    mode: 'prominence',
+    routing: true,       // #toggle-routing
+    rivers: true,        // #toggle-rivers
+    cols: false,         // #toggle-col-confluence
+    ranges: false,       // #toggle-ranges
+    opacity: 40,         // #map-opacity, per cent
+};
+
+const MAP_POSITION = /^(-?[\d.]+)\/(-?[\d.]+)\/(-?[\d.]+)$/;
+
+// Hand-rolled rather than `URLSearchParams`, which is a browser API and not part of the
+// language — this way the parsing can be run by the tests (see mountains/test_js_runtime.py)
+// rather than only read.
+function parseFragment(hash) {
+    const params = {};
+    for (const pair of String(hash || '').replace(/^#/, '').split('&')) {
+        const at = pair.indexOf('=');
+        if (at > 0) params[pair.slice(0, at)] = pair.slice(at + 1);
+    }
+    return params;
+}
+
+function parseMapPosition(value) {
+    const match = MAP_POSITION.exec(value || '');
+    if (!match) return null;
+    const [zoom, lat, lon] = match.slice(1).map(Number);
+    // Anything outside these is either a typo or a different app's fragment; opening on the
+    // home extent beats opening on empty ocean at zoom 400.
+    if (![zoom, lat, lon].every(Number.isFinite)) return null;
+    if (zoom < 0 || zoom > 22 || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { zoom, lat, lon };
+}
+
+function formatMapPosition(zoom, lat, lon) {
+    // Zoom keeps two decimals because OpenLayers zooms fractionally; the position keeps
+    // five, which is about a metre — more would be recording mouse jitter.
+    return `${zoom.toFixed(2)}/${lat.toFixed(5)}/${lon.toFixed(5)}`;
+}
+
+// Every unrecognised or out-of-range value falls back to its default rather than rejecting
+// the fragment wholesale: a stale link with one obsolete setting should still take the
+// reader to the right place.
+function parseMapState(hash) {
+    const params = parseFragment(hash);
+    const state = Object.assign({}, MAP_DEFAULTS);
+
+    state.position = parseMapPosition(params.map);
+    if (MAP_MODES.indexOf(params.mode) >= 0) state.mode = params.mode;
+    for (const name of MAP_TOGGLES) {
+        if (params[name] === '0' || params[name] === '1') state[name] = params[name] === '1';
+    }
+    const opacity = Number(params.opacity);
+    if (params.opacity !== undefined && Number.isFinite(opacity)
+            && opacity >= 0 && opacity <= 100) {
+        state.opacity = opacity;
+    }
+    return state;
+}
+
+function formatMapState(state) {
+    const parts = [];
+    if (state.position) {
+        const { zoom, lat, lon } = state.position;
+        parts.push(`map=${formatMapPosition(zoom, lat, lon)}`);
+    }
+    if (state.mode !== MAP_DEFAULTS.mode) parts.push(`mode=${state.mode}`);
+    for (const name of MAP_TOGGLES) {
+        if (state[name] !== MAP_DEFAULTS[name]) parts.push(`${name}=${state[name] ? 1 : 0}`);
+    }
+    if (state.opacity !== MAP_DEFAULTS.opacity) parts.push(`opacity=${state.opacity}`);
+    return parts.length ? '#' + parts.join('&') : '';
+}
+
 // Country flags for a popup caption, same images the tables use, to the right of the name.
 // Wrapped in one nowrap span so the caption never breaks between the name and its flags, or
 // in the middle of a pair.
@@ -32,6 +123,7 @@ function flagsHtml(codes) {
 const summitUrl = pk => pk != null ? `/summit/${pk}/` : null;
 const colUrl    = pk => pk != null ? `/col/${pk}/` : null;
 const riverUrl  = pk => pk != null ? `/river/${pk}/` : null;
+const pointUrl  = pk => pk != null ? `/point/${pk}/` : null;
 
 // Every reference to another object is a link, styled with the site's object classes
 // (`a.mountain`, `a.col`, `a.river` in main.css) so it carries the same colour and ⛰ ∪ 〰
@@ -122,6 +214,23 @@ function featurePosition(feature) {
 // "Sairecabur 5991.0 m" — an altitude belongs beside the name it qualifies rather than on a
 // row of its own. No brackets: the unit already tells the reader what the number is. Written
 // out, the cell no longer being an `.altitude` one.
+// A summit as a river popup names it: linked, with its altitude. Null when the river does
+// not name one, which `popupRow` turns into no row at all.
+function summitLabel(summit) {
+    if (!summit) return null;
+    return withAltitude(objectLink('mountain', summitUrl(summit.pk), summit.name), summit.alt);
+}
+
+// A named point, likewise — but through `/point/<pk>/`, because a watershed high point need
+// not be a summit at all. Kept separate from `summitLabel` rather than made to share it: the
+// two carry different pk spaces, and `summitUrl` handed a NamedPoint pk builds a URL that
+// resolves to an unrelated mountain instead of 404ing.
+function pointLabel(point) {
+    if (!point) return null;
+    return withAltitude(objectLink('mountain', pointUrl(point.pk), point.name), point.alt);
+}
+
+
 function withAltitude(label, alt) {
     const altitude = asAltitude(alt);
     return altitude != null ? `${label} ${altitude}&nbsp;m` : label;
@@ -258,11 +367,16 @@ function popupHtml(feature) {
             const parent = feature.get('parent');
             const source = feature.get('source');
             const mouth = feature.get('mouth');
-            // The bank it joins on, drawn as `River.MOUTH_SIDE_MARKS` decided: left and
-            // right are named looking downstream, so the arrow leans the mirrored way.
+            const aboveSource = feature.get('source_summit');
+            const watershed = feature.get('watershed_high_point');
+            // The bank it joins on, drawn from the same sprite the river pages use — the
+            // ids are the contract, see `River.MOUTH_SIDE_MARKS`. A picture rather than an
+            // arrow because "left bank" is named looking downstream, which is not the side
+            // it lands on in a drawing, and no arrow can say that without a convention.
             const side = feature.get('mouth_side');
             const sideMark = side
-                ? `<abbr class="mouth-side" title="${side.title}">${side.symbol}</abbr>&nbsp;`
+                ? `<abbr title="${side.title}"><svg class="mouth-side" role="img">` +
+                  `<use href="#mouth-side-${side.code}"></use></svg></abbr>&nbsp;`
                 : '';
             return popupCaption('river', riverUrl(feature.get('pk')),
                                 feature.get('name') ?? 'unknown', null)
@@ -270,6 +384,9 @@ function popupHtml(feature) {
                     source ? popupSection('source', [
                         popupRow('altitude', asAltitude(source.alt), 'altitude'),
                         popupRow('position', positionValue(source.lon, source.lat)),
+                        // The peak the source runs off, which is not the watershed's
+                        // highest below and often not even in the same group.
+                        popupRow('below', summitLabel(aboveSource), 'name'),
                     ]) : '',
                     // Where it ends and what receives it belong together: the river it
                     // flows into leads, then the mouth's own altitude and position. No
@@ -281,6 +398,15 @@ function popupHtml(feature) {
                             : '—', 'name'),
                         popupRow('altitude', mouth ? asAltitude(mouth.alt) : null, 'altitude'),
                         popupRow('position', mouth ? positionValue(mouth.lon, mouth.lat) : null),
+                    ]),
+                    // The ground it drains, rather than the channel: the highest summit
+                    // inside the watershed, linked like every other object reference here.
+                    // Last, because source and mouth are the river itself and this is the
+                    // country around it. One unlabelled row, so `popupSection` gives the
+                    // caption the label column rather than spending two on naming one line
+                    // — the same shape the summit popup's single-line sections take.
+                    popupSection('watershed HP', [
+                        popupRow('', pointLabel(watershed), 'name'),
                     ]),
                 ]);
         }
@@ -1038,6 +1164,76 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
             fetchDetail(kind, `bbox=${bbox}&limit=${DETAIL_LIMIT}`));
     }
 
+    // --- remembering the view -------------------------------------------------------
+    //
+    // The DOM half of the fragment handling; the parsing and formatting above are pure so
+    // that the tests can run them.
+
+    const CONTROL_IDS = {
+        routing: 'toggle-routing',
+        rivers: 'toggle-rivers',
+        cols: 'toggle-col-confluence',
+        ranges: 'toggle-ranges',
+    };
+
+    function readMapState() {
+        const [lon, lat] = ol.proj.toLonLat(map.getView().getCenter());
+        const mode = document.querySelector('input[name="tree"]:checked');
+        const opacity = document.getElementById('map-opacity');
+        const state = {
+            position: { zoom: map.getView().getZoom(), lat: lat, lon: lon },
+            mode: mode ? mode.value : MAP_DEFAULTS.mode,
+            opacity: opacity ? Number(opacity.value) : MAP_DEFAULTS.opacity,
+        };
+        for (const name of MAP_TOGGLES) {
+            const box = document.getElementById(CONTROL_IDS[name]);
+            state[name] = box ? box.checked : MAP_DEFAULTS[name];
+        }
+        return state;
+    }
+
+    // `notify` dispatches the same events a click would, so the listeners already wired to
+    // these controls do the actual work — the alternative is a second implementation of
+    // every toggle that would drift from the first. Off while the map is still being built,
+    // because the layers read the controls directly as they are constructed.
+    function applyMapControls(state, notify) {
+        const radio = document.querySelector(`input[name="tree"][value="${state.mode}"]`);
+        if (radio && !radio.checked) {
+            radio.checked = true;
+            if (notify) radio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        for (const name of MAP_TOGGLES) {
+            const box = document.getElementById(CONTROL_IDS[name]);
+            if (box && box.checked !== state[name]) {
+                box.checked = state[name];
+                if (notify) box.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        const opacity = document.getElementById('map-opacity');
+        if (opacity && Number(opacity.value) !== state.opacity) {
+            opacity.value = state.opacity;
+            if (notify) opacity.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    function applyMapPosition(position) {
+        if (!position) return;
+        map.getView().setCenter(ol.proj.fromLonLat([position.lon, position.lat]));
+        map.getView().setZoom(position.zoom);
+    }
+
+    // `replaceState`, never `pushState` and never assigning to `location.hash`: both of
+    // those would leave a history entry per pan, and three minutes of browsing would bury
+    // whatever page the reader arrived from under a hundred near-identical map positions.
+    // (`replaceState` also fires no `hashchange`, which is what keeps the listener below
+    // from answering our own writes.)
+    function rememberMapState() {
+        if (!window.history || !window.history.replaceState) return;
+        const fragment = formatMapState(readMapState());
+        window.history.replaceState(
+            null, '', fragment || window.location.pathname + window.location.search);
+    }
+
     function scheduleViewportDetail() {
         clearTimeout(detailTimer);
         detailTimer = setTimeout(requestViewportDetail, DETAIL_DEBOUNCE_MS);
@@ -1092,6 +1288,18 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
             // The course under the cursor, lifted out of the tangle it crosses.
             const river = riversByPk[feature.get('pk')];
             if (river) confluenceGroupSource.addFeature(riverCourse(river));
+
+            // And the high point of the watershed it drains, grown the way a col's two peaks
+            // are — the river's course says where the water goes, this says what it comes
+            // off. No line to it: the high point tops the whole basin and can sit a long way
+            // from the channel, so a line would assert a connection the data does not claim.
+            // `.summit`, never `.pk`: the skeleton is keyed by Summit pk, and a high point
+            // that is no summit simply has no marker to grow. Using `.pk` here would find an
+            // unrelated summit that happens to share the number.
+            const watershed = feature.get('watershed_high_point');
+            const peak = watershed && watershed.summit && summitsByPk[watershed.summit];
+            if (peak) confluencePointSource.addFeature(
+                markLike(peak, 'highlight_summit', { prom: peak.properties.prom }));
             return;
         }
 
@@ -1213,9 +1421,20 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
             summitFeatureByPk[f.get('pk')] = f;
         });
         // Before the first viewport detail request below, so that it asks for the peaks
-        // actually on screen.
-        map.getView().fit(ol.proj.transformExtent(HOME_EXTENT, 'EPSG:4326', 'EPSG:3857'),
-                          { padding: [20, 20, 20, 20] });
+        // actually on screen. Where the reader left off wins over the home extent — that is
+        // the whole point of remembering it.
+        //
+        // The controls are restored without notifying, because the layers below are built
+        // from them directly: setting them here is enough, and dispatching events at a map
+        // whose layers do not exist yet would not be.
+        const resumed = parseMapState(window.location.hash);
+        applyMapControls(resumed, false);
+        if (resumed.position) {
+            applyMapPosition(resumed.position);
+        } else {
+            map.getView().fit(ol.proj.transformExtent(HOME_EXTENT, 'EPSG:4326', 'EPSG:3857'),
+                              { padding: [20, 20, 20, 20] });
+        }
         renderProminenceLegend();
 
         // Both names start with "highlight" — that prefix is what featureAt() filters on, so
@@ -1289,13 +1508,40 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
 
 
         rebuildLineage();
+        // Nothing else applies the slider on load: the tile layer's opacity is only ever set
+        // by the `input` listener, which has not fired yet.
+        tileLayer.setOpacity(resumed.opacity / 100);
 
         map.on('moveend', scheduleViewportDetail);
+        map.on('moveend', rememberMapState);
         requestViewportDetail();       // the peaks the reader starts out looking at
 
         document.querySelectorAll('input[name="tree"]').forEach(r =>
             r.addEventListener('change', rebuildLineage)
         );
         if (routeToggle) routeToggle.addEventListener('change', rebuildLineage);
+
+        // Every control writes the fragment. One listener per control rather than one
+        // delegated to the container: the opacity slider reports `input` and the rest
+        // `change`, and a slider that only recorded on release would lose the setting of
+        // anyone who drags and then reloads.
+        document.querySelectorAll('input[name="tree"]').forEach(r =>
+            r.addEventListener('change', rememberMapState)
+        );
+        for (const id of Object.values(CONTROL_IDS)) {
+            const box = document.getElementById(id);
+            if (box) box.addEventListener('change', rememberMapState);
+        }
+        const opacityControl = document.getElementById('map-opacity');
+        if (opacityControl) opacityControl.addEventListener('input', rememberMapState);
+
+        // Somebody pasted a link into the address bar of a tab that is already open, or used
+        // the back button onto a fragment we did not write. `replaceState` fires no
+        // `hashchange`, so this can never be answering itself.
+        window.addEventListener('hashchange', function() {
+            const wanted = parseMapState(window.location.hash);
+            applyMapControls(wanted, true);
+            applyMapPosition(wanted.position);
+        });
     });
 }

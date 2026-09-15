@@ -55,6 +55,7 @@ checked by `scripts/check_integrity.py`.
 | `isolation_parent` set ⇒ `nearest_higher_point` set | The parent is an attribution of the ground; the ground itself is the measurement. |
 | `island_high_point` ⇒ no `key_col` | Its key col is the sea; prominence equals altitude. |
 | `river.mouth_altitude >= parent.mouth_altitude` | Water does not flow uphill into its receiving stream. |
+| `river.watershed_high_point.altitude >= river.source.altitude` | The source lies inside the basin its high point tops. The high point is a `NamedPoint`, not a `Summit` — often it is ground nobody has catalogued as a peak. |
 | A summit has at most one range per `RangeSystem` | Classifications are alternatives, not layers; two ranges in one system is a contradiction, and the database refuses it. |
 | `range.parent.system == range.system` | A tree belongs to one classification. |
 | `range.path == parent.path + id + '.'` | The path is denormalised from `parent`. A stale one returns a subtly wrong set of summits rather than raising. |

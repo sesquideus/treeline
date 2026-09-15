@@ -15,4 +15,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-debug-toolbar>=6.3.0",
+    # An embeddable JS engine, so the tests can run the popup builders in static/js/map.js
+    # instead of asserting on their source. See mountains/test_js_runtime.py.
+    "quickjs>=1.19.4",
 ]

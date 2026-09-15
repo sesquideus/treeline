@@ -1,6 +1,6 @@
 {% extends 'core/detail-page.html' %}
 
-{% load static tree countries %}
+{% load static cairn tree countries %}
 
 {% block headextra %}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
@@ -49,7 +49,7 @@
                 </span>
                 {{ offset.dist|distance }}
                 {{ mountain.isolation_name }} of
-                {{ parent.point.display_name }} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
+                {% object_link parent 'mountain' attr='name' %} ({{ mountain.compute_isolation.km|floatformat:3 }} km)
             {% else %}
                 (data not available)
             {% endif %}
@@ -60,8 +60,9 @@
     {% include "mountains/summit/blocks/slope-lineage.html" %}
     {% include "mountains/summit/blocks/horizon-lineage.html" %}
     {% include "mountains/summit/blocks/horizon-lineage-std.html" %}
-
     {% include "mountains/summit/blocks/horizon-children.html" %}
+
+    {% include "mountains/summit/blocks/rivers.html" %}
 
     {% include "mountains/summit/blocks/parent-for.html" %}
     {% include "mountains/summit/blocks/isolation-for.html" %}

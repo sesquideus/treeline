@@ -1,0 +1,13 @@
+{% load cairn tree %}
+
+<h3>
+    Rivers
+</h3>
+<table class="lineage">
+    {% for river in mountain.point.drains.all %}
+        <tr>
+            <td>{% object_link river 'river' attr='name' %}</td>
+            <td class="altitude">{{ river.source.altitude|altitude }}</td>
+        </tr>
+    {% endfor %}
+</table>

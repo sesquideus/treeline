@@ -44,6 +44,10 @@ urlpatterns = [
     path('range/<int:pk>/', views.range.DetailView.as_view(), name='range-detail'),
     path('ranges', views.range.ListView.as_view(), name='range-list'),
 
+    # A leaf page: points are reached from whatever references them, so there is no
+    # list view and no menu entry.
+    path('point/<int:pk>/', views.point.DetailView.as_view(), name='point-detail'),
+
     path('confluences', views.confluence.ListView.as_view(), name='confluence-list'),
     path('confluence/<int:pk>/', views.confluence.DetailView.as_view(), name='confluence'),
 ]

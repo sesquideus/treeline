@@ -12,12 +12,61 @@ from mountains.models.base import GeoModel
 from mountains.models.col import Col
 
 
+def summit_dict(summit):
+    """
+    A summit as the river popup wants it, or None.
+
+    `Summit.point` is nullable, so a summit without one yields None rather than a label
+    with a hole in it. `pk` is a **Summit** pk — `static/js/map.js` builds `/summit/<pk>/`
+    from it and looks it up in the summit skeleton, and both go quietly wrong if anything
+    else is put here.
+    """
+    if summit is None or summit.point is None:
+        return None
+    return {'pk': summit.pk, 'name': summit.point.display_name(),
+            'alt': summit.point.altitude}
+
+
+def point_dict(point):
+    """
+    A named point as the river popup wants it, or None.
+
+    `pk` is a **NamedPoint** pk, and `summit` the pk of the Summit that point belongs to if
+    it is one at all. They are kept apart on purpose: the popup links through the point, but
+    the hover highlight can only find a marker in the summit skeleton, which carries summit
+    pks and nothing else. Collapsing the two would build `/summit/<namedpoint pk>/` — a URL
+    that resolves to an unrelated mountain rather than 404ing.
+
+    `getattr` rather than a try/except: Django's `RelatedObjectDoesNotExist` subclasses
+    `AttributeError` precisely so a missing reverse one-to-one reads as absent.
+    """
+    if point is None:
+        return None
+    summit = getattr(point, 'summit', None)
+    return {'pk': point.pk, 'summit': summit.pk if summit else None,
+            'name': point.display_name(), 'alt': point.altitude}
+
+
 class RiverQuerySet(models.QuerySet):
     def with_source(self):
         return self.select_related('source').prefetch_related('source__names')
 
     def with_parent(self):
         return self.select_related('parent').prefetch_related('parent__source__names')
+
+    def with_source_summit(self):
+        """The dominant peak above the source — a catalogued summit, and its point."""
+        return self.select_related('source_summit__point')
+
+    def with_watershed_high_point(self):
+        """
+        The highest ground in the basin, which is a `NamedPoint` and need not be a summit at
+        all — that is the whole reason it is not a `Summit` FK.
+
+        The `__summit` hop is a *reverse* one-to-one, and it is what lets `point_dict()` say
+        whether the point is a summit without a query per river.
+        """
+        return self.select_related('watershed_high_point__summit')
 
     def with_full_name(self):
         return self.annotate(
@@ -69,8 +118,8 @@ class RiverQuerySet(models.QuerySet):
         return self.annotate(
             complete=(
                 Q(source__location__isnull=False) & Q(source__altitude__isnull=False) &
-                Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) &
-                Q(parent__isnull=False) & Q(parent_summit__isnull=False) &
+                Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) & Q(mouth_side__isnull=False) &
+                Q(parent__isnull=False) & Q(watershed_high_point__isnull=False) &
                 (Q(source_summit__isnull=False) | Q(branches_off__isnull=False))
             ),
         )
@@ -89,9 +138,11 @@ class River(GeoModel):
     source_summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True,
                                       related_name='rivers',
                                       help_text='Dominant up-slope summit from the source')
-    parent_summit = models.ForeignKey('Summit', on_delete=models.SET_NULL, null=True, blank=True,
-                                      related_name='drains',
-                                      help_text='Highest summit within the watershed')
+    # A NamedPoint and not a Summit: the highest ground in a basin is often a named point
+    # nobody has catalogued as a summit. When it is one, `point.summit` gives it back.
+    watershed_high_point = models.ForeignKey('NamedPoint', on_delete=models.SET_NULL,
+                                             null=True, blank=True, related_name='drains',
+                                             help_text='Highest point within the watershed')
 
     branches_off = models.ForeignKey('River', on_delete=models.SET_NULL, null=True, blank=True,
                                      default=None,
@@ -102,18 +153,24 @@ class River(GeoModel):
     mouth_altitude = models.FloatField(null=True, blank=True)
     mouth_side = models.CharField(max_length=1, choices=MOUTH_CHOICES, null=True, blank=True)
 
-    #: The arrow shown for each `mouth_side`, with the wording behind it.
+    #: The mark shown for each `mouth_side`: a sprite id in
+    #: `mountains/blocks/mouth-side-sprite.html`, and the wording behind it.
     #:
-    #: Left and right bank are named looking *downstream*, so on a page or a map where the
-    #: main river runs downwards they fall on the mirrored side: a left-bank tributary comes
-    #: in from the right and curves left as it joins, which is the way round these arrows are
-    #: drawn. `None` for `mouth_side` is not the same as 'O' — 'O' records that the side was
-    #: looked at and could not be decided, `None` that nobody has looked.
+    #: Not an arrow. Unicode has no glyph for "a confluence with the minor stream on the
+    #: left", and every arrow that comes close has to be read through a convention — which
+    #: is precisely the thing that is ambiguous here, since left and right bank are named
+    #: looking downstream and that is not the side they land on in a drawing. The sprite
+    #: sidesteps the argument by drawing the confluence instead of encoding a direction:
+    #: thick line the main river, thin line the tributary joining it, and the side the thin
+    #: line is on *is* the answer.
+    #:
+    #: `None` for `mouth_side` is not the same as 'O' — 'O' records that the side was looked
+    #: at and could not be decided, `None` that nobody has looked.
     MOUTH_SIDE_MARKS = {
-        'L': ('\u21b2', 'joins from the left bank, looking downstream'),
-        'R': ('\u21b3', 'joins from the right bank, looking downstream'),
-        'O': ('\u2193', 'joins, but the bank could not be decided'),
-        'S': ('\u224b', 'reaches the sea, so neither bank applies'),
+        'L': ('left', 'joins from the left bank, looking downstream'),
+        'R': ('right', 'joins from the right bank, looking downstream'),
+        'O': ('undecided', 'joins, but the bank could not be decided'),
+        'S': ('sea', 'reaches the sea, so neither bank applies'),
     }
 
     parent = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='tributaries')
@@ -137,10 +194,13 @@ class River(GeoModel):
         self._check_mouth_altitude()
 
     def __str__(self):
-        if self.source.name:
-            return f"{self.source.name}"
+        if self.source:
+            if self.source.name:
+                return f"{self.source.name}"
+            else:
+                return f"unnamed river ({self.source.location.y:.6f}° {self.source.location.x:.6f}°)"
         else:
-            return f"unnamed river ({self.source.location.y:.6f}° {self.source.location.x:.6f}°)"
+            return f"unsourced river"
 
     def name(self):
         return f"{self.source.name}"
@@ -152,17 +212,25 @@ class River(GeoModel):
         return reverse('river-detail', kwargs={'pk': self.pk})
 
     def mouth_side_mark(self):
-        """The arrow and its wording, or `None` while the side is unrecorded."""
+        """
+        The sprite to draw and the wording behind it, or `None` while the side is unrecorded.
+
+        `code` is half of a contract with `static/js/map.js`, which builds the same `<use>`
+        reference for the popup: both spell the sprite id `mouth-side-{code}`, and the ids
+        themselves live in `mountains/blocks/mouth-side-sprite.html`.
+        """
         mark = self.MOUTH_SIDE_MARKS.get(self.mouth_side)
-        return {'symbol': mark[0], 'title': mark[1]} if mark else None
+        return {'code': mark[0], 'title': mark[1]} if mark else None
 
     def mouth_side_abbr(self):
-        """`mouth_side_mark()` as the `<abbr>` the templates print, or nothing at all."""
+        """`mouth_side_mark()` as the markup the templates print, or nothing at all."""
         mark = self.mouth_side_mark()
         if mark is None:
             return ''
-        return format_html('<abbr class="mouth-side" title="{}">{}</abbr>',
-                           mark['title'], mark['symbol'])
+        return format_html(
+            '<abbr title="{}"><svg class="mouth-side" role="img">'
+            '<use href="#mouth-side-{}"></use></svg></abbr>',
+            mark['title'], mark['code'])
 
     def to_dict(self):
         return {
@@ -185,6 +253,11 @@ class River(GeoModel):
             # Which bank of the parent this one joins; the popup prints it beside the
             # parent's name, so it travels whether or not the mouth has coordinates.
             'mouth_side': self.mouth_side_mark(),
+            # The two landmarks a river names: the peak above its source, and the highest
+            # point of the basin it drains. Different claims, usually different places, and
+            # different kinds of object — see `summit_dict` and `point_dict`.
+            'source_summit': summit_dict(self.source_summit),
+            'watershed_high_point': point_dict(self.watershed_high_point),
         }
 
     def get_waypoints(self):

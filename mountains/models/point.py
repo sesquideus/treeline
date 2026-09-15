@@ -3,6 +3,7 @@ import math
 from django.db.models import Prefetch
 from django.utils.safestring import mark_safe
 from django.contrib.gis.db import models
+from django.urls import reverse
 
 from cairn.models import AdminModel
 
@@ -42,6 +43,17 @@ class NamedPoint(AdminModel):
         if self.name is not None:
             return f"{self.name} ({self.altitude}\u00A0m)"
         return f"(unnamed {self.location.y:6f} {self.location.x:6f}° {self.altitude:.1f}\u00A0m)"
+
+    def get_absolute_url(self):
+        """
+        Always the point's own page, even when the point is a summit or a col.
+
+        The alternative — returning the summit's URL when there is one — would make a
+        point's identity depend on what happens to reference it, and would leave the
+        multilingual names and notes that hang off the *point* unreachable. The page links
+        onward instead.
+        """
+        return reverse('point-detail', kwargs={'pk': self.pk})
 
     def full_name(self):
         if self.name is not None:
