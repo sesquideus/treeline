@@ -352,9 +352,11 @@ abbr {
 svg.sprite { display: none; }
 
 svg.mouth-side {
-    width: 1.35em;
-    height: 1.35em;
-    vertical-align: -0.35em;
+    /* Big enough for the arrowhead on the tributary to read as an arrow and not a blob;
+       the mark carries real information, so it earns a little more room than a glyph. */
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: -0.42em;
 }
 
 td.mouth-side { text-align: center; }
