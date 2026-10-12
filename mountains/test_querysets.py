@@ -23,7 +23,7 @@ from django.db import models as dm
 from django.test import TestCase
 
 from core.models import Country, Language
-from mountains.models import Col, Confluence, Range, River, Summit
+from mountains.models import Col, Range, River, Summit
 from mountains.models.point import NamedPoint, PointName
 from mountains.test_factories import (assign_range, make_col, make_point, make_range,
                                       make_range_system, make_summit)
@@ -84,7 +84,6 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
             annotations=('distance_to_horizon', 'beta', 'angle'),
             cached=('horizon_parent.point',),
         ),
-        'with_confluence': Case(cached=('key_col.confluence.point',)),
         'with_ultras': Case(annotations=('prominence', 'ultra'),
                             builds_on=('with_prominence',)),
         'with_full_name': Case(annotations=('full_name',)),
@@ -115,6 +114,7 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
     },
     River: {
         'with_source': Case(cached=('source', 'source.names')),
+        'with_mouth': Case(cached=('mouth',)),
         'with_parent': Case(cached=('parent', 'parent.source.names')),
         'with_source_summit': Case(cached=('source_summit.point',)),
         'with_watershed_high_point': Case(cached=('watershed_high_point.summit',)),
@@ -209,17 +209,16 @@ class QuerySetBehaviourTests(TestCase):
 
         big_river = River.objects.create(
             source=make_point('Big source', 900.0, 49.3, 20.9),
-            mouth=Point(21.0, 48.7, srid=4326), mouth_altitude=300.0)
+            mouth=make_point(None, 300.0, 48.7, 21.0))
         river = River.objects.create(
             source=make_point('Brook source', 1500.0, 49.05, 20.4),
-            mouth=Point(20.6, 48.9, srid=4326), mouth_altitude=500.0,
+            mouth=make_point(None, 500.0, 48.9, 20.6),
             parent=big_river, branches_off=big_river)
         PointName.objects.create(point=river.source, name='Potok', language=language)
         PointName.objects.create(point=big_river.source, name='Rieka', language=language)
 
-        confluence = Confluence.objects.create(point=make_point('Confluence', 500.0, 48.9, 20.6))
         col = make_col('Alpha col', 2500.0, 49.0, 20.5,
-                       confluence=confluence, confluence_river=river)
+                       confluence_river=river)
         child_col = make_col('Beta col', 1800.0, 49.05, 20.05)
 
         alpha = make_summit('Alpha', 3000.0, 49.0, 20.0, key_col=col,

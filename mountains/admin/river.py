@@ -10,7 +10,7 @@ from ..models import River
 class RiverAdmin(PointModelAdmin):
     list_display = ['source__name', 'flags', 'source_latitude', 'source_longitude', 'source_altitude',
                     'source_summit:link', 'watershed_high_point:link', 'branches_off:link',
-                    'mouth', 'mouth_altitude:.1f', 'mouth_side', 'parent:link', 'is_complete']
+                    'mouth:link', 'mouth__altitude:.1f', 'mouth_side', 'parent:link', 'is_complete']
     fieldsets = (
         ('Identity', {
             'fields': (
@@ -21,7 +21,6 @@ class RiverAdmin(PointModelAdmin):
         ('Mouth', {
             'fields': (
                 'mouth',
-                'mouth_altitude',
                 'parent',
                 'mouth_side',
             ),

@@ -54,6 +54,13 @@ class RiverQuerySet(models.QuerySet):
     def with_parent(self):
         return self.select_related('parent').prefetch_related('parent__source__names')
 
+    def with_mouth(self):
+        """
+        Where the river ends. `to_dict()` reads the position and altitude through it, so
+        without this the flat endpoint is a query per river.
+        """
+        return self.select_related('mouth')
+
     def with_source_summit(self):
         """The dominant peak above the source — a catalogued summit, and its point."""
         return self.select_related('source_summit__point')
@@ -81,14 +88,14 @@ class RiverQuerySet(models.QuerySet):
 
     def with_displacement(self):
         return self.annotate(
-            displacement=Distance('source__location', 'mouth'),
+            displacement=Distance('source__location', 'mouth__location'),
         )
 
     def with_tributaries(self):
         return self.prefetch_related(
             Prefetch(
                 'tributaries',
-                queryset=River.objects.with_source().with_full_name().order_by('-mouth_altitude'),
+                queryset=River.objects.with_source().with_full_name().order_by('-mouth__altitude'),
             )
         )
 
@@ -111,14 +118,14 @@ class RiverQuerySet(models.QuerySet):
 
     def with_direct_length(self):
         return self.annotate(
-            direct_length=Distance('source__location', 'mouth'),
+            direct_length=Distance('source__location', 'mouth__location'),
         )
 
     def with_db_status(self):
         return self.annotate(
             complete=(
                 Q(source__location__isnull=False) & Q(source__altitude__isnull=False) &
-                Q(mouth__isnull=False) & Q(mouth_altitude__isnull=False) & Q(mouth_side__isnull=False) &
+                Q(mouth__isnull=False) & Q(mouth__altitude__isnull=False) & Q(mouth_side__isnull=False) &
                 Q(parent__isnull=False) & Q(watershed_high_point__isnull=False) &
                 (Q(source_summit__isnull=False) | Q(branches_off__isnull=False))
             ),
@@ -149,8 +156,18 @@ class River(GeoModel):
                                      related_name='branches',
                                      help_text='Set if the source is a branch off another river')
 
-    mouth = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
-    mouth_altitude = models.FloatField(null=True, blank=True)
+    #: Where the river ends — its confluence with the parent, or the sea.
+    #:
+    #: A `NamedPoint` and not a loose point plus altitude, so the junction can carry the
+    #: countries it sits in and, where the river changes name there, that name. Symmetric
+    #: with `source`, which has always been one.
+    #:
+    #: A ForeignKey rather than a OneToOne because a mouth is a *place*, and two rivers can
+    #: end at the same one: Kňazov potok joins Lomniansky potok exactly where Lomniansky
+    #: potok joins Neresnica. One row for that junction means one set of countries and one
+    #: name, instead of two rows to keep in step by hand.
+    mouth = models.ForeignKey('NamedPoint', on_delete=models.SET_NULL, null=True, blank=True,
+                              related_name='mouths')
     mouth_side = models.CharField(max_length=1, choices=MOUTH_CHOICES, null=True, blank=True)
 
     #: The mark shown for each `mouth_side`: a sprite id in
@@ -184,14 +201,14 @@ class River(GeoModel):
     objects = RiverQuerySet.as_manager()
 
     def _check_mouth_altitude(self):
-        if not (self.parent and self.mouth_altitude is not None and self.parent.mouth_altitude is not None):
+        if not (self.parent and self.mouth and self.parent.mouth):
             return
-        if self.mouth_altitude < self.parent.mouth_altitude:
+        if self.mouth.altitude < self.parent.mouth.altitude:
             raise ValidationError({
-                'mouth_altitude': (
-                    f'{self.name()} mouth ({self.mouth_altitude:.1f} m) '
+                'mouth': (
+                    f'{self.name()} mouth ({self.mouth.altitude:.1f} m) '
                     f'must not be lower than the mouth of its parent '
-                    f'{self.parent.name()} ({self.parent.mouth_altitude:.1f} m).'
+                    f'{self.parent.name()} ({self.parent.mouth.altitude:.1f} m).'
                 )
             })
 
@@ -252,10 +269,12 @@ class River(GeoModel):
                 'id': self.parent_id,
             } if self.parent else None,
             'mouth': {
-                'lat': self.mouth.y,
-                'lon': self.mouth.x,
-                'alt': self.mouth_altitude,
-            } if self.mouth else None,
+                'lat': self.mouth.location.y,
+                'lon': self.mouth.location.x,
+                'alt': self.mouth.altitude,
+                'pk': self.mouth.pk,
+                'name': self.mouth.name,
+            } if self.mouth and self.mouth.location else None,
             # Which bank of the parent this one joins; the popup prints it beside the
             # parent's name, so it travels whether or not the mouth has coordinates.
             'mouth_side': self.mouth_side_mark(),
@@ -281,16 +300,16 @@ class River(GeoModel):
         query per river.
         """
         junctions = [
-            (trib.mouth_altitude, trib.mouth)
+            (trib.mouth.altitude, trib.mouth.location)
             for trib in self.tributaries.all()
-            if trib.mouth is not None
+            if trib.mouth and trib.mouth.location
         ] + [
             (branch.source.altitude, branch.source.location)
             for branch in self.branches.all()
             if branch.source is not None and branch.source.location is not None
         ]
         # An unknown altitude sorts first, which is what NULLS FIRST gave us under the
-        # previous `order_by('-mouth_altitude')`.
+        # previous `order_by('-mouth__altitude')`.
         junctions.sort(key=lambda junction: math.inf if junction[0] is None else junction[0],
                        reverse=True)
 
@@ -298,8 +317,8 @@ class River(GeoModel):
         if self.source and self.source.location:
             points.append(self.source.location)
         points.extend(location for _, location in junctions)
-        if self.mouth:
-            points.append(self.mouth)
+        if self.mouth and self.mouth.location:
+            points.append(self.mouth.location)
 
         return points
 

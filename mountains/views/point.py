@@ -23,7 +23,7 @@ class DetailView(DjangoDetailView):
                 # All three are reverse one-to-ones and all three are usually absent, which
                 # is exactly when select_related earns its place: without it the template's
                 # "is this a summit?" questions are one query each.
-                .select_related('summit', 'col', 'confluence')
+                .select_related('summit', 'col')
                 .prefetch_related(
                     'countries',
                     'notes',

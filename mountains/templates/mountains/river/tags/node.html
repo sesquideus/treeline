@@ -4,7 +4,7 @@
     <li class="tree-node">
         {{ river.mouth_side_abbr }}
         <a class="river" href="{% url 'river-detail' river.id %}">{{ river.name }}</a>
-        {% if river.mouth_altitude is not None %}({{ river.mouth_altitude|floatformat:1 }} m){% endif %}
+        {% if river.mouth %}({{ river.mouth.altitude|floatformat:1 }} m){% endif %}
         {% if river.branches_off %}
             &#x2197; branches off
             <a class="river" href="{% url 'river-detail' river.branches_off.id %}">{{ river.branches_off.name }}</a>

@@ -71,11 +71,11 @@ class MouthSideRenderingTests(TestCase):
     def setUpTestData(cls):
         cls.parent = River.objects.create(
             source=make_point('Big source', 900.0, 49.3, 20.9),
-            mouth=Point(21.0, 48.7, srid=4326), mouth_altitude=300.0,
+            mouth=make_point(None, 300.0, 48.7, 21.0),
             mouth_side='S')
         cls.river = River.objects.create(
             source=make_point('Brook source', 1500.0, 49.05, 20.4),
-            mouth=Point(20.6, 48.9, srid=4326), mouth_altitude=500.0,
+            mouth=make_point(None, 500.0, 48.9, 20.6),
             parent=cls.parent, mouth_side='L')
 
     def setUp(self):
@@ -132,11 +132,11 @@ class RiverWatershedTests(TestCase):
         cls.krivan = make_summit('Kriváň', 2494.0, 49.16, 19.99)
         cls.river = River.objects.create(
             source=make_point('Poprad source', 1500.0, 49.05, 20.4),
-            mouth=Point(20.6, 48.9, srid=4326), mouth_altitude=500.0,
+            mouth=make_point(None, 500.0, 48.9, 20.6),
             watershed_high_point=cls.gerlach.point, source_summit=cls.krivan)
         cls.bare = River.objects.create(
             source=make_point('Nameless source', 900.0, 49.3, 20.9),
-            mouth=Point(21.0, 48.7, srid=4326), mouth_altitude=300.0)
+            mouth=make_point(None, 300.0, 48.7, 21.0))
 
     def setUp(self):
         cache.clear()

@@ -60,8 +60,9 @@ The interesting relationships hang off `Summit` (`mountains/models/summit.py`):
 - **Slope** and **Horizon** parents — two more alternative parent hierarchies
   (`slope_parent`, `horizon_parent`/`horizon_parent_std`) with their own geometric metrics.
 
-`Col` links summits (`key_for` reverse of `key_col`) and optionally to a `River`/`Confluence`
-for hydrological connectivity. `River`, `Confluence`, `Source`, `Note`, and the
+`Col` links summits (`key_for` reverse of `key_col`) and optionally to a `River` for
+hydrological connectivity; a river's `source` and `mouth` are both `NamedPoint`s, so a
+junction carries its own name and countries. `River`, `Source`, `Note`, and the
 `PointName` (multilingual names) round out the app. `core` provides `Country`/`Language`
 and geodesic helpers (`core/functions/world.py`); `users` supplies the custom
 `AUTH_USER_MODEL = 'users.User'`.

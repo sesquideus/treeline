@@ -66,6 +66,17 @@ def call(function, *arguments):
     return evaluate('%s(%s)' % (function, ', '.join(json.dumps(a) for a in arguments)))
 
 
+def feature_expression(properties):
+    """
+    A stand-in for an OpenLayers feature, as a JS expression.
+
+    `map.js` reads features only through `.get()`, so an object with that one method is
+    enough. The parentheses around the object literal are not optional: without them the
+    arrow function's body parses as a block rather than an object.
+    """
+    return '{ get: key => (%s)[key] }' % json.dumps(properties)
+
+
 def popup_html(**properties):
     """
     The popup `map.js` builds for a feature with these properties.

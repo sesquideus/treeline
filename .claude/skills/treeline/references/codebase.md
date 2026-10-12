@@ -171,7 +171,7 @@ gzipped and 0.78 s of Python, the skeleton 94 KiB and 0.02 s.
 `CachedJsonMixin` (`views/tree/tree.py`) and `mountains/views/cache.py`: subclasses
 implement `build_payload()` instead of `get()`, keys carry a version integer, and
 `mountains/signals.py` bumps that version on any write to `NamedPoint`, `Summit`, `Col`,
-`River` or `Confluence`. There is no partial invalidation — a save drops everything. With
+`River`. There is no partial invalidation — a save drops everything. With
 `GZipMiddleware` now in `MIDDLEWARE`, a warm map load is ~240 KiB gzipped.
 
 Endpoints: `/summits/geo.json`, `/cols/geo.json/` (skeletons), `/rivers/geo.json` (still
@@ -214,6 +214,14 @@ because the layers are built from the controls directly.
 The fragment rather than a query parameter because it never reaches the server, so it cannot
 vary a cached page or a JSON endpoint and stays clear of the list pages' real query
 parameters.
+
+Clicking a summit, col or river on the map opens its detail page in a **new tab** —
+`detailUrl()` in `static/js/map.js` maps `properties.type` to one of the three URL helpers,
+and returns null for everything with no page of its own, which then just shows its popup.
+Two details that are easy to undo by accident: the listener is `click` and not `singleclick`,
+because the latter's 250 ms double-click delay costs the `window.open` its user-initiated
+status and the popup blocker eats it; and the navigation is gated on the device having hover,
+so a phone's first tap still opens the popup instead of leaving it unreachable.
 
 ### Testing the JavaScript
 

@@ -26,8 +26,7 @@
     <ul>
         {% if point.summit %}<li>Summit &mdash; {% object_link point.summit 'mountain' attr='name' %}</li>{% endif %}
         {% if point.col %}<li>Col &mdash; {% object_link point.col 'col' attr='name' %}</li>{% endif %}
-        {% if point.confluence %}<li>Confluence &mdash; {% object_link point.confluence 'confluence' %}</li>{% endif %}
-        {% if not point.summit and not point.col and not point.confluence %}
+        {% if not point.summit and not point.col %}
             <li class="empty">Nothing &mdash; this is a named place in its own right.</li>
         {% endif %}
     </ul>
@@ -57,7 +56,7 @@
             {% for river in point.drains.all %}
                 <tr>
                     <td class="link">{% object_link river 'river' %}</td>
-                    <td class="altitude">{{ river.mouth_altitude|altitude }}</td>
+                    <td class="altitude">{{ river.mouth.altitude|altitude }}</td>
                 </tr>
             {% empty %}
                 {% empty_tr "No river names this as its watershed high point" %}

@@ -52,10 +52,10 @@ class MapDataTestCase(TestCase):
 
         cls.big_river = River.objects.create(
             source=make_point('Big source', 900.0, 49.3, 20.9),
-            mouth=Point(21.0, 48.7, srid=4326), mouth_altitude=300.0)
+            mouth=make_point(None, 300.0, 48.7, 21.0))
         cls.river = River.objects.create(
             source=make_point('Brook source', 1500.0, 49.05, 20.4),
-            mouth=Point(20.6, 48.9, srid=4326), mouth_altitude=500.0,
+            mouth=make_point(None, 500.0, 48.9, 20.6),
             parent=cls.big_river)
         cls.river_col = make_col('River col', 1200.0, 49.05, 20.45,
                                  confluence_river=cls.river)

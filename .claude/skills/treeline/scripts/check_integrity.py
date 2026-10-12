@@ -217,16 +217,17 @@ orphan_cols = Col.objects.filter(key_for__isnull=True).count()
 if orphan_cols:
     info.append(f'{orphan_cols} cols are not the key col of any summit')
 
-no_hydrology = Col.objects.filter(confluence__isnull=True, confluence_river__isnull=True).count()
+no_hydrology = Col.objects.filter(confluence_river__isnull=True).count()
 if no_hydrology:
-    info.append(f'{no_hydrology} cols have neither confluence nor confluence_river')
+    info.append(f'{no_hydrology} cols drain to no river')
 
-for r in River.objects.select_related('source', 'parent__source'):
-    if r.parent and r.mouth_altitude is not None and r.parent.mouth_altitude is not None:
-        if r.mouth_altitude < r.parent.mouth_altitude:
+for r in River.objects.select_related('source', 'mouth', 'parent__source',
+                                      'parent__mouth'):
+    if r.parent and r.mouth and r.parent.mouth:
+        if r.mouth.altitude < r.parent.mouth.altitude:
             err('river-mouth-below-parent', r,
-                f'{r.name()} mouth {r.mouth_altitude:.0f} m is below the mouth of its '
-                f'parent {r.parent.name()} ({r.parent.mouth_altitude:.0f} m)')
+                f'{r.name()} mouth {r.mouth.altitude:.0f} m is below the mouth of its '
+                f'parent {r.parent.name()} ({r.parent.mouth.altitude:.0f} m)')
     if r.parent_id == r.pk:
         err('river-self-parent', r, f'{r.name()} is its own parent')
 

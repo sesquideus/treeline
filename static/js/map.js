@@ -125,6 +125,19 @@ const colUrl    = pk => pk != null ? `/col/${pk}/` : null;
 const riverUrl  = pk => pk != null ? `/river/${pk}/` : null;
 const pointUrl  = pk => pk != null ? `/point/${pk}/` : null;
 
+// The detail page a feature stands for, or null for everything that has no page of its own
+// — isolation points, lineage segments, highlight marks, range polygons. Reading the type
+// rather than the layer, because the same layer can carry more than one kind of mark.
+function detailUrl(feature) {
+    if (!feature) return null;
+    switch (feature.get('type')) {
+        case 'summit': return summitUrl(feature.get('pk'));
+        case 'col':    return colUrl(feature.get('pk'));
+        case 'river':  return riverUrl(feature.get('pk'));
+        default:       return null;
+    }
+}
+
 // Every reference to another object is a link, styled with the site's object classes
 // (`a.mountain`, `a.col`, `a.river` in main.css) so it carries the same colour and ⛰ ∪ 〰
 // glyph as {% object_link %} does in the templates. Unlinkable labels stay plain text.
@@ -567,10 +580,29 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
     // the last popup stuck on screen.
     map.getViewport().addEventListener('pointerleave', () => hovered(null));
 
-    // Touch devices have no hover at all, so a tap still opens the popup — and, there being
-    // no pointermove to follow, leaves it open for a second tap on one of its links.
+    // Whether the device can hover at all. With a mouse the popup is already up by the time
+    // a click lands, so the click can go straight to the page; a touch device has no hover,
+    // so its first tap has to open the popup or the popup would be unreachable.
+    const canHover = !window.matchMedia || window.matchMedia('(hover: hover)').matches;
+
+    // Clicking a summit, col or river opens its page in a new tab — new, because the map is
+    // something you come back to, and losing a half-built view to a navigation is worse than
+    // an extra tab. Anything with no page of its own falls through and just shows its popup.
+    //
+    // `click` rather than `singleclick`: the latter waits 250 ms to rule out a double click,
+    // and by then the browser no longer counts the `window.open` as user-initiated and the
+    // popup blocker eats it.
     map.on('click', function(e) {
-        hovered(featureAt(e.pixel), e.coordinate);
+        const feature = featureAt(e.pixel);
+        const url = detailUrl(feature);
+        if (url && (canHover || feature === described)) {
+            // `noopener` so the new tab gets no handle on this one.
+            window.open(url, '_blank', 'noopener');
+            return;
+        }
+        // Without hover, the first tap describes the feature and the second opens it — and
+        // the popup stays up in between for a tap on one of its own links.
+        hovered(feature, e.coordinate);
     });
 
     const opacitySlider = document.getElementById('map-opacity');

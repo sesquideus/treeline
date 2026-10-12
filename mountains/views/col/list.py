@@ -19,7 +19,7 @@ class ListView(OrderableListView):
         'major-alt': 'key_for__prominence_parent__point__altitude',
         'river-name': 'confluence_river__source__name',
         'river-alt': 'confluence_river__source__altitude',
-        'confluence-alt': 'confluence_river__mouth_altitude',
+        'confluence-alt': 'confluence_river__mouth__altitude',
     }
 
     def parse_get_arguments(self):

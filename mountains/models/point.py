@@ -29,6 +29,9 @@ class NamedPoint(AdminModel):
     """
     A named point somewhere on the surface of the Earth. Base for all more advanced objects.
     """
+    class Meta:
+        ordering = ('-altitude',)
+
     name = models.CharField(max_length=64, null=True, blank=True, unique=True)
 
     location = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)

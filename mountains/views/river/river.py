@@ -46,7 +46,7 @@ class RiverForestView(ListView):
 
     @staticmethod
     def sort_function(river):
-        return river.mouth_altitude if river.mouth_altitude is not None else -math.inf
+        return river.mouth.altitude if river.mouth else -math.inf
 
     @staticmethod
     def parent_fk(river):
@@ -84,7 +84,7 @@ class RiverForestView(ListView):
 class RiverTreeView(TreeView):
     def get_queryset(self):
         # get_waypoints() walks both relations per river — prefetch or it is an N+1.
-        return (River.objects.with_source().with_parent()
+        return (River.objects.with_source().with_parent().with_mouth()
                 .with_source_summit().with_watershed_high_point()
                 .with_tributaries().with_branches())
 

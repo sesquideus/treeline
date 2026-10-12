@@ -43,7 +43,7 @@
                     <td class="altitude">{{ river.source.altitude|altitude }}</td>
                     <td class="link">{% object_link river.watershed_high_point 'mountain' attr='display_name' %}</td>
                     <td class="link">{% object_link river.parent 'river' %}</td>
-                    <td class="altitude">{{ river.mouth_altitude|altitude }}</td>
+                    <td class="altitude">{{ river.mouth.altitude|altitude }}</td>
 
                     <td class="distance">{{ river.displacement.m|distance }}</td>
                 </tr>

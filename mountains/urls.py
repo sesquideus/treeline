@@ -48,6 +48,4 @@ urlpatterns = [
     # list view and no menu entry.
     path('point/<int:pk>/', views.point.DetailView.as_view(), name='point-detail'),
 
-    path('confluences', views.confluence.ListView.as_view(), name='confluence-list'),
-    path('confluence/<int:pk>/', views.confluence.DetailView.as_view(), name='confluence'),
 ]

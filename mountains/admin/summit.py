@@ -33,15 +33,17 @@ class SummitAdmin(ModelAdmin):
         ('Point', {
             'fields': ('point', 'location_display'),
         }),
-        ('Prominence', {
-            'fields': ('key_col', 'prominence_parent',
-                       'prominence_source', 'island_high_point'),
-        }),
         ('Isolation', {
             'fields': (
-                'isolation_name', 'isolation_parent',
                 'nearest_higher_point',
+                ('isolation_name', 'isolation_parent',),
                 'isolation_source',
+            ),
+        }),
+        ('Prominence', {
+            'fields': (
+                'key_col', 'prominence_parent',
+                'prominence_source', 'island_high_point'
             ),
         }),
         ('Slope parent', {
@@ -63,8 +65,10 @@ class SummitAdmin(ModelAdmin):
     actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std',
                'compute_points', 'assign_to_range']
     search_fields = ['point__name']
+    autocomplete_fields = ['point', 'key_col', 'isolation_parent', 'slope_parent', 'horizon_parent']
     inlines = [SummitRangeInline]
-    list_filter = [RangeAssignedFilter, RangeSystemFilter, RangeFilter]
+    list_filter = [RangeAssignedFilter, RangeSystemFilter, RangeFilter,
+                   'point__countries', ('horizon_parent', admin.EmptyFieldListFilter)]
     list_select_related = ['point', 'key_col__point',
                            'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
     readonly_fields = ['location_display']

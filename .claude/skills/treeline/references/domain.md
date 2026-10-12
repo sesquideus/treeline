@@ -134,12 +134,23 @@ The hydrological link is what makes a col meaningful beyond topography: a col se
 drainage basins, so it corresponds to a point in the river network. Either field may be set,
 and both together is a normal combination:
 
-- `confluence_river` — the river the col drains toward.
-- `confluence` — an explicit `Confluence` point.
+- `confluence_river` — the river the col drains toward. Where the water arrives is that
+  river's `mouth`, which is a `NamedPoint`.
+
+(There was once a separate `Confluence` model holding the junction itself. It was superseded
+by the river mouth being a point of its own and removed in migration 0034; its 52 points
+survive as ordinary `NamedPoint`s, names and countries intact.)
 
 `River` forms its own tree via `parent` (the receiving river) with `tributaries` as the
-reverse. A river's `source` is a `NamedPoint`; its `mouth` is a raw `PointField` with a
-separate `mouth_altitude`, and a mouth may not be lower than its parent's mouth.
+reverse. Both ends are `NamedPoint`s: `source` is a `OneToOneField`, `mouth` a `ForeignKey`
+— a foreign key because a mouth is a *place* and two rivers can end at the same one, and a
+shared junction should be one row carrying one set of countries and one name. The altitude
+lives on the point (`river.mouth.altitude`), and a mouth may not be lower than its parent's.
+
+The name on the mouth point is how a name change at a confluence is recorded: where the
+major river continues under its own name and the minor terminates, nothing is needed, but
+Ondava + Latorica forming Bodrog is modelled as one river row whose mouth point carries the
+new name.
 `get_waypoints()` builds a polyline as source → tributary mouths (descending by altitude) →
 mouth, which is the geometry that reaches `to_geojson()`.
 

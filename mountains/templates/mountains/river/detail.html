@@ -28,9 +28,11 @@
 
     <h3>Mouth</h3>
     Flows into {{ river.mouth_side_abbr }} {% object_link river.parent 'river' %} at
-    <span class="angle">{{ river.mouth.y }}</span>
-    <span class="angle">{{ river.mouth.x }}</span>
-    (<span class="altitude">{{ river.mouth_altitude|altitude }}</span>).
+    <span class="angle">{{ river.mouth.location.y }}</span>
+    <span class="angle">{{ river.mouth.location.x }}</span>
+    (<span class="altitude">{{ river.mouth.altitude|altitude }}</span>)
+    {% if river.mouth %}&mdash; {% object_link river.mouth 'range' attr='display_name' %}
+        {{ river.mouth|flags }}{% endif %}.
 
     Direct length <span class="distance">{{ river.direct_length.km|floatformat:3 }}</span>.
 
@@ -104,7 +106,7 @@
                         {{ tributary.mouth_side_abbr }}
                     </td>
                     <td class="altitude">
-                        {{ tributary.mouth_altitude }}
+                        {{ tributary.mouth.altitude|altitude }}
                     </td>
                 </tr>
             {% empty %}

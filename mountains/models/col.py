@@ -26,7 +26,8 @@ class ColQuerySet(models.QuerySet):
         )
 
     def with_rivers(self):
-        return self.select_related('confluence_river__source', 'confluence_river__parent__source')
+        return self.select_related('confluence_river__source', 'confluence_river__mouth',
+                                   'confluence_river__parent__source')
 
     def with_countries(self):
         return self.prefetch_related('point__countries')
@@ -42,7 +43,7 @@ class ColQuerySet(models.QuerySet):
         """
         rows = self.values_list(
             'pk', 'point__location', 'point__name',
-            'confluence_river_id', 'confluence_river__mouth',
+            'confluence_river_id', 'confluence_river__mouth__location',
         )
         return [
             {
@@ -79,10 +80,9 @@ class ColQuerySet(models.QuerySet):
 
 class Col(GeoModel):
     class Meta:
-        ordering = ['point__altitude']
+        ordering = ['-point__altitude']
 
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False, related_name='col')
-    confluence = models.ForeignKey('Confluence', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
     confluence_river = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
 
     objects = ColQuerySet.as_manager()
@@ -111,11 +111,13 @@ class Col(GeoModel):
     def distance_to_confluence(self):
         """ Geodesic distance from the col down to its confluence (the river mouth) """
         if not (self.point and self.point.location
-                and self.confluence_river and self.confluence_river.mouth):
+                and self.confluence_river and self.confluence_river.mouth
+                and self.confluence_river.mouth.location):
             return None
         return distance(
             (self.point.location.y, self.point.location.x),
-            (self.confluence_river.mouth.y, self.confluence_river.mouth.x),
+            (self.confluence_river.mouth.location.y,
+             self.confluence_river.mouth.location.x),
         )
 
     def to_dict(self):
@@ -132,9 +134,9 @@ class Col(GeoModel):
                 # The river, as in the skeleton — this used to be the id of its source point.
                 'river': self.confluence_river_id,
                 'name': self.confluence_river.source.name,
-                'lon': self.confluence_river.mouth.x,
-                'lat': self.confluence_river.mouth.y,
-                'alt': self.confluence_river.mouth_altitude,
+                'lon': self.confluence_river.mouth.location.x,
+                'lat': self.confluence_river.mouth.location.y,
+                'alt': self.confluence_river.mouth.altitude,
                 'dist': confluence_distance.m if confluence_distance is not None else None,
             } if self.confluence_river else None,
             'river': {

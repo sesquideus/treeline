@@ -95,9 +95,6 @@ class SummitQuerySet(models.QuerySet):
             )
         )
 
-    def with_confluence(self):
-        return self.prefetch_related('key_col__confluence__point')
-
     def with_ultras(self):
         return self.with_prominence().annotate(
             ultra=Q(prominence__gte=1500),
@@ -230,14 +227,16 @@ class Summit(GeoModel):
                                           related_name='prominence_children')
     key_col = models.OneToOneField('Col', null=True, blank=True, on_delete=models.PROTECT,
                                    related_name='key_for')
-    prominence_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
+    prominence_source = models.ForeignKey('Source', null=True, blank=False, on_delete=models.SET_NULL,
                                           related_name='prominence_data')
     island_high_point = models.BooleanField(default=False)
 
     isolation_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
                                          related_name='isolation_children',
                                          help_text='The nearest significant summit higher than this.')
-    isolation_name = models.CharField(null=True, blank=True, max_length=64)
+    isolation_name = models.CharField(null=True, blank=True, max_length=64,
+                                      help_text='More precise name of the actual closest '
+                                                'feature (ridge, outcrop, direction...)')
     isolation_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='isolation_data')
     nearest_higher_point = models.PointField(geography=True, dim=2, srid=4326, null=True, blank=True)
@@ -755,7 +754,7 @@ class Summit(GeoModel):
     def __str__(self):
         if self.point.name is not None:
             return f"{self.point.__str__()}"
-        return "(unnamed)"
+        return f"(unnamed {self.point.altitude})"
 
     def name(self):
         # `{% object_link summit 'mountain' attr='name' %}` reads this, as do the trees.
