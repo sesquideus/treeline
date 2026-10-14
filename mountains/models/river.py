@@ -179,13 +179,17 @@ class River(GeoModel):
     #:
     #: The picture is one thick line of constant width for the main river, a thin one for
     #: the tributary, and an arrowhead where the two meet so the direction of flow is not
-    #: in doubt either.
+    #: in doubt either. The main line is centred and runs the full height of the glyph, so
+    #: a column of these reads as one river with tributaries arriving from alternating
+    #: sides rather than as a row of separate pictures.
     #:
-    #: Which side the tributary is drawn on is **mirrored** from the bank it names, and that
-    #: is not a mistake. Left and right bank are defined facing downstream; with the main
-    #: river running down the picture, your left hand points across it to the picture's
-    #: right. So the left-bank mark has its tributary on the right, and the sprite defines
-    #: the right-bank shape and mirrors it to get the left.
+    #: The water flows **up** the picture, and that is what makes the marks literal. Left
+    #: and right bank are named facing downstream; face that way over a map with downstream
+    #: toward the top and your left hand points across to the picture's left — so a
+    #: left-bank tributary is drawn arriving from the left, with no mental flip in between.
+    #: It also puts the parent above its tributaries and the sea at the top, which is how
+    #: every other tree here is drawn. The sprite defines the left-bank shape and mirrors
+    #: it to get the right.
     #:
     #: `None` for `mouth_side` is not the same as 'O' — 'O' records that the side was looked
     #: at and could not be decided, `None` that nobody has looked.

@@ -3,8 +3,9 @@ Tests for the bank a river joins its parent on, and for the two summits it names
 
 The mark is a drawing of the confluence, not an arrow: Unicode has no glyph for "a
 confluence with the minor stream on the left", and every arrow that comes close needs a
-convention to read it — which is the ambiguous part, since left and right bank are named
-looking downstream and that is not the side they fall on in a picture.
+convention to read it — which is the ambiguous part. The drawing settles it by flowing
+upwards: downstream is the top of the picture, so the bank a tributary is named for is the
+side it is drawn arriving from.
 
 So what is pinned here is the wiring rather than a direction: each `mouth_side` reaches its
 own sprite, every sprite id the model names exists in the sprite file, and the same ids are

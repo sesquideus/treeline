@@ -16,11 +16,14 @@ from outside the application. A bad one must degrade to defaults, not open on em
 zoom 400 or drop the reader's position because one unrelated setting went stale.
 """
 
+import re
+
 from django.test import SimpleTestCase
 
 from mountains.test_js_runtime import call, evaluate
 
 MAP_JS = 'static/js/map.js'
+CONTROLS = 'core/templates/core/controls.html'
 
 
 def parse(value):
@@ -109,36 +112,39 @@ class StateFormatTests(SimpleTestCase):
     HERE = {'zoom': 11.25, 'lat': 49.16451, 'lon': 20.13403}
 
     def test_defaults_are_left_out_so_the_common_case_stays_short(self):
-        self.assertEqual(format_state(position=self.HERE, mode='prominence', routing=True,
-                                      rivers=True, cols=False, ranges=False, opacity=40),
+        self.assertEqual(format_state(position=self.HERE, mode='prominence', summits=True,
+                                      routing=True, rivers=True, cols=False, ranges=False,
+                                      opacity=40),
                          '#map=11.25/49.16451/20.13403')
 
     def test_only_what_differs_is_written(self):
-        self.assertEqual(format_state(position=self.HERE, mode='isolation', routing=True,
-                                      rivers=True, cols=True, ranges=False, opacity=40),
+        self.assertEqual(format_state(position=self.HERE, mode='isolation', summits=True,
+                                      routing=True, rivers=True, cols=True, ranges=False,
+                                      opacity=40),
                          '#map=11.25/49.16451/20.13403&mode=isolation&cols=1')
 
     def test_a_toggle_turned_off_is_written_as_well_as_one_turned_on(self):
-        self.assertIn('rivers=0', format_state(position=None, mode='prominence', routing=True,
-                                               rivers=False, cols=False, ranges=False,
-                                               opacity=40))
+        self.assertIn('rivers=0', format_state(position=None, mode='prominence', summits=True,
+                                               routing=True, rivers=False, cols=False,
+                                               ranges=False, opacity=40))
 
     def test_an_untouched_map_writes_nothing_at_all(self):
         """So the address bar stays clean until the reader actually changes something."""
-        self.assertEqual(format_state(position=None, mode='prominence', routing=True,
-                                      rivers=True, cols=False, ranges=False, opacity=40), '')
+        self.assertEqual(format_state(position=None, mode='prominence', summits=True,
+                                      routing=True, rivers=True, cols=False, ranges=False,
+                                      opacity=40), '')
 
     def test_the_whole_state_round_trips(self):
-        state = dict(position=self.HERE, mode='horizon', routing=False, rivers=False,
-                     cols=True, ranges=True, opacity=85)
+        state = dict(position=self.HERE, mode='horizon', summits=False, routing=False,
+                     rivers=False, cols=True, ranges=True, opacity=85)
         self.assertEqual(parse_state(format_state(**state)), state)
 
 
 class StateParseTests(SimpleTestCase):
     def test_an_empty_fragment_is_all_defaults(self):
         self.assertEqual(parse_state(''), {
-            'position': None, 'mode': 'prominence', 'routing': True, 'rivers': True,
-            'cols': False, 'ranges': False, 'opacity': 40,
+            'position': None, 'mode': 'prominence', 'summits': True, 'routing': True,
+            'rivers': True, 'cols': False, 'ranges': False, 'opacity': 40,
         })
 
     def test_a_position_only_fragment_still_reads(self):
@@ -148,7 +154,9 @@ class StateParseTests(SimpleTestCase):
         self.assertEqual(state['mode'], 'prominence')
 
     def test_each_mode_is_accepted(self):
-        for mode in ('prominence', 'isolation', 'slope', 'horizon'):
+        # 'none' included: it is a mode like the others, and a fragment saying so has to
+        # survive a reload rather than quietly reverting to prominence.
+        for mode in ('prominence', 'isolation', 'slope', 'horizon', 'none'):
             with self.subTest(mode=mode):
                 self.assertEqual(parse_state(f'#mode={mode}')['mode'], mode)
 
@@ -179,11 +187,61 @@ class StateParseTests(SimpleTestCase):
         self.assertIsNotNone(state['position'])
 
     def test_a_fragment_from_somewhere_else_yields_plain_defaults(self):
-        for fragment in ('#summits', '#section-3', '#'):
+        for fragment in ('#about', '#section-3', '#'):
             with self.subTest(fragment=fragment):
                 state = parse_state(fragment)
                 self.assertIsNone(state['position'])
                 self.assertEqual(state['mode'], 'prominence')
+
+
+def checkbox_states():
+    """Each checkbox in the panel, and whether the template ships it ticked."""
+    with open(CONTROLS, encoding='utf-8') as handle:
+        return {name: bool(checked) for name, checked in
+                re.findall(r'<input type="checkbox" id="([^"]+)"( checked)?>', handle.read())}
+
+
+def control_ids():
+    """
+    `CONTROL_IDS` is read rather than run: it lives inside `initGlobalMap`'s closure, where
+    it belongs — it is the only part of the state handling that touches the DOM.
+    """
+    with open(MAP_JS, encoding='utf-8') as handle:
+        block = handle.read().split('const CONTROL_IDS = {')[1].split('};')[0]
+    return dict(re.findall(r"(\w+): '([^']+)'", block))
+
+
+class ControlVocabularyTests(SimpleTestCase):
+    """
+    A toggle is spelled in four places — the checkbox, `CONTROL_IDS`, `MAP_TOGGLES` and
+    `MAP_DEFAULTS` — and each omission fails silently in its own way: a box nobody reads, a
+    name with no element, a state never written to the fragment, a default nothing compares
+    against. So all four are compared.
+    """
+
+    def test_every_checkbox_in_the_panel_is_one_the_map_knows_about(self):
+        self.assertEqual(sorted(checkbox_states()), sorted(control_ids().values()))
+
+    def test_every_toggle_has_an_element_and_a_default(self):
+        names = sorted(control_ids())
+        self.assertEqual(names, sorted(evaluate('MAP_TOGGLES')))
+        self.assertEqual(names, sorted(name for name in evaluate('MAP_DEFAULTS')
+                                       if name not in ('mode', 'opacity')))
+
+    def test_the_ticked_boxes_are_the_declared_defaults(self):
+        """
+        Disagree and the fragment lies by omission: a box the reader never touched would
+        differ from the default, go unwritten, and come back the other way round on reload.
+        """
+        defaults = evaluate('MAP_DEFAULTS')
+        ticked = checkbox_states()
+        for name, element in control_ids().items():
+            with self.subTest(toggle=name):
+                self.assertEqual(ticked[element], defaults[name])
+
+    def test_summits_are_shown_by_default_and_hiding_them_is_remembered(self):
+        self.assertTrue(parse_state('')['summits'])
+        self.assertFalse(parse_state('#summits=0')['summits'])
 
 
 class WiringTests(SimpleTestCase):
@@ -244,6 +302,19 @@ class WiringTests(SimpleTestCase):
         handler = source.split("addEventListener('hashchange'")[1].split('});')[0]
         self.assertIn('applyMapControls(wanted, true)', handler)
         self.assertIn('applyMapPosition(wanted.position)', handler)
+
+    def test_hiding_the_summits_hides_their_layer(self):
+        """
+        The layer and not its source: an invisible layer is not hit-tested either, so a
+        hidden peak cannot be hovered or clicked open — which is what makes the checkbox a
+        real decluttering rather than a coat of paint.
+        """
+        source = self.source()
+        self.assertIn('summitLayer.setVisible(!summitsToggle || summitsToggle.checked)',
+                      source)
+        listener = source.split("summitsToggle.addEventListener('change'")[1].split('});')[0]
+        self.assertIn('summitLayer.setVisible(this.checked)', listener)
+        self.assertIn('clearHighlight()', listener)
 
     def test_the_opacity_slider_is_applied_on_load(self):
         """Nothing else does it: the tile layer's opacity is only set by the input listener."""

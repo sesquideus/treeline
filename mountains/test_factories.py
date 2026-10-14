@@ -2,6 +2,7 @@
 
 from django.contrib.gis.geos import Point
 
+from core.models.world import Country
 from mountains.models import Col, Range, RangeSystem, Summit, SummitRange
 from mountains.models.point import NamedPoint
 
@@ -34,3 +35,10 @@ def make_range(system, name, parent=None, **kwargs):
 def assign_range(summit, range):
     """A summit's membership of one range — `system` is derived, never passed."""
     return SummitRange.objects.create(summit=summit, range=range)
+
+
+def make_country(code, name=None):
+    """A country, named three times over because the model insists on all three."""
+    name = name or code
+    return Country.objects.create(code=code, name=name,
+                                  full_name=f'{name} (full)', english_name=name)

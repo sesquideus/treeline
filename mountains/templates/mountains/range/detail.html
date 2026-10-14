@@ -25,8 +25,9 @@
         <p>
             Highest summit {% object_link high_point 'mountain' attr='name' %}
             (<span class="altitude">{{ high_point.point.altitude|altitude }}</span>).
-            {# Highest *in this database* — in a sparsely covered area that is not the
-               range's culminating point, and saying so beats implying otherwise. #}
+            {% comment %}Highest *in this database* — in a sparsely covered area that is
+               not the range's culminating point, and saying so beats implying otherwise.
+            {% endcomment %}
             <small>The highest recorded here, which in a thinly covered area is not
             necessarily the range's true culminating point.</small>
         </p>

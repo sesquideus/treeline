@@ -1,5 +1,6 @@
 import math
 from abc import ABC
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from django.contrib.gis.db.models.functions import Distance
@@ -260,71 +261,162 @@ class SlopeToView(DetailView):
         }
 
 
-def separation(s1, s2) -> Optional[tuple[Optional[Summit], Optional[Col]]]:
-    # collect path from s1 to root: {pk: summit}
-    path1 = {}
-    current = s1
-    while current is not None:
-        path1[current.pk] = current
-        current = current.prominence_parent
+@dataclass(frozen=True)
+class ChainStep:
+    """
+    One rung of the way between two peaks: a summit, or the col crossed to reach the next.
 
-    # walk s2 upward until we hit a summit in path1 — that's the LCA
-    path2 = []
-    current = s2
-    lca = None
-    while current is not None:
-        if current.pk in path1:
-            lca = current
-            break
-        path2.append(current)
-        current = current.prominence_parent
+    `obj` is `None` only for a key col that is not recorded. The row stays, empty, rather
+    than being dropped — the table claims to be the whole chain, and a silently missing
+    rung would make a link look like no link at all.
+    """
 
-    if lca is None:
+    obj: Optional[Summit | Col]
+    kind: str
+    direction: str = ''
+    lowest: bool = False
+
+    #: What each kind is called in the leftmost column, in the reader's words rather than
+    #: the model's: an intermediate summit is reached as somebody's prominence parent.
+    ROLES = {'peak': 'peak', 'summit': 'parent', 'ancestor': 'common ancestor',
+             'col': 'key col'}
+
+    @property
+    def role(self):
+        return self.ROLES[self.kind]
+
+    @property
+    def css(self):
+        """The class `object_link` paints the link with — also the shape of the thing."""
+        return 'col' if self.kind == 'col' else 'mountain'
+
+
+def prominence_chain(s1, s2) -> list[ChainStep]:
+    """
+    The whole way from one peak to the other, as alternating summits and cols.
+
+    Peak, key col, parent, key col, … up to the summit the two share, and back down the
+    same way to the other peak — the chain the map draws, in the order a reader walks it.
+    Because a prominence parent is always the higher ground, the first half only climbs and
+    the second only descends, which is what `direction` records.
+
+    The lowest col is flagged here rather than searched for twice: `separation()` and the
+    table both read this one list, so the prose and the rows cannot come to name different
+    saddles.
+
+    Empty when the two sit in different trees — a forest with a root per landmass, so this
+    is ordinary rather than an error: there is simply no way between them to show.
+    """
+    ancestor, mine, theirs = s1.common_prominence_ancestry(s2)
+    if ancestor is None:
+        return []
+
+    steps = []
+    for index, summit in enumerate(mine):
+        steps.append(ChainStep(summit, 'peak' if index == 0 else 'summit', 'up'))
+        steps.append(ChainStep(summit.key_col, 'col', 'up'))
+    steps.append(ChainStep(ancestor, 'ancestor'))
+    # Downwards the rungs come in the other order, but each col is still the key col of the
+    # summit *below* it: the link it sits on is the one it has always belonged to.
+    for index, summit in reversed(list(enumerate(theirs))):
+        steps.append(ChainStep(summit.key_col, 'col', 'down'))
+        steps.append(ChainStep(summit, 'peak' if index == 0 else 'summit', 'down'))
+
+    cols = [(position, step) for position, step in enumerate(steps)
+            if step.kind == 'col' and step.obj and step.obj.point]
+    if cols:
+        position, step = min(cols, key=lambda pair: pair[1].obj.point.altitude)
+        steps[position] = replace(step, lowest=True)
+    return steps
+
+
+def separation(s1, s2) -> Optional[tuple[Summit, Optional[Col]]]:
+    """
+    The summit standing above both peaks, and the lowest col on the way between them.
+
+    That col is the one that actually separates them: walk from either peak up to the
+    ancestor they share, and the lowest saddle crossed is as deep as the ground sinks
+    between the two. The ancestor's own key col is not a candidate — it belongs to the
+    ground above the fork rather than to anything between the peaks.
+
+    The col can be missing while the ancestor is not: a chain whose summits have no key col
+    recorded yet still joins the two. They are reported separately rather than as one
+    all-or-nothing answer, because a page that knows the common ancestor should say so even
+    when it cannot name a saddle. `None` means there is no ancestor at all — the two sit in
+    different trees.
+    """
+    return chain_summary(prominence_chain(s1, s2))
+
+
+def chain_summary(chain) -> Optional[tuple[Summit, Optional[Col]]]:
+    """
+    The two things a chain is asked for by name: where it forks, and its deepest col.
+
+    Split out from `separation()` so the view can read them off the chain it already has
+    instead of walking the hierarchy a second time.
+    """
+    ancestor = next((step.obj for step in chain if step.kind == 'ancestor'), None)
+    if ancestor is None:
         return None
-
-    # collect path1 up to (not including) the LCA
-    path1_to_lca = []
-    current = s1
-    while current.pk != lca.pk:
-        path1_to_lca.append(current)
-        current = current.prominence_parent
-
-    # the separating col is the lowest key col on the union of both paths
-    candidates = path1_to_lca + path2
-
-    if not (cols := [s.key_col for s in candidates if s.key_col and s.key_col.point]):
-        return None
-
-    return lca, min(cols, key=lambda c: c.point.altitude)
+    return ancestor, next((step.obj for step in chain if step.lowest), None)
 
 
 class SummitCompareView(FormMixin, TemplateView):
     """
-    A view of a pair of mountains. Shold display distance, slope, horizon angle, mutual key col and so on.
+    A pair of mountains side by side: how far apart they are, the lowest col on the way
+    between them, and the summit they both descend from.
+
+    The pair comes either from the form, as `?summit1=&summit2=`, or from the path, as
+    `/summit/compare/<pk1>/<pk2>/` — the two routes this view is wired to. The query string
+    is what the form submits; the path is what makes a comparison linkable.
     """
     template_name = 'mountains/summit/comparison.html'
     form_class = CompareForm
 
-    def get_form_initial(self):
-        initial = {
-            'summit1': self.request.GET.get('summit1'),
-            'summit2': self.request.GET.get('summit2'),
-        }
-        return initial
+    FIELDS = ('summit1', 'summit2')
+
+    def get_form(self, form_class=None):
+        """
+        One form per request, not one per call.
+
+        `get_summits()` and `get_context_data()` both want it, and the second has to be the
+        one that was validated — otherwise the page renders a fresh, blank form and the
+        reason a comparison did not happen is thrown away.
+        """
+        if not hasattr(self, '_form'):
+            self._form = super().get_form(form_class)
+        return self._form
 
     def get_form_kwargs(self):
+        """
+        Bound to the query string whenever the boxes were submitted, so that what they hold
+        is read by the field that understands it — the search boxes carry a name, and the
+        view used to take the query string for primary keys and hand `Kriváň` straight to
+        `get_object_or_404`, which is a 500. Bound on either box so a half-filled form says
+        which half is missing.
+        """
         kwargs = super().get_form_kwargs()
-        kwargs['initial'] = self.get_form_initial()
+        kwargs['initial'] = {'summit1': self.kwargs.get('pk1'),
+                             'summit2': self.kwargs.get('pk2')}
+        if any(field in self.request.GET for field in self.FIELDS):
+            kwargs['data'] = self.request.GET
         return kwargs
 
     def get_summits(self):
-        pk1 = self.request.GET.get('summit1')
-        pk2 = self.request.GET.get('summit2')
-        if pk1 and pk2:
-            return (
-                get_object_or_404(Summit.objects.select_related('point'), pk=pk1),
-                get_object_or_404(Summit.objects.select_related('point'), pk=pk2),
-            )
+        """
+        The pair being compared: named in the path, or typed into the boxes.
+
+        `key_col__point` because every answer on this page is measured against the cols: the
+        prominence of each peak, and the first link of each chain up to the summit they
+        share. The form's own queryset carries it too.
+        """
+        if 'pk1' in self.kwargs and 'pk2' in self.kwargs:
+            summits = Summit.objects.select_related('point', 'key_col__point')
+            return (get_object_or_404(summits, pk=self.kwargs['pk1']),
+                    get_object_or_404(summits, pk=self.kwargs['pk2']))
+        form = self.get_form()
+        if form.is_bound and form.is_valid():
+            return tuple(form.cleaned_data[field] for field in self.FIELDS)
         return None
 
     def get_context_data(self, **kwargs):
@@ -334,13 +426,17 @@ class SummitCompareView(FormMixin, TemplateView):
 
         if summits:
             s1, s2 = summits
-            sep = separation(s1, s2)
+            chain = prominence_chain(s1, s2)
             context['s1'], context['s2'] = summits
             context['distance'] = s1.point.distance_to(s2.point)
             context['slope'] = s1.point.slope_to(s2.point)
             context['angle'] = s1.point.angle_to(s2.point)
-            if sep:
-                context['lca'], context['sep_col'] = sep
+            context['chain'] = chain
+            # Read off the chain rather than walked for again, and separately rather than as
+            # a pair that stands or falls together: the ancestor can be known when no col on
+            # the way between them is.
+            summary = chain_summary(chain)
+            context['lca'], context['sep_col'] = summary if summary else (None, None)
         return context
 
 

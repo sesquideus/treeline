@@ -1,5 +1,19 @@
 <div id="map-controls">
     <div class="toggle-group">
+        <label>
+            <input type="range" id="map-opacity" min="0" max="100" value="40">
+            Map opacity
+        </label>
+    </div>
+    <div class="toggle-group">
+        <span class="group-title">Show</span>
+        <label><input type="checkbox" id="toggle-summits" checked> Summits</label>
+        <label><input type="checkbox" id="toggle-rivers" checked> Rivers</label>
+        <label><input type="checkbox" id="toggle-ranges"> Ranges</label>
+    </div>
+    <div class="toggle-group">
+        <span class="group-title">Summit hierarchy</span>
+        <label><input type="radio" name="tree" value="none"> None</label>
         <label><input type="radio" name="tree" value="prominence" checked> Prominence</label>
         <label><input type="radio" name="tree" value="isolation"> Isolation</label>
         <label><input type="radio" name="tree" value="slope"> Slope</label>
@@ -9,22 +23,8 @@
         <label>
             <input type="checkbox" id="toggle-routing" checked> Route through col / NHP
         </label>
-    </div>
-    <div class="toggle-group">
         <label>
-            <input type="range" id="map-opacity" min="0" max="100" value="40">
-            Map opacity
-        </label>
-    </div>
-    <div class="toggle-group">
-        <label>
-            <input type="checkbox" id="toggle-rivers" checked> Show rivers
-        </label>
-        <label>
-            <input type="checkbox" id="toggle-col-confluence"> Col → Confluence
-        </label>
-        <label>
-            <input type="checkbox" id="toggle-ranges"> Show ranges
+            <input type="checkbox" id="toggle-col-confluence"> Show col → confluence link
         </label>
     </div>
     {# Populated from PROMINENCE_BANDS in styles.js, so the swatches cannot drift #}

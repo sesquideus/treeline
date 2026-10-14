@@ -31,8 +31,12 @@ urlpatterns = [
     path('summit/<int:pk>/isolation-lineage.json',
          views.summit.IsolationLineageJson.as_view(),
          name='isolation-lineage-json'),
+    path('summit/search.json', views.summit.SummitSearch.as_view(), name='summit-search'),
     path('summit/compare/', views.SummitCompareView.as_view(), name='summit-compare'),
     path('summit/compare/<int:pk1>/<int:pk2>/', views.SummitCompareView.as_view(), name='summit-compare'),
+    path('summit/compare/<int:pk1>/<int:pk2>/geo.json',
+         views.summit.ComparisonGeoJson.as_view(),
+         name='summit-comparison-geojson'),
 
     path('col/<int:pk>/', views.col.DetailView.as_view(), name='col'),
     path('cols', views.col.ListView.as_view(), name='col-list'),

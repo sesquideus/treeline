@@ -422,6 +422,34 @@ table.lineage tr:nth-child(even) {
     background-color: hsla(0, 0%, 80%, 0.3);
 }
 
+/* The chain joining two compared peaks: summit, key col, summit, all the way over the one
+   they share. It can run to thirty rows, so the two the prose names — the fork, and the
+   deepest saddle crossed — are tinted to be findable; the arrow column carries the turn
+   from climbing to descending. The ancestor borrows the violet `tr.ultra` already uses for
+   the summit that stands over everything below it. */
+table.chain td.arrow {
+    text-align: center;
+    color: grey;
+    width: 1em;
+}
+
+table.chain td.role {
+    color: grey;
+}
+
+table.chain tr.rung-col td.role {
+    font-style: italic;
+}
+
+table.chain tr.rung-ancestor {
+    background-color: hsla(260, 90%, 90%, 60%);
+    font-weight: 500;
+}
+
+table.chain tr.lowest {
+    background-color: hsla(200, 70%, 85%, 50%);
+}
+
 tr.ultra {
     background-color: hsla(260, 90%, 90%, 43%);
 }
@@ -481,9 +509,74 @@ div.detail-page {
     min-height: 100%;
 }
 
+/* The data pane is as wide as its widest table and no wider; everything not spent here goes
+   to the map, which takes the rest. `white-space: nowrap` on the cells means a table's
+   max-content width is its real width, so this measures the data rather than guessing at it.
+
+   Prose and the form are laid out at `min-width: 100%` of whatever that comes to instead of
+   at their own content width. A percentage does not count towards an ancestor's max-content
+   size, which is the point: one long sentence has no natural width at all, and a `<select>`
+   holding every summit in the database is as wide as the longest name in it. Either would
+   otherwise decide the width of the page. */
 div.detail-page div.data {
-    min-width: 700px;
+    flex: 0 1 auto;
+    width: max-content;
+    min-width: 24em;    /* below this the tables start reading as a column of fragments */
+    max-width: 50%;
+    overflow-x: auto;   /* a table wider than the cap scrolls rather than pushing the map */
     padding: 1rem;
+}
+
+div.detail-page div.data p,
+div.detail-page div.data form {
+    width: 0;
+    min-width: 100%;
+}
+
+div.detail-page div.data select {
+    max-width: 100%;
+}
+
+/* Suggestions under a summit search box (static/js/summit-search.js). The box replaced a
+   `<select>` of every summit in the database, so this is the only way to see what there is
+   — it sits over whatever follows rather than pushing the page around as it fills. */
+form.compare label {
+    display: block;
+}
+
+form.compare input[type="search"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.3em 0.5em;
+}
+
+ul.suggestions {
+    position: absolute;
+    z-index: 1100;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #bbb;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    max-height: 16em;
+    overflow-y: auto;
+    min-width: 20em;
+}
+
+ul.suggestions li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.5em;
+    padding: 0.25em 0.6em;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+ul.suggestions li:hover,
+ul.suggestions li.highlighted {
+    background-color: hsla(210, 60%, 85%, 0.7);
 }
 
 /* Page with only map */
@@ -529,7 +622,8 @@ div#map {
     margin-right: 12px;
 }
 
-#map-controls .legend .legend-title {
+/* The caption over a group of controls, and over the legend: the same thing twice. */
+#map-controls .group-title {
     font-weight: 600;
     margin-bottom: 2px;
 }

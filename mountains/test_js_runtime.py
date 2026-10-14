@@ -1,5 +1,5 @@
 """
-Running `static/js/map.js` from the tests.
+Running the map's JavaScript — `static/js/map.js` and `static/js/styles.js` — from the tests.
 
 Most of what the map shows is built in JavaScript, and for a long time the only thing the
 suite could say about it was that some string appeared in the file. That catches a deleted
@@ -7,10 +7,12 @@ line and nothing else: it cannot tell whether the popup renders a link or plain 
 whether an empty section is dropped or left as a stray caption, or whether a row lands in
 the section it was meant for.
 
-`quickjs` is an embeddable engine, so the popup builders can simply be run. `map.js`
-declares at its top level and executes nothing, which is what makes this possible: the file
-evaluates against a handful of stubs, and `popupHtml()` — the real dispatcher, not a copy of
-it — can then be called with a feature built here.
+`quickjs` is an embeddable engine, so the popup builders can simply be run. Neither file
+needs a live map to load — `map.js` only declares, and the few objects `styles.js` builds as
+it loads are satisfied by a stub — so a file evaluates against `STUBS` and `popupHtml()`,
+the real dispatcher rather than a copy of it, can then be called with a feature built here.
+`styles.js` loads the same way, which is how the prominence bands are read back and checked
+against the Python copy.
 
 What this cannot do is anything that needs OpenLayers or a DOM: layer construction, hit
 testing, the hover highlight. Those stay source-asserted, or untested.
@@ -22,13 +24,24 @@ from functools import lru_cache
 from html import unescape
 
 MAP_JS = 'static/js/map.js'
+STYLES_JS = 'static/js/styles.js'
+SEARCH_JS = 'static/js/summit-search.js'
 
-#: `map.js` names these at the top level. None of them is called while it evaluates — the
-#: file only declares — so an object with the right shape is enough to get it loaded.
+#: The names the scripts reach for at the top level. `map.js` only declares, so empty
+#: objects carry it; `styles.js` builds a handful of fixed `ol.style` objects as it loads,
+#: which is why `ol` has to be something that can be read through and constructed from. The
+#: proxy answers any property with itself and any `new` with a bare object — enough to get
+#: the file loaded, and useless for anything that would actually need OpenLayers, which is
+#: the honest state of affairs here.
 STUBS = """
-var ol = {};
+var ol = new Proxy(function () {}, {
+    get: (target, key) => ol,
+    construct: () => ({}),
+    apply: () => ({}),
+});
 var document = { getElementById: () => null, querySelector: () => null,
-                 querySelectorAll: () => [], createElement: () => ({ style: {} }) };
+                 querySelectorAll: () => [], createElement: () => ({ style: {} }),
+                 addEventListener: () => {} };
 var window = {};
 var performance = { now: () => 0 };
 var requestAnimationFrame = () => 0;
@@ -39,31 +52,39 @@ var fetch = () => null;
 """
 
 
-@lru_cache(maxsize=1)
-def _context():
+@lru_cache(maxsize=None)
+def _context(source=MAP_JS):
+    """
+    One engine per file, kept for the process.
+
+    A context per file rather than one with everything loaded: `styles.js` and `map.js` are
+    separate scripts sharing a global scope in the browser, and loading both here would let
+    a test pass on a name the file under test does not actually declare.
+    """
     import quickjs
 
     context = quickjs.Context()
     context.eval(STUBS)
-    with open(MAP_JS, encoding='utf-8') as handle:
+    with open(source, encoding='utf-8') as handle:
         context.eval(handle.read())
     return context
 
 
-def evaluate(expression):
+def evaluate(expression, source=MAP_JS):
     """
-    Evaluate a JavaScript expression against `map.js` and bring the result back.
+    Evaluate a JavaScript expression against one of the scripts and bring the result back.
 
     The value crosses as JSON, so what Python receives is a plain dict/list/str/number
     rather than a handle to a live JS object — which is what makes assertions on it read
     normally. `undefined` comes back as None, the same as `null`.
     """
-    return json.loads(_context().eval('JSON.stringify(%s) ?? "null"' % expression))
+    return json.loads(_context(source).eval('JSON.stringify(%s) ?? "null"' % expression))
 
 
-def call(function, *arguments):
+def call(function, *arguments, source=MAP_JS):
     """`evaluate`, for the common case of calling one function with JSON-able arguments."""
-    return evaluate('%s(%s)' % (function, ', '.join(json.dumps(a) for a in arguments)))
+    return evaluate('%s(%s)' % (function, ', '.join(json.dumps(a) for a in arguments)),
+                    source=source)
 
 
 def feature_expression(properties):

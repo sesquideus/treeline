@@ -52,12 +52,16 @@ class Case:
     conflicts_with
         methods it cannot be stacked with at all, because both claim the same prefetch
         lookup with a queryset of their own.
+    arguments
+        what to call it with, for the few methods that take any. The values have to match
+        the fixture below, since every check here insists the result is non-empty.
     """
     annotations: tuple[str, ...] = ()
     cached: tuple[str, ...] = ()
     terminal: bool = False
     builds_on: tuple[str, ...] = ()
     conflicts_with: tuple[str, ...] = ()
+    arguments: tuple = ()
 
 
 CASES: dict[type[dm.Model], dict[str, Case]] = {
@@ -67,6 +71,9 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
             annotations=('prominence', 'dominance', 'distance_to_parent'),
             cached=('point', 'key_col.point', 'prominence_parent.point'),
         ),
+        # 'notable' is the band Alpha falls in — 3000 m over a 2500 m key col. Every
+        # check here wants rows back, so the band has to be one the fixture populates.
+        'in_prominence_band': Case(annotations=('prominence',), arguments=('notable',)),
         'with_distance_to_key_col': Case(annotations=('distance_to_key_col',)),
         'with_slope_to_key_col': Case(
             annotations=('key_col_dh', 'key_col_dd', 'slope_to_key_col'),
@@ -243,7 +250,12 @@ class QuerySetBehaviourTests(TestCase):
             assign_range(summit, vysoke)
 
     def build(self, model, name):
-        return getattr(model.objects.all(), name)()
+        return self.apply(model.objects.all(), model, name)
+
+    @staticmethod
+    def apply(queryset, model, name):
+        """One method of the registry, called the way its entry says to call it."""
+        return getattr(queryset, name)(*CASES[model][name].arguments)
 
     def test_each_method_returns_rows(self):
         """The plainest check there is: the SQL is valid and the relations all resolve."""
@@ -292,7 +304,7 @@ class QuerySetBehaviourTests(TestCase):
             with self.subTest(model=model.__name__):
                 queryset = model.objects.all()
                 for name in names:
-                    queryset = getattr(queryset, name)()
+                    queryset = self.apply(queryset, model, name)
                 self.assertTrue(list(queryset))
 
     def test_a_composite_can_be_applied_on_its_own(self):
@@ -318,7 +330,7 @@ class QuerySetBehaviourTests(TestCase):
             for name, case in cases.items():
                 for other in case.conflicts_with:
                     with self.subTest(model=model.__name__, pair=f'{name}+{other}'):
-                        queryset = getattr(getattr(model.objects.all(), name)(), other)()
+                        queryset = self.apply(self.build(model, name), model, other)
                         with self.assertRaises(ValueError):
                             list(queryset)
 

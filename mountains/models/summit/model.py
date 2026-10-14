@@ -11,11 +11,52 @@ from geographiclib.geodesic import Geodesic
 from core.functions.world import distance
 from mountains.models.base import GeoModel
 from mountains.models.col import Col
+from mountains.models.summit.prominence import PROMINENCE_BANDS_BY_KEY
+
+
+def prominence_expression():
+    """
+    Prominence in SQL: the drop to the key col, or the whole altitude for an island high
+    point, whose col is the sea.
+
+    A function returning a fresh `Case` rather than a module-level constant — the same
+    expression object is annotated onto two different querysets in `with_prominence()`, and
+    resolving one against two queries is asking for trouble.
+    """
+    return Case(
+        When(island_high_point=True, then=F('point__altitude')),
+        default=ExpressionWrapper(
+            F('point__altitude') - F('key_col__point__altitude'),
+            output_field=FloatField()
+        )
+    )
 
 
 class SummitQuerySet(models.QuerySet):
     def with_point(self):
         return self.select_related('point')
+
+    def in_prominence_band(self, key):
+        """
+        The summits the map paints in one band — see `models/summit/prominence.py` for the
+        cutoffs and `PROMINENCE_BANDS_BY_KEY` for the names.
+
+        An unrecognised key selects nothing rather than everything: the key arrives from a
+        query string, and silently ignoring a stale one would show a full, unfiltered list
+        under a sidebar that claims to be narrowing it.
+
+        The annotation is added here, bare, rather than by calling `with_prominence()`:
+        that one also fetches key cols and prominence parents, which is two prefetch
+        queries spent on rows this is about to discard. And it is added only if it is
+        missing, because callers reach this both ways round and annotating the same alias
+        twice raises.
+        """
+        band = PROMINENCE_BANDS_BY_KEY.get(key)
+        if band is None:
+            return self.none()
+        base = (self if 'prominence' in self.query.annotations
+                else self.annotate(prominence=prominence_expression()))
+        return base.filter(band.q())
 
     def with_prominence(self):
         return (self
@@ -24,13 +65,7 @@ class SummitQuerySet(models.QuerySet):
                 Prefetch(
                     'prominence_parent',
                     queryset=Summit.objects.with_point().annotate(
-                        prominence=Case(
-                            When(island_high_point=True, then=F('point__altitude')),
-                            default=ExpressionWrapper(
-                                F('point__altitude') - F('key_col__point__altitude'),
-                                output_field=FloatField()
-                            )
-                        )
+                        prominence=prominence_expression()
                     )
                 )
             )
@@ -41,13 +76,7 @@ class SummitQuerySet(models.QuerySet):
                 )
             )
             .annotate(
-                prominence=Case(
-                    When(island_high_point=True, then=F('point__altitude')),
-                    default=ExpressionWrapper(
-                        F('point__altitude') - F('key_col__point__altitude'),
-                        output_field=FloatField()
-                    )
-                ),
+                prominence=prominence_expression(),
                 dominance=F('prominence') / F('point__altitude'),
                 distance_to_parent=Distance('point__location', 'prominence_parent__point__location'),
         )
@@ -212,13 +241,20 @@ class Summit(GeoModel):
         ordering = ('-point__altitude',)
 
         constraints = [
-            #models.CheckConstraint(
-            #    name='isolation_source_requires_parent',
-            #    condition=(
-            #        Q(isolation_parent__isnull=True, isolation_source__isnull=True) |
-            #        Q(isolation_parent__isnull=False, isolation_source__isnull=False)
-            #    )
-            #)
+            models.CheckConstraint(
+                name='isolation_source_requires_parent',
+                condition=(
+                    Q(isolation_parent__isnull=True, isolation_source__isnull=True) |
+                    Q(isolation_parent__isnull=False, isolation_source__isnull=False)
+                )
+            ),
+            models.CheckConstraint(
+                name='prominence_source_requires_parent',
+                condition=(
+                    Q(prominence_parent__isnull=True, prominence_source__isnull=True) |
+                    Q(prominence_parent__isnull=False, prominence_source__isnull=False)
+                )
+            )
         ]
 
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False)
@@ -227,7 +263,7 @@ class Summit(GeoModel):
                                           related_name='prominence_children')
     key_col = models.OneToOneField('Col', null=True, blank=True, on_delete=models.PROTECT,
                                    related_name='key_for')
-    prominence_source = models.ForeignKey('Source', null=True, blank=False, on_delete=models.SET_NULL,
+    prominence_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
                                           related_name='prominence_data')
     island_high_point = models.BooleanField(default=False)
 
@@ -697,6 +733,52 @@ class Summit(GeoModel):
                 **self.to_dict(),
             }
         }
+
+    def prominence_walk(self):
+        """
+        This summit and every prominence parent above it, ending at the root.
+
+        One query per step, each carrying the point and the key col, because a caller that
+        wants the chain almost always wants to draw it and the line between two summits
+        goes through the col between them. The chains here run to seventeen at their
+        deepest, so this is a handful of queries, not a recursion to be afraid of.
+
+        A `prominence_parent` cycle would otherwise spin forever; `clean()` refuses to
+        create one, but `save()` does not validate, so the walk stops on a repeat instead
+        of trusting that.
+        """
+        current, visited = self, set()
+        while current is not None and current.pk not in visited:
+            visited.add(current.pk)
+            yield current
+            if current.prominence_parent_id is None:
+                return
+            current = (Summit.objects
+                       .select_related('point', 'key_col__point')
+                       .get(pk=current.prominence_parent_id))
+
+    def common_prominence_ancestry(self, other):
+        """
+        The two chains from these peaks up to the lowest summit standing above both.
+
+        Returns `(ancestor, mine, theirs)`, where each chain starts at its own peak and
+        stops *below* the ancestor — so the whole picture is `mine + [ancestor] +
+        reversed(theirs)`: one walk from peak to peak over the fork they share. Comparing a
+        summit with itself gives `(self, [], [])`, which is the honest answer rather than a
+        special case.
+
+        `(None, [], [])` when the two sit in different trees. That is ordinary here and not
+        an error: this is a forest, with a root per landmass and nothing joining them.
+        """
+        mine = list(self.prominence_walk())
+        position = {summit.pk: index for index, summit in enumerate(mine)}
+
+        theirs = []
+        for summit in other.prominence_walk():
+            if summit.pk in position:
+                return summit, mine[:position[summit.pk]], theirs
+            theirs.append(summit)
+        return None, [], []
 
     def prominence_ancestors(self) -> list[Self]:
         ancestors = []

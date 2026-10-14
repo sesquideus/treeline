@@ -9,54 +9,61 @@
     constant width, the thin one is the tributary, and the arrowhead where they meet says
     which way the water goes.
 
-    Which side the tributary is drawn on is mirrored from the bank it names — see the
-    comment on the symbols below, and `River.MOUTH_SIDE_MARKS`.
+    The water flows **up** the picture. That is what makes the marks literal — a right-bank
+    tributary is drawn arriving from the right — and it is how these trees are drawn
+    everywhere else here: the parent above its children, the sea at the top.
 
     `<use href="#...">` only works within the same document, so this must be inlined rather
     than served as a static file. It is included once from `core/base.html`.
 {% endcomment %}
 <svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true">
-    {#
-        The base shape is the RIGHT bank, drawn with the tributary on the left of the
-        picture. Facing downstream — which is how left and right bank are defined — your
-        left hand points across the picture to the right, so a tributary drawn entering from
-        the picture's left is arriving on your right. The mirror below is therefore the left
-        bank, and not the other way round.
-    #}
-    <symbol id="mouth-side-right" viewBox="0 0 16 16">
+    {% comment %}
+        The base shape is the LEFT bank, with the tributary on the left of the picture.
+        Left and right bank are named facing downstream, and downstream here is up the
+        page: face that way over a map and your left hand points across the picture to its
+        left, so the two agree and no mental flip is needed to read the mark.
+    {% endcomment %}
+    <symbol id="mouth-side-left" viewBox="0 0 16 16">
         {# the tributary, stopping short of the junction to leave room for its arrowhead #}
-        <path d="M1.4 2.6 C 4.2 6.4, 5.6 7.8, 7.0 8.25" fill="none" stroke="currentColor"
+        <path d="M0.7 14.1 C 2.3 10.6, 3.1 8.7, 4.4 7.85" fill="none" stroke="currentColor"
               stroke-width="1.4" stroke-linecap="round"/>
-        {# which points at the main river, so the picture says which way the water goes #}
-        <path d="M10.1 9.1 L6.6 9.6 L7.4 6.7 Z" fill="currentColor" stroke="currentColor"
+        {# which points up at the main river, so the picture says which way the water goes #}
+        <path d="M7.0 7.05 L4.05 6.6 L4.7 8.85 Z" fill="currentColor" stroke="currentColor"
               stroke-width="0.4" stroke-linejoin="round"/>
-        {# the main river, one constant width through the junction #}
-        <path d="M11.4 1 L11.4 15.2" fill="none" stroke="currentColor"
-              stroke-width="2.6" stroke-linecap="round"/>
+        {% comment %}
+            The main river: centred, full height, and butt-capped rather than rounded so it
+            meets the edge square. Centred is what lets these stack — mirroring happens
+            about this same axis, so a column of them reads as one river with tributaries
+            arriving from alternating sides rather than as a row of separate pictures.
+        {% endcomment %}
+        <path d="M8 0 L8 16" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="butt"/>
     </symbol>
 
-    {# The mirror image, so the shape itself is defined once. #}
-    <symbol id="mouth-side-left" viewBox="0 0 16 16">
-        <use href="#mouth-side-right" transform="translate(16, 0) scale(-1, 1)"/>
+    {% comment %}The mirror image, so the shape itself is defined once. The stem sits on
+       the mirror axis, so it does not move.{% endcomment %}
+    <symbol id="mouth-side-right" viewBox="0 0 16 16">
+        <use href="#mouth-side-left" transform="translate(16, 0) scale(-1, 1)"/>
     </symbol>
 
     {# A confluence whose side nobody has settled: both approaches drawn, both dashed. #}
     <symbol id="mouth-side-undecided" viewBox="0 0 16 16">
-        <path d="M1.4 2.6 C 4 7, 5.4 8.2, 6.8 8.7" fill="none" stroke="currentColor"
-              stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2 1.8"/>
-        <path d="M14.6 2.6 C 12 7, 10.6 8.2, 9.2 8.7" fill="none" stroke="currentColor"
-              stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2 1.8"/>
-        <path d="M8 1 L8 15.2" fill="none" stroke="currentColor"
-              stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M1.0 13.8 C 2.8 10.0, 3.8 8.4, 5.4 7.6" fill="none" stroke="currentColor"
+              stroke-width="1.3" stroke-linecap="round" stroke-dasharray="1.9 1.7"/>
+        <path d="M15.0 13.8 C 13.2 10.0, 12.2 8.4, 10.6 7.6" fill="none" stroke="currentColor"
+              stroke-width="1.3" stroke-linecap="round" stroke-dasharray="1.9 1.7"/>
+        <path d="M8 0 L8 16" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="butt"/>
     </symbol>
 
-    {# No bank to name: the river reaches open water. #}
+    {# No bank to name: the river reaches open water, at the top where downstream is. #}
     <symbol id="mouth-side-sea" viewBox="0 0 16 16">
-        <path d="M8 1 L8 9" fill="none" stroke="currentColor"
-              stroke-width="2.6" stroke-linecap="round"/>
-        <path d="M1 11.5 q 1.75 -1.7 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0" fill="none"
+        {# Square at the bottom so it joins the glyph below; the sea is where it stops. #}
+        <path d="M8 7 L8 16" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="butt"/>
+        <path d="M1 4.5 q 1.75 1.7 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0" fill="none"
               stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-        <path d="M1 14.5 q 1.75 -1.7 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0" fill="none"
+        <path d="M1 1.5 q 1.75 1.7 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0" fill="none"
               stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
     </symbol>
 </svg>

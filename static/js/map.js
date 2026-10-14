@@ -30,14 +30,15 @@ const HOME_EXTENT = [16.83, 47.73, 22.57, 49.61];   // lon/lat, Slovakia
 //
 // Only what differs from the defaults is written, so the common case stays short and a
 // reader who has changed nothing gets a clean "#map=..." rather than a wall of settings.
-const MAP_MODES = ['prominence', 'isolation', 'slope', 'horizon'];
-const MAP_TOGGLES = ['routing', 'rivers', 'cols', 'ranges'];
+const MAP_MODES = ['none', 'prominence', 'isolation', 'slope', 'horizon'];
+const MAP_TOGGLES = ['summits', 'rivers', 'ranges', 'routing', 'cols'];
 const MAP_DEFAULTS = {
     mode: 'prominence',
-    routing: true,       // #toggle-routing
+    summits: true,       // #toggle-summits
     rivers: true,        // #toggle-rivers
-    cols: false,         // #toggle-col-confluence
     ranges: false,       // #toggle-ranges
+    routing: true,       // #toggle-routing
+    cols: false,         // #toggle-col-confluence
     opacity: 40,         // #map-opacity, per cent
 };
 
@@ -756,12 +757,19 @@ function lineageWaypoint(mode, props, useRouting, byColPk) {
 }
 
 
+// Which parent each mode draws towards, and `null` for the mode that draws nothing.
+//
+// `none` is a real answer here rather than a gap: `buildLineageLayer` returns an empty
+// layer on a null, the hover stops before it traces a line, and `rebuildOverlayLayers`
+// matches neither of its two cases — so one null is what hides every line between peaks,
+// along with the key col rings and isolation points that only exist to sit on them.
 function lineageParentAttr(mode) {
     switch (mode) {
         case 'prominence': return 'prominence_parent';
         case 'isolation':  return 'isolation_parent';
         case 'slope':      return 'slope_parent';
         case 'horizon':    return 'horizon_parent';
+        case 'none':       return null;
         default:           return null;
     }
 }
@@ -1092,8 +1100,8 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         // The parent of the hierarchy currently drawn, not always the prominence one: lighting up
         // a prominence parent while the map shows isolation lineage would contradict the lines.
         const mode = document.querySelector('input[name="tree"]:checked');
-        const modeName = mode && mode.value;
-        const parentAttr = lineageParentAttr(modeName) || 'prominence_parent';
+        const modeName = (mode && mode.value) || MAP_DEFAULTS.mode;
+        const parentAttr = lineageParentAttr(modeName);
         const useRouting = routeToggle && routeToggle.checked;
 
         // Whatever the lineage routes through gets a ring: the key col in prominence mode,
@@ -1111,7 +1119,10 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         }
 
         // The parent of the hierarchy on show — prominence, isolation, slope or horizon.
-        const parent = summitsByPk[feature.get(parentAttr)];
+        // In `none` mode there is no hierarchy on show, so the hover stops at the grown
+        // marker: lighting up a parent and tracing a line to it is precisely what the
+        // reader asked the map not to draw.
+        const parent = parentAttr && summitsByPk[feature.get(parentAttr)];
         if (!parent) return;
 
         highlightPointSource.addFeature(new ol.Feature({
@@ -1202,10 +1213,11 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
     // that the tests can run them.
 
     const CONTROL_IDS = {
-        routing: 'toggle-routing',
+        summits: 'toggle-summits',
         rivers: 'toggle-rivers',
-        cols: 'toggle-col-confluence',
         ranges: 'toggle-ranges',
+        routing: 'toggle-routing',
+        cols: 'toggle-col-confluence',
     };
 
     function readMapState() {
@@ -1498,6 +1510,21 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         if (opacitySlider) {
             opacitySlider.addEventListener('input', function() {
                 tileLayer.setOpacity(this.value / 100);
+            });
+        }
+
+        // The peaks themselves. Orthogonal to the radios above them: those choose which
+        // hierarchy joins the markers, this says whether the markers are drawn at all, and
+        // the two together give the skeleton of a tree with no peaks or the peaks with no
+        // tree. An invisible layer is not hit-tested either, so nothing can be hovered or
+        // clicked open while it is off — which is what makes this a real decluttering and
+        // not just a coat of paint.
+        const summitsToggle = document.getElementById('toggle-summits');
+        summitLayer.setVisible(!summitsToggle || summitsToggle.checked);
+        if (summitsToggle) {
+            summitsToggle.addEventListener('change', function() {
+                summitLayer.setVisible(this.checked);
+                clearHighlight();   // nothing to hover, so nothing may stay lit
             });
         }
 

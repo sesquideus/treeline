@@ -13,8 +13,31 @@ from core.fields import PointFormField
 from mountains import models
 from mountains.forms.range import AssignRangeForm
 from mountains.models import NamedPoint, Summit, SummitRange, Col
+from mountains.models.summit import PROMINENCE_BANDS, PROMINENCE_UNKNOWN
 from .range import (RangeAssignedFilter, RangeFilter, RangeSystemFilter,
                     SummitRangeInline)
+
+
+class ProminenceBandFilter(admin.SimpleListFilter):
+    """
+    The map's prominence bands, as a sidebar.
+
+    Not a plain field lookup, because prominence is not a column: it is the drop to the key
+    col, or the altitude of an island high point, and it only exists as an annotation. The
+    band definitions are shared with `static/js/styles.js` so that filtering here selects
+    exactly the summits the map paints that colour.
+    """
+    title = 'prominence'
+    parameter_name = 'prominence'
+
+    def lookups(self, request, model_admin):
+        # Unknown last, after the seven that tile the numbers — it is an absence, not a band.
+        return [(band.key, band.label) for band in (*PROMINENCE_BANDS, PROMINENCE_UNKNOWN)]
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+        return queryset.in_prominence_band(self.value())
 
 
 @admin.register(models.Summit)
@@ -67,8 +90,12 @@ class SummitAdmin(ModelAdmin):
     search_fields = ['point__name']
     autocomplete_fields = ['point', 'key_col', 'isolation_parent', 'slope_parent', 'horizon_parent']
     inlines = [SummitRangeInline]
-    list_filter = [RangeAssignedFilter, RangeSystemFilter, RangeFilter,
-                   'point__countries', ('horizon_parent', admin.EmptyFieldListFilter)]
+    # `RelatedOnly` for the countries: a filter that offers the five countries no summit
+    # sits in is five ways to reach an empty list.
+    list_filter = [ProminenceBandFilter,
+                   ('point__countries', admin.RelatedOnlyFieldListFilter),
+                   RangeAssignedFilter, RangeSystemFilter, RangeFilter,
+                   ('horizon_parent', admin.EmptyFieldListFilter)]
     list_select_related = ['point', 'key_col__point',
                            'prominence_parent__point', 'slope_parent__point', 'horizon_parent__point']
     readonly_fields = ['location_display']

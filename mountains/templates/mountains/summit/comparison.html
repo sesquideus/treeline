@@ -1,4 +1,4 @@
-{% extends 'core/map-page.html' %}
+{% extends 'core/detail-page.html' %}
 
 {% load cairn static tree countries %}
 
@@ -6,7 +6,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
     <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/styles.js' %}"></script>
     <script src="{% static 'js/summit-detail-map.js' %}"></script>
+    <script src="{% static 'js/summit-search.js' %}"></script>
 {% endblock headextra %}
 
 {% block title %}
@@ -34,6 +36,11 @@
 
         <table class="comparison">
             <thead>
+                <tr>
+                    <th>distance</th>
+                    <th>slope</th>
+                    <th>angle above horizon</th>
+                </tr>
             </thead>
             <tbody>
                 <tr>
@@ -47,38 +54,105 @@
         <h2>
             Lowest connecting col
         </h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>altitude difference</th>
-                    <th>distance</th>
-                </tr>
-            </thead>
-            <tr>
-                <td class="link">
-                    {% object_link sep_col 'col' attr='name' %}
-                </td>
-                <td class="altitude">
-                    {{ sep_col.point.altitude }}
-                </td>
-                <td class="confluence">
-                    {% object_link sep_col.confluence_river %}
-                </td>
-            </tr>
-            {% include 'mountains/summit/blocks/peak-col.html' with summit=s1 col=sep_col %}
-            {% include 'mountains/summit/blocks/peak-col.html' with summit=s2 col=sep_col %}
-        </table>
+
+        {% if sep_col %}
+            <p>
+                The deepest the ground sinks on the way from one peak to the other:
+                {% object_link sep_col 'col' attr='name' %},
+                <span class="altitude">{{ sep_col.point.altitude|altitude }}</span>{% if sep_col.confluence_river %},
+                draining to {% object_link sep_col.confluence_river %}{% endif %}.
+            </p>
+
+            <table class="comparison">
+                <thead>
+                    <tr>
+                        <th>peak</th>
+                        <th></th>
+                        <th>height above the col</th>
+                        <th>distance to it</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Both rows read `sep_col` from this context rather than an argument. #}
+                    {% include 'mountains/summit/blocks/peak-col.html' with summit=s1 %}
+                    {% include 'mountains/summit/blocks/peak-col.html' with summit=s2 %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>
+                No connecting col: nothing on the way between these two has a key col
+                recorded, so there is no saddle to name as the lowest.
+            </p>
+        {% endif %}
 
         <h2>
             Common ancestor
         </h2>
-        <table>
-            <tr>
-                <td class="link">
-                    {% object_link lca 'mountain' %}
-                </td>
-            </tr>
-        </table>
+
+        {% if lca %}
+            <p>
+                The lowest summit standing above both of them is
+                {% object_link lca 'mountain' attr='name' %}
+                (<span class="altitude">{{ lca.point.altitude|altitude }}</span>).
+                Both chains on the map meet there.
+            </p>
+        {% else %}
+            <p>
+                These two have no common ancestor: they belong to different prominence
+                trees, which here means different landmasses — nothing joins their roots.
+            </p>
+        {% endif %}
+
+        {% if chain %}
+            <h2>
+                The way between them
+            </h2>
+
+            <p>
+                Every rung from one peak to the other: a summit, the key col crossed to
+                leave it, then the parent that col leads to — climbing to the summit they
+                share, then descending the same way to the second peak. This is the chain
+                drawn on the map.
+            </p>
+
+            <table class="comparison chain">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>what</th>
+                        <th>name</th>
+                        <th>altitude</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for step in chain %}
+                        {# `rung-` prefixed: bare `col` and `mountain` already carry an ::before glyph in main.css #}
+                        <tr class="rung-{{ step.kind }}{% if step.lowest %} lowest{% endif %}">
+                            <td class="arrow">
+                                {% if step.direction == 'up' %}&uparrow;
+                                {% elif step.direction == 'down' %}&downarrow;
+                                {% else %}&bull;{% endif %}
+                            </td>
+                            <td class="role">
+                                {{ step.role }}{% if step.lowest %} &downdownarrows; {% endif %}
+                            </td>
+                            {% if step.obj %}
+                                <td class="link">
+                                    {% object_link step.obj step.css attr='name' %}
+                                </td>
+                                <td class="altitude">
+                                    {{ step.obj.point.altitude|altitude }}
+                                </td>
+                            {% else %}
+                                {# A link with no saddle recorded: the rung is real, the col is not. #}
+                                <td class="empty">not recorded</td>
+                                <td class="empty">&mdash;</td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
     {% endif %}
 {% endblock page_content %}
 
@@ -86,9 +160,8 @@
     {% if s1 and s2 %}
         <script>
             initSummitMap(
-                "{% url 'summit-detail-geojson' s1.pk %}",
-                "{% url 'prominence-lineage-json' s1.pk %}",
-                [{{ s1.point.longitude }}, {{ s1.point.latitude }}],
+                "{% url 'summit-comparison-geojson' s1.pk s2.pk %}",
+                [{{ s1.point.location.x }}, {{ s1.point.location.y }}],
             );
         </script>
     {% endif %}

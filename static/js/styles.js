@@ -74,7 +74,7 @@ function renderProminenceLegend(element = document.getElementById('prominence-le
             <span class="legend-swatch" style="background:${band.colour}"></span>
             ${band.label}
         </span>`;
-    element.innerHTML = '<span class="legend-title">Prominence</span>'
+    element.innerHTML = '<span class="group-title">Prominence</span>'
         + PROMINENCE_BANDS.map(swatch).join('')
         + swatch(PROMINENCE_UNKNOWN);
 }
@@ -107,6 +107,9 @@ const RIVER  = [11, 34, 255];
 const RED    = [192, 57, 43];
 const BLUE   = [43, 57, 192];
 const PURPLE = [142, 68, 173];
+// Named but never defined until now, though two cases below already reached for it — the
+// warm end of the prominence line, where the walk arrives at the parent.
+const YELLOW = [241, 196, 15];
 
 
 function denseCoords(coords) {
@@ -185,20 +188,25 @@ function summitMarker(color, radius = 6, { outline = SUMMIT_OUTLINE, zIndex = Z_
     });
 }
 
+// A glyph riding above a marker, saying what kind of point it is where colour alone cannot.
+function glyphAbove(glyph, offsetY = -10, zIndex = Z_POINT) {
+    return new ol.style.Style({
+        text: new ol.style.Text({
+            text: glyph,
+            font: '14px sans-serif',
+            offsetY: offsetY,
+        }),
+        zIndex: zIndex,
+    });
+}
+
 // The ordinary marker with a glyph riding above it. Used for the roots of a hierarchy, which
 // have no parent to draw a line to and would otherwise look like any other peak.
 function markedSummit(prom, glyph, offsetY = -10) {
     return [
         summitMarker(prominenceBand(prom).colour, prominenceRadius(prom),
                      { zIndex: prominenceZIndex(prom) }),
-        new ol.style.Style({
-            text: new ol.style.Text({
-                text: glyph,
-                font: '14px sans-serif',
-                offsetY: offsetY,
-            }),
-            zIndex: prominenceZIndex(prom),
-        }),
+        glyphAbove(glyph, offsetY, prominenceZIndex(prom)),
     ];
 }
 
@@ -398,6 +406,11 @@ function styleFor(feature) {
                                                             prominenceRadius(prom),
                                                             { zIndex: prominenceZIndex(prom) });
         case 'prominence_parent':       return summitMarker('#2980b9');
+        // Where two chains meet on the comparison map. The chain's own blue, drawn larger
+        // and forked, rather than a prominence-coloured triangle: on that map it is a
+        // waypoint on the walk from one peak to the other, not one of the peaks compared.
+        case 'common_ancestor':         return [summitMarker('#2980b9', 9),
+                                                glyphAbove('\u22d4', -13)];
         case 'col':                     return colMarker();
         // The col keeps a ring — it is a fixed 5px circle, so a ring at 10 clears it — while the
         // parent is redrawn as its own triangle, grown and lit, rather than annotated.
@@ -413,6 +426,9 @@ function styleFor(feature) {
         case 'isolation_circle':        return isolationCircleStyle;
         case 'isolation_line_first':    return gradientLine(feature, ISOLATION_BEGIN, ISOLATION_MID);
         case 'isolation_line_second':   return gradientLine(feature, ISOLATION_MID, ISOLATION_END);
+        // The whole climb in one line — peak, key col, parent — as the detail and compare
+        // maps serve it. The split pair below is the global map's, one style per segment.
+        case 'prominence_line':         return gradientLine(feature, BLUE, YELLOW);
         case 'prominence_line_first':   return gradientLine(feature, BLUE, RED);
         case 'prominence_line_second':  return gradientLine(feature, RED, YELLOW);
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
