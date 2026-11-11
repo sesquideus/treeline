@@ -3,7 +3,7 @@
 from django.contrib.gis.geos import Point
 
 from core.models.world import Country
-from mountains.models import Col, Range, RangeSystem, Summit, SummitRange
+from mountains.models import Col, Range, RangeSystem, Source, Summit, SummitRange
 from mountains.models.point import NamedPoint
 
 
@@ -16,7 +16,19 @@ def make_point(name, altitude, lat, lon):
     )
 
 
+def fixture_source():
+    """The source a test's parents cite when the test does not care which."""
+    return Source.objects.get_or_create(name='test fixture')[0]
+
+
 def make_summit(name, altitude, lat, lon, **kwargs):
+    """
+    A summit; a prominence or isolation parent comes with a source, because the database
+    refuses one without (migration 0038). Pass `*_source` to choose it.
+    """
+    for kind in ('prominence', 'isolation'):
+        if kwargs.get(f'{kind}_parent') is not None:
+            kwargs.setdefault(f'{kind}_source', fixture_source())
     return Summit.objects.create(point=make_point(name, altitude, lat, lon), **kwargs)
 
 

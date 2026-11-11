@@ -241,12 +241,11 @@ class Summit(GeoModel):
         ordering = ('-point__altitude',)
 
         constraints = [
+            # One way only: a measured parent must say where it came from, but a nearest
+            # higher point can be measured and sourced with no parent attributed to it.
             models.CheckConstraint(
-                name='isolation_source_requires_parent',
-                condition=(
-                    Q(isolation_parent__isnull=True, isolation_source__isnull=True) |
-                    Q(isolation_parent__isnull=False, isolation_source__isnull=False)
-                )
+                name='isolation_parent_requires_source',
+                condition=Q(isolation_parent__isnull=True) | Q(isolation_source__isnull=False),
             ),
             models.CheckConstraint(
                 name='prominence_source_requires_parent',

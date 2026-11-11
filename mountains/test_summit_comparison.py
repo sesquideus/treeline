@@ -24,7 +24,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from mountains.models import Summit
-from mountains.test_factories import make_col, make_summit
+from mountains.test_factories import fixture_source, make_col, make_summit
 from mountains.test_js_runtime import evaluate
 from mountains.views.summit.json import build_comparison_features
 from mountains.views.summit.summit import prominence_chain, separation
@@ -87,8 +87,9 @@ class AncestryTests(TestCase):
         reach the database. Walking it without a guard never returns.
         """
         one, two = self.peaks['Peak One'], self.peaks['Peak Two']
-        Summit.objects.filter(pk=one.pk).update(prominence_parent=two)
-        Summit.objects.filter(pk=two.pk).update(prominence_parent=one)
+        source = fixture_source()
+        Summit.objects.filter(pk=one.pk).update(prominence_parent=two, prominence_source=source)
+        Summit.objects.filter(pk=two.pk).update(prominence_parent=one, prominence_source=source)
         walked = [summit.pk for summit in Summit.objects.get(pk=one.pk).prominence_walk()]
         self.assertEqual(walked, [one.pk, two.pk])
 
