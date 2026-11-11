@@ -2,9 +2,10 @@ from cairn.views import OrderableListView
 
 from ...forms.filter import FilterForm
 from ...models import Col
+from ..cache import CachedPageMixin
 
 
-class ListView(OrderableListView):
+class ListView(CachedPageMixin, OrderableListView):
     model = Col
     context_object_name = 'cols'
     template_name = 'mountains/col/list.html'

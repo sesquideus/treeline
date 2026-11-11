@@ -32,4 +32,9 @@ echo "Transferring ownership from '$DUMP_USER' to '$USER'..."
 sudo -u postgres psql -d "$DB" -v ON_ERROR_STOP=1 \
     -c "REASSIGN OWNED BY $DUMP_USER TO $USER"
 
+echo "Clearing the page cache..."
+# The restore replaced the data without a single save signal, so nothing has bumped the
+# data version and a running server would go on serving pages of the old database.
+(cd "$SCRIPT_DIR" && uv run python manage.py shell -c "from django.core.cache import cache; cache.clear()")
+
 echo "Done"

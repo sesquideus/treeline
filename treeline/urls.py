@@ -17,10 +17,13 @@ Including another URLconf
 from debug_toolbar.toolbar import debug_toolbar_urls
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import TemplateView
 
 import mountains
 
 urlpatterns = [
+    path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain'),
+         name='robots'),
     path('admin/', admin.site.urls),
 
     path('', include('mountains.urls')),

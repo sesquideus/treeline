@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import sys
 from pathlib import Path
 
 from decouple import config, Csv
@@ -115,6 +116,32 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = 'users.User'
+
+
+# Cache
+#
+# On disk rather than in memory, because uwsgi runs more than one worker and they must agree
+# on the data version (mountains/views/cache.py): with a per-process cache, a save in the
+# admin invalidated only the worker that handled it and the other went on serving the old
+# pages. Pages are stored compressed, ~400 KB for the largest, so MAX_ENTRIES bounds the
+# directory at a few hundred MB however many URLs something asks for.
+#
+# The test runner gets an in-memory cache and no page cache: tests roll back their data
+# without a save signal, so a page cached by one test could be served to the next.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': config('CACHE_DIR', default=str(BASE_DIR / '.cache')),
+        'OPTIONS': {'MAX_ENTRIES': 1000},
+    } if not TESTING else {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+}
+
+#: Whether the slow list and forest pages are served from the cache; see CachedPageMixin.
+PAGE_CACHE = not TESTING
 
 
 # Password validation

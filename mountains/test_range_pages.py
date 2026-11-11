@@ -137,7 +137,7 @@ class RangeGeoJsonTests(RangePageTestCase):
         self.assertIsNone(self.vysoke.to_geojson())
 
     def test_saving_a_range_drops_the_cached_payload(self):
-        """`Range` is in signals.WATCHED; without it the layer would be stale forever."""
+        """`Range` is in a watched app; without that the layer would be stale forever."""
         self.payload()
         before = data_version()
         self.zapadne.area = box(19.7, 49.2)

@@ -13,11 +13,12 @@ from django.views.generic.edit import FormMixin
 
 from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col, NamedPoint
+from mountains.views.cache import CachedPageMixin
 from mountains.views.tree.tree import CachedJsonMixin
 from mountains.views.viewport import ViewportDetailView
 
 
-class SummitTreeView(ListView, ABC):
+class SummitTreeView(CachedPageMixin, ListView, ABC):
     model = Summit
     context_object_name = 'mountains'
     reverse = True

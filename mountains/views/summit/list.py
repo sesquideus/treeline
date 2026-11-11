@@ -3,6 +3,7 @@ from django.contrib.gis.measure import D
 
 from mountains.forms.filter import SummitFilterForm
 from mountains.models import Summit
+from mountains.views.cache import CachedPageMixin
 
 
 def within(qs, name, bounds, convert=float):
@@ -15,7 +16,7 @@ def within(qs, name, bounds, convert=float):
     return qs
 
 
-class MountainListView(OrderableListView):
+class MountainListView(CachedPageMixin, OrderableListView):
     model = Summit
     context_object_name = 'mountains'
     template_name = 'mountains/summit/list/list.html'

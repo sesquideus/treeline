@@ -5,11 +5,12 @@ from cairn.views import OrderableListView
 from django.views.generic import ListView as DjangoListView, DetailView as DjangoDetailView, ListView
 
 from mountains.models import River
+from mountains.views.cache import CachedPageMixin
 from mountains.views.tree import TreeView
 from mountains.views.tree.tree import FlatGeoJsonView
 
 
-class ListView(OrderableListView):
+class ListView(CachedPageMixin, OrderableListView):
     model = River
     template_name = 'mountains/river/list.html'
     context_object_name = 'rivers'

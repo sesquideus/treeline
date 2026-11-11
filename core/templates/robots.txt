@@ -1,0 +1,10 @@
+# Every summit, col, river and range has a page, and every list can be read in full.
+# What is shut off is the same data again in other arrangements: each list sorted by any of
+# twenty columns in any priority, filtered any way, every pair of summits compared, and the
+# JSON the map draws itself from. That is unbounded, and each of the lists takes seconds to
+# render — read them once, in their default order.
+User-agent: *
+Disallow: /*?
+Disallow: /summit/compare/
+Disallow: /*.json
+Disallow: /admin/
