@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mountains', '0037_cite_guess_for_unsourced_parents'),
+        ('mountains', '0038_settle_new_summits'),
     ]
 
     operations = [

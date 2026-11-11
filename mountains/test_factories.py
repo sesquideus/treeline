@@ -24,7 +24,7 @@ def fixture_source():
 def make_summit(name, altitude, lat, lon, **kwargs):
     """
     A summit; a prominence or isolation parent comes with a source, because the database
-    refuses one without (migration 0038). Pass `*_source` to choose it.
+    refuses one without (migration 0039). Pass `*_source` to choose it.
     """
     for kind in ('prominence', 'isolation'):
         if kwargs.get(f'{kind}_parent') is not None:
