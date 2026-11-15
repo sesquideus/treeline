@@ -3,11 +3,7 @@
 {% load cairn static tree countries %}
 
 {% block headextra %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
-    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
-    <script src="{% static 'js/map.js' %}"></script>
-    <script src="{% static 'js/styles.js' %}"></script>
-    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+    {{ block.super }}
     <script src="{% static 'js/summit-search.js' %}"></script>
 {% endblock headextra %}
 
@@ -159,10 +155,7 @@
 {% block init_map %}
     {% if s1 and s2 %}
         <script>
-            initSummitMap(
-                "{% url 'summit-comparison-geojson' s1.pk s2.pk %}",
-                [{{ s1.point.location.x }}, {{ s1.point.location.y }}],
-            );
+            initDetailMap("{% url 'summit-comparison-geojson' s1.pk s2.pk %}");
         </script>
     {% endif %}
 {% endblock init_map %}

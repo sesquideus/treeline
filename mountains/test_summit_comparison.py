@@ -361,7 +361,7 @@ class ComparisonPageTests(TestCase):
 
     def test_the_map_scripts_are_all_there(self):
         """
-        `initSummitMap` calls `styleFor`, which is in `styles.js`; without it the map died
+        `initDetailMap` calls `styleFor`, which is in `styles.js`; without it the map died
         in a rejected promise while the page still returned 200. Asserted on the rendered
         page as well as in `test_summit_detail_map.ScriptTests`, because this is the page
         it actually happened to.
@@ -435,5 +435,6 @@ class RoutingSourceTests(SimpleTestCase):
     def test_every_prominence_line_is_routed_and_not_merely_the_first(self):
         with open('static/js/summit-detail-map.js', encoding='utf-8') as handle:
             source = handle.read()
-        self.assertIn(".filter(feature => feature.get('type') === 'prominence_line')", source)
+        self.assertIn(".filter(feature => ROUTED_LINES.includes(feature.get('type')))", source)
+        self.assertIn("'prominence_line'", source.split('const ROUTED_LINES')[1].split(';')[0])
         self.assertIn('lines.forEach(line => routeThroughCol(line', source)

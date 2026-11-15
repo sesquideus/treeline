@@ -1,5 +1,15 @@
 {% extends 'core/base.html' %}
 
+{% load static %}
+
+{% block headextra %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
+    <script src="{% static 'js/map.js' %}"></script>
+    <script src="{% static 'js/styles.js' %}"></script>
+    <script src="{% static 'js/summit-detail-map.js' %}"></script>
+{% endblock headextra %}
+
 {% block page %}
     <div class="detail-page">
         <div class="data">
@@ -11,13 +21,22 @@
             {% endblock page_content %}
         </div>
         <div id="map"></div>
-        <div id="map-controls">
-            <label>
-                <input type="checkbox" id="toggle-col" checked>
-                Route through key col
-            </label>
-        </div>
+        {% block map_controls %}
+            <div id="map-controls">
+                <label>
+                    <input type="checkbox" id="toggle-col" checked>
+                    Route through key col
+                </label>
+            </div>
+        {% endblock map_controls %}
         {% block init_map %}
+            {# A page that hands its features over as `map_data` needs nothing more. #}
+            {% if map_data %}
+                {{ map_data|json_script:"map-data" }}
+                <script>
+                    initDetailMap(JSON.parse(document.getElementById('map-data').textContent));
+                </script>
+            {% endif %}
         {% endblock init_map %}
     </div>
 {% endblock page %}

@@ -33,9 +33,12 @@ class DetailUrlTests(SimpleTestCase):
         self.assertEqual(detail_url(type='summit', pk=27), evaluate('summitUrl(27)'))
         self.assertEqual(detail_url(type='col', pk=82), evaluate('colUrl(82)'))
         self.assertEqual(detail_url(type='river', pk=7), evaluate('riverUrl(7)'))
+        # On a summit's page, its children and nearest higher neighbour are summits too.
+        self.assertEqual(detail_url(type='prominence_child', pk=27), evaluate('summitUrl(27)'))
+        self.assertEqual(detail_url(type='isolation_parent', pk=27), evaluate('summitUrl(27)'))
 
     def test_marks_with_no_page_of_their_own_have_no_url(self):
-        for kind in ('isolation_point', 'isolation_parent', 'prominence_parent',
+        for kind in ('isolation_point', 'prominence_parent',
                      'encirclement_parent', 'isolation_circle', 'range',
                      'highlight_summit', 'highlight_parent', 'confluence_col'):
             with self.subTest(type=kind):

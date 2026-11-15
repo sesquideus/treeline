@@ -5,6 +5,7 @@ from django.views.generic import DetailView as DjangoDetailView, ListView as Dja
 from ..tree.tree import CachedJsonMixin, TreeView
 from ..viewport import ViewportDetailView
 from ...models import Col
+from ..detail_map import col_features
 
 
 class DetailView(DjangoDetailView):
@@ -13,14 +14,21 @@ class DetailView(DjangoDetailView):
     template_name = 'mountains/col/detail.html'
 
     def get_queryset(self):
-        return super().get_queryset().with_full_name().with_minor().select_related('point')
+        return (super().get_queryset().with_full_name().with_minor().with_rivers()
+                .select_related('point').prefetch_related(
+                    'point__countries', 'key_for__point', 'key_for__key_col__point',
+                    'key_for__prominence_parent__point', 'key_for__prominence_parent__key_col__point',
+                    'confluence_river__tributaries__mouth', 'confluence_river__branches__source',
+                    'confluence_river__parent__mouth', 'confluence_river__parent__tributaries__mouth',
+                    'confluence_river__parent__branches__source'))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context |= {
             'friend_cols': Col.objects.filter(
                 Q(confluence_river=self.object.confluence_river) & Q(confluence_river__isnull=False)
-            )
+            ),
+            'map_data': col_features(self.object),
         }
         return context
 

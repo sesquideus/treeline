@@ -132,10 +132,12 @@ const pointUrl  = pk => pk != null ? `/point/${pk}/` : null;
 function detailUrl(feature) {
     if (!feature) return null;
     switch (feature.get('type')) {
-        case 'summit': return summitUrl(feature.get('pk'));
+        case 'summit':
+        case 'prominence_child':
+        case 'isolation_parent': return summitUrl(feature.get('pk'));
         case 'col':    return colUrl(feature.get('pk'));
         case 'river':  return riverUrl(feature.get('pk'));
-        default:       return null;
+        default:       return feature.get('label') ? feature.get('url') ?? null : null;
     }
 }
 
@@ -295,7 +297,11 @@ function bandMark(prominence) {
 function popupHtml(feature) {
     if (!feature) return '';
     switch (feature.get('type')) {
-        case 'summit': {
+        // A child or the nearest higher neighbour on a summit's page is drawn with a mark
+        // of its own but described like any summit on the global map.
+        case 'summit':
+        case 'prominence_child':
+        case 'isolation_parent': {
             const keyCol = feature.get('key_col');
             const parent = feature.get('parent');
             const ilp = feature.get('ilp');
@@ -424,16 +430,41 @@ function popupHtml(feature) {
                     ]),
                 ]);
         }
-        default:
-            return '';
+        // The detail maps' marks for related objects — a parent, a child, a watershed high
+        // point — carry only a label and a link; the full popup is on their own pages.
+        default: {
+            const label = feature.get('label');
+            return label ? popupCaption('', feature.get('url'), label) : '';
+        }
     }
 }
 
+// Zoom to the features marked `frame` — the object a detail page is about and what it is
+// directly related to — or to all of them when none is marked (the comparison map). The rest
+// may reach off screen: an isolation circle can be hundreds of kilometres across, and fitting
+// it would shrink everything that matters to one dot. `maxZoom` because a lone point has an
+// empty extent and would otherwise be fitted at the closest zoom there is.
+function fitToFramed(map, source) {
+    const all = source.getFeatures();
+    const framed = all.filter(feature => feature.get('frame'));
+    const extent = ol.extent.createEmpty();
+    (framed.length ? framed : all).forEach(
+        feature => ol.extent.extend(extent, feature.getGeometry().getExtent()));
+    if (ol.extent.isEmpty(extent)) return;
+    // A detail page's map is one screen tall but starts below the header, so on arrival its
+    // bottom edge is under the fold; frame within the part that can actually be seen.
+    const hidden = Math.max(0, map.getTargetElement().getBoundingClientRect().bottom
+                               - window.innerHeight);
+    map.getView().fit(extent, { padding: [60, 60, 60 + hidden, 60], maxZoom: 14 });
+}
+
+// `onOpen` is optional too: given, a click on a summit, col or river hands it the page's URL
+// instead of opening that page in a new tab — the detail pages swap their content in place.
 // `onHover` is optional and receives the feature under the cursor (or null). The tooltip is
 // wired up here; anything else that should react to hovering — the key col and parent
 // highlight, for one — goes through the callback rather than adding a second pointermove
 // listener, so the hit test still runs once per mouse position.
-function makeMap(geojson, styleFor, coords, zoom, onHover) {
+function makeMap(geojson, styleFor, coords, zoom, onHover, onOpen) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
         source: new ol.source.XYZ({
@@ -462,20 +493,20 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
             tileLayer,
             vectorLayer,
         ],
-        view: new ol.View({ center: ol.proj.fromLonLat(coords), zoom: zoom }),
+        // A view with no zoom has no resolution, and OpenLayers draws nothing at all until
+        // it gets one — so there is always a fallback, overridden by the fit below.
+        view: new ol.View({ center: ol.proj.fromLonLat(coords ?? [0, 0]), zoom: zoom ?? 2 }),
     });
 
-    // Fitting the data is for the single-summit maps, which are handed a centre but no zoom
-    // and would otherwise open at an arbitrary scale. The global map passes a zoom and keeps
-    // it: its collection now spans the world, so fitting it would open on a view where every
-    // marker sits on top of its neighbours.
+    // Fitting the data is for the detail maps, which pass no zoom. The global map passes a
+    // zoom and keeps it: its collection spans the world, so fitting it would open on a view
+    // where every marker sits on top of its neighbours.
+    //
+    // At once, not on the source's `change` event: the features were handed to the source
+    // in its constructor, so that event has already passed and never comes. Waiting for it
+    // is what left every detail map blank.
     if (zoom === undefined) {
-        vectorLayer.getSource().once('change', function() {
-            const extent = vectorLayer.getSource().getExtent();
-            if (extent && isFinite(extent[0])) {
-                map.getView().fit(extent, { padding: [60, 60, 60, 60] });
-            }
-        });
+        fitToFramed(map, vectorLayer.getSource());
     }
 
     const popup = document.createElement('div');
@@ -597,8 +628,13 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         const feature = featureAt(e.pixel);
         const url = detailUrl(feature);
         if (url && (canHover || feature === described)) {
-            // `noopener` so the new tab gets no handle on this one.
-            window.open(url, '_blank', 'noopener');
+            if (onOpen) {
+                hovered(null);
+                onOpen(url);
+            } else {
+                // `noopener` so the new tab gets no handle on this one.
+                window.open(url, '_blank', 'noopener');
+            }
             return;
         }
         // Without hover, the first tap describes the feature and the second opens it — and
@@ -622,7 +658,8 @@ function makeMap(geojson, styleFor, coords, zoom, onHover) {
         if (html) popup.innerHTML = html;
     }
 
-    return { map, tileLayer, vectorLayer, refreshPopup };
+    // `clearPopup` for a caller that replaces the features under an open popup.
+    return { map, tileLayer, vectorLayer, refreshPopup, clearPopup: () => hovered(null) };
 }
 
 const PROMINENCE_PEAK_TO_COL_A   = [180, 0,   255, 1];   // purple

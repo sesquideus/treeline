@@ -210,6 +210,15 @@ function markedSummit(prom, glyph, offsetY = -10) {
     ];
 }
 
+// Above every summit, the lit parent included: a col is a 5 px dot, and a key col is often a
+// few pixels from a peak whose triangle is several times wider — under it, the col could be
+// neither hovered nor clicked. It only matters where cols and summits share a layer, as on
+// the detail maps; the global map keeps its cols in a layer of their own.
+const Z_COL = Z_POINT + Z_SUMMIT_SPAN + 2;
+// Above the cols in turn: the summit a detail page is about. Fitted to twenty children, a
+// peak's own page can be zoomed out until a neighbouring col shares its very pixel.
+const Z_SUBJECT = Z_COL + 1;
+
 function colMarker(colour, size) {
     return new ol.style.Style({
         image: new ol.style.Circle({
@@ -217,7 +226,7 @@ function colMarker(colour, size) {
             fill: new ol.style.Fill({ color: '#0040FF' }),
             stroke: new ol.style.Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
-        zIndex: Z_POINT,
+        zIndex: Z_COL,
     });
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
@@ -262,6 +271,16 @@ const rangeStyle = new ol.style.Style({
         color: 'rgba(120, 150, 100, 0.10)',
     }),
     zIndex: Z_AREA,
+});
+
+// A river on its own page: the global map's blue, thicker, since here it is the subject.
+const riverLine = new ol.style.Style({
+    stroke: new ol.style.Stroke({ color: '#1a40f9', width: 4 }),
+});
+// On a col's page, the two rivers meeting below it: the major one as above, the minor one
+// that flows into it thinner, so the confluence reads as a tributary joining a river.
+const minorRiverLine = new ol.style.Style({
+    stroke: new ol.style.Stroke({ color: '#1a40f9', width: 2 }),
 });
 
 const isolationCircleStyle = new ol.style.Style({
@@ -333,7 +352,15 @@ function highlightSummit(prom) {
 }
 
 function highlightParent(prom) {
-    const eased = easeOutBack(highlightProgress);
+    return litParent(prom, easeOutBack(highlightProgress));
+}
+
+// The parent as the global map lights it on hover, at rest: on a summit's or a col's page
+// it is always the one being pointed at. `eased` runs 0 → 1 as the hover animation does.
+// The marker sits above every other point by default, because on a detail page it shares
+// its position with others — an encirclement parent is often the same peak — and the
+// marker on top is the one a click reaches.
+function litParent(prom, eased = 1, zIndex = Z_POINT + Z_SUMMIT_SPAN + 1) {
     const radius = prominenceRadius(prom) * (1 + (HIGHLIGHT_GROW - 1) * eased);
     return [
         // An oversized translucent triangle fading in behind the marker: the "shine".
@@ -343,7 +370,10 @@ function highlightParent(prom) {
                 radius: radius * 1.5,
                 fill: new ol.style.Fill({ color: `rgba(0, 182, 224, ${0.32 * eased})` }),
             }),
-            zIndex: Z_POINT,
+            // Under every point, not just under its own marker: the shine is half again as
+            // wide as the triangle, and above a col a few pixels away it would take that
+            // col's hover and click — hit testing goes by z-index, transparent or not.
+            zIndex: Z_POINT - 1,
         }),
         new ol.style.Style({
             image: new ol.style.RegularShape({
@@ -354,7 +384,7 @@ function highlightParent(prom) {
                 }),
                 stroke: new ol.style.Stroke({ color: HIGHLIGHT_HALO, width: 2 }),
             }),
-            zIndex: Z_POINT + 1,
+            zIndex,
         }),
     ];
 }
@@ -404,8 +434,23 @@ function styleFor(feature) {
     switch (feature.get('type')) {
         case 'summit':                  return summitMarker(prominenceBand(prom).colour,
                                                             prominenceRadius(prom),
-                                                            { zIndex: prominenceZIndex(prom) });
+                                                            { zIndex: feature.get('subject')
+                                                                  ? Z_SUBJECT
+                                                                  : prominenceZIndex(prom) });
         case 'prominence_parent':       return summitMarker('#2980b9');
+        // The detail maps. A col's page draws the summit it is the key col for in its own
+        // band colour, as the summit's page would; children are smaller, a paler blue than
+        // the parent, and their climbs thinner than the summit's own line.
+        case 'key_for_summit':          return summitMarker(prominenceBand(prom).colour,
+                                                            prominenceRadius(prom));
+        case 'lit_parent':              return litParent(prom);
+        case 'prominence_child':        return summitMarker('#85c1e9', 6);
+        case 'child_line':              return [dashedLine('rgba(41,128,185,0.6)')];
+        case 'river':                   return [feature.get('role') === 'minor'
+                                                    ? minorRiverLine : riverLine];
+        case 'river_source':            return dot('#1a40f9');
+        case 'source_summit':           return summitMarker('#16a085');
+        case 'watershed_high_point':    return summitMarker('#d35400');
         // Where two chains meet on the comparison map. The chain's own blue, drawn larger
         // and forked, rather than a prominence-coloured triangle: on that map it is a
         // waypoint on the walk from one peak to the other, not one of the peaks compared.
@@ -420,7 +465,8 @@ function styleFor(feature) {
         case 'highlight_parent':        return highlightParent(prom);
         case 'highlight_line':          return highlightLine();
         case 'isolation_point':         return dot('#f1c40f');
-        case 'isolation_parent':        return dot('#8e44ad');
+        // The nearest higher neighbour: a peak, in the purple the isolation line ends in.
+        case 'isolation_parent':        return summitMarker('#8e44ad', 7);
         case 'encirclement_parent':     return summitMarker('#c0392b', 12);
         case 'range':                   return rangeStyle;
         case 'isolation_circle':        return isolationCircleStyle;

@@ -6,6 +6,7 @@ from django.views.generic import ListView as DjangoListView, DetailView as Djang
 
 from mountains.models import River
 from mountains.views.cache import CachedPageMixin
+from mountains.views.detail_map import river_features
 from mountains.views.tree import TreeView
 from mountains.views.tree.tree import FlatGeoJsonView
 
@@ -30,7 +31,13 @@ class DetailView(DjangoDetailView):
     template_name = 'mountains/river/detail.html'
 
     def get_queryset(self):
-        return River.objects.with_displacement().with_tributaries().with_cols().with_direct_length()
+        return (River.objects.with_displacement().with_tributaries().with_branches().with_cols()
+                .with_direct_length().with_source().with_mouth().with_parent()
+                .with_source_summit().with_watershed_high_point()
+                .select_related('source_summit__key_col__point'))
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(**kwargs) | {'map_data': river_features(self.object)}
 
 
 class RiverForestView(ListView):

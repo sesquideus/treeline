@@ -32,7 +32,7 @@ from mountains.test_template_comments import templates
 from mountains.test_js_runtime import evaluate
 
 DETAIL_MAP_JS = 'static/js/summit-detail-map.js'
-CALLERS = ('mountains/templates/mountains/summit/detail.html',
+CALLERS = ('core/templates/core/detail-page.html',
            'mountains/templates/mountains/summit/comparison.html')
 
 #: A prominence line as the server draws it: summit, key col, parent. The col is the middle
@@ -126,13 +126,17 @@ class StartupTests(SimpleTestCase):
         comparison page's situation; reaching through it threw before the map was built.
         """
         self.assertEqual(evaluate('''(function () {
-            const saved = fetch;
+            const saved = fetch, savedWindow = window;
             fetch = () => ({ then: () => ({ then: () => null }) });
+            // The comparison page: not one whose content is swapped in place.
+            window = { location: { href: 'https://treeline.test/summit/compare/1/2/',
+                                   origin: 'https://treeline.test' } };
             try {
-                initSummitMap('/summit/1/geo.json/', [20, 49]);
+                initDetailMap('/summit/1/geo.json/');
                 return 'survived';
             } finally {
                 fetch = saved;
+                window = savedWindow;
             }
         })()''', source=DETAIL_MAP_JS), 'survived')
 
@@ -149,10 +153,10 @@ class StartupTests(SimpleTestCase):
         template boundary, where nothing checks and nothing throws.
         """
         declared = arguments(
-            re.search(r'function initSummitMap\(([^)]*)\)', read(DETAIL_MAP_JS)).group(1))
+            re.search(r'function initDetailMap\(([^)]*)\)', read(DETAIL_MAP_JS)).group(1))
         for template in CALLERS:
             with self.subTest(template=template):
-                call = read(template).split('initSummitMap(')[1].split(');')[0]
+                call = read(template).split('initDetailMap(')[1].split(');')[0]
                 self.assertEqual(len(arguments(call)), len(declared))
 
 
@@ -193,37 +197,42 @@ class ServedShapeTests(TestCase):
 
 class ScriptTests(SimpleTestCase):
     """
-    What a page calling `initSummitMap` has to load for it to get anywhere.
+    What a page calling `initDetailMap` has to load for it to get anywhere.
 
-    The comparison page loaded `map.js` and `summit-detail-map.js` but not `styles.js`, and
-    `initSummitMap` hands `styleFor` — which lives in `styles.js` — to `makeMap`. The
+    The comparison page once loaded `map.js` and `summit-detail-map.js` but not `styles.js`,
+    and `initDetailMap` hands `styleFor` — which lives in `styles.js` — to `makeMap`. The
     resulting `ReferenceError` is thrown inside a `.then()`, so it rejects the promise and
-    goes nowhere: no map, no error on the page, nothing server-side to assert on. The page
-    returned 200 with every feature correct and an empty square where the map belongs.
+    goes nowhere: no map, no error on the page, nothing server-side to assert on.
 
-    A source sweep rather than a rendered one, so that a page added later is covered before
-    anyone opens it. It assumes a template declares its own `{% block headextra %}`, which
-    both callers do; a page that inherits its scripts from a parent would need this to
-    follow the `{% extends %}` chain.
+    The scripts now live in `core/detail-page.html`, and every detail page inherits them.
+    So the sweep checks the base once, and then that no page extending it overrides
+    `headextra` without keeping `{{ block.super }}` — the one way a page could lose them.
+    A source sweep rather than a rendered one, so a page added later is covered before
+    anyone opens it.
     """
 
-    #: Everything `initSummitMap` reaches for: OpenLayers, `makeMap`, `styleFor`, itself.
+    #: Everything `initDetailMap` reaches for: OpenLayers, `makeMap`, `styleFor`, itself.
     REQUIRED = ('ol@9/dist/ol.js', 'js/map.js', 'js/styles.js', 'js/summit-detail-map.js')
+    BASE = 'core/detail-page.html'
 
-    def callers(self):
+    def children(self):
         return [path for path in templates()
-                if 'initSummitMap(' in path.read_text(encoding='utf-8')]
+                if f"{{% extends '{self.BASE}' %}}" in path.read_text(encoding='utf-8')]
 
-    def test_both_maps_are_accounted_for(self):
-        """The summit detail page and the comparison page — if one stops calling it, say so."""
-        self.assertEqual(sorted(path.name for path in self.callers()),
-                         ['comparison.html', 'detail.html'])
+    def test_the_base_loads_everything(self):
+        source = read(f'core/templates/{self.BASE}')
+        self.assertEqual([s for s in self.REQUIRED if s not in source], [])
 
-    def test_every_page_that_calls_it_loads_what_it_needs(self):
-        missing = {}
-        for path in self.callers():
-            source = path.read_text(encoding='utf-8')
-            if absent := [script for script in self.REQUIRED if script not in source]:
-                missing[str(path)] = absent
-        self.assertEqual(missing, {},
-                         'initSummitMap fails silently inside a promise without these')
+    def test_every_detail_page_is_accounted_for(self):
+        """Summit, col, river and comparison — if one stops extending the base, say so."""
+        self.assertEqual(sorted(f'{p.parent.name}/{p.name}' for p in self.children()),
+                         ['col/detail.html', 'river/detail.html', 'summit/comparison.html',
+                          'summit/detail.html'])
+
+    def test_no_detail_page_drops_the_scripts(self):
+        dropped = [str(path) for path in self.children()
+                   if '{% block headextra %}' in (text := path.read_text(encoding='utf-8'))
+                   and '{{ block.super }}' not in text.split('{% block headextra %}')[1]
+                                                     .split('{% endblock')[0]]
+        self.assertEqual(dropped, [],
+                         'initDetailMap fails silently inside a promise without the scripts')

@@ -597,6 +597,17 @@ div#map {
     min-height: 500px;
 }
 
+/* On a detail page the map is one screen tall and stays on screen while the data beside it
+   scrolls. Stretched to the height of the row instead, as it was, the map grew with the
+   tables: on a summit with a long list of children it was several screens tall, and the
+   objects it had been fitted to sat in the middle of it, out of sight below the fold. */
+div.detail-page div#map {
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    height: 100vh;
+}
+
 #map-controls {
     position: absolute;
     top: 48px;

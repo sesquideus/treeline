@@ -2,14 +2,6 @@
 
 {% load static cairn tree countries %}
 
-{% block headextra %}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9/ol.css">
-    <script src="https://cdn.jsdelivr.net/npm/ol@9/dist/ol.js"></script>
-    <script src="{% static 'js/map.js' %}"></script>
-    <script src="{% static 'js/styles.js' %}"></script>
-    <script src="{% static 'js/summit-detail-map.js' %}"></script>
-{% endblock headextra %}
-
 {% block title %}
     &#x26F0; {{ mountain.point.display_name }}
     ({{ mountain.point.altitude }} m)
@@ -69,12 +61,3 @@
     {% include "mountains/summit/blocks/slope-to.html" %}
     {% include "mountains/summit/blocks/horizon-to.html" %}
 {% endblock page_content %}
-
-{% block init_map %}
-    <script>
-        initSummitMap(
-            "{% url 'summit-detail-geojson' mountain.pk %}",
-            [{{ mountain.point.location.x }}, {{ mountain.point.location.y }}],
-        );
-    </script>
-{% endblock init_map %}

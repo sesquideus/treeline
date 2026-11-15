@@ -104,6 +104,17 @@ class SummitQuerySet(models.QuerySet):
     def with_countries(self):
         return self.prefetch_related('point__countries')
 
+    def with_popup(self):
+        """
+        Everything a summit's map popup reads, as annotations rather than per-summit work in
+        Python: `to_dict()` and `to_detail_dict()` find their distances, slopes and angles
+        here, and the slope and horizon parents they serialize come joined. The global map's
+        viewport detail and the detail pages' maps both serve popups from this.
+        """
+        return (self.with_prominence().with_isolation()
+                .with_distance_to_key_col().with_slope_to_key_col()
+                .with_slope_parent().with_horizon_parent().with_countries())
+
     def with_slope_parent(self):
         return self.select_related('slope_parent__point').annotate(
             dh=F('slope_parent__point__altitude') - F('point__altitude'),

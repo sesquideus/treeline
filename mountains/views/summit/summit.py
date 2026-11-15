@@ -14,6 +14,7 @@ from django.views.generic.edit import FormMixin
 from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col, NamedPoint
 from mountains.views.cache import CachedPageMixin
+from mountains.views.detail_map import collection, summit_features, summit_map_queryset
 from mountains.views.tree.tree import CachedJsonMixin
 from mountains.views.viewport import ViewportDetailView
 
@@ -248,6 +249,10 @@ class MountainDetailView(DetailView):
         return context | {
             'by_slope': ranked.order_by(F('slope').desc(nulls_last=True))[:20],
             'by_horizon': ranked.order_by(F('hhp_angle').desc(nulls_last=True))[:20],
+            # In the page rather than fetched after it, as on the col and river pages: the
+            # map then opens with the page, already framed.
+            'map_data': collection(summit_features(
+                summit_map_queryset().get(pk=self.object.pk))),
         }
 
 
@@ -468,7 +473,4 @@ class DetailJsonView(ViewportDetailView):
         # The annotations are what `to_detail_dict()` reads instead of recomputing every
         # distance, slope and angle in Python, per summit — and with_slope_parent() /
         # with_horizon_parent() also join the two parents whose sections it serializes.
-        return (Summit.objects
-                .with_prominence().with_isolation()
-                .with_distance_to_key_col().with_slope_to_key_col()
-                .with_slope_parent().with_horizon_parent().with_countries())
+        return Summit.objects.with_popup()

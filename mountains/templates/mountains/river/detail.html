@@ -2,6 +2,9 @@
 
 {% load static countries tree cairn %}
 
+{# Nothing on a river's map is routed through a col. #}
+{% block map_controls %}{% endblock map_controls %}
+
 {% block page_title %}
     <span class="river">{{ river.source.name }}</span>
     {{ river.source|flags }}

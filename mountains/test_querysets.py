@@ -83,6 +83,18 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
             cached=('point', 'isolation_parent.point'),
         ),
         'with_countries': Case(cached=('point.countries',)),
+        'with_popup': Case(
+            annotations=('prominence', 'dominance', 'distance_to_parent', 'isolation',
+                         'distance_to_key_col', 'key_col_dh', 'key_col_dd',
+                         'slope_to_key_col', 'dh', 'dd', 'slope',
+                         'distance_to_horizon', 'beta', 'angle'),
+            cached=('point', 'key_col.point', 'prominence_parent.point',
+                    'isolation_parent.point', 'point.countries', 'slope_parent.point',
+                    'horizon_parent.point'),
+            builds_on=('with_prominence', 'with_isolation', 'with_distance_to_key_col',
+                       'with_slope_to_key_col', 'with_slope_parent', 'with_horizon_parent',
+                       'with_countries'),
+        ),
         'with_slope_parent': Case(
             annotations=('dh', 'dd', 'slope'),
             cached=('slope_parent.point',),
