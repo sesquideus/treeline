@@ -113,7 +113,8 @@ class SummitQuerySet(models.QuerySet):
         """
         return (self.with_prominence().with_isolation()
                 .with_distance_to_key_col().with_slope_to_key_col()
-                .with_slope_parent().with_horizon_parent().with_countries())
+                .with_slope_parent().with_horizon_parent().with_countries()
+                .prefetch_related('point__names__language'))
 
     def with_slope_parent(self):
         return self.select_related('slope_parent__point').annotate(
@@ -711,6 +712,8 @@ class Summit(GeoModel):
         isolation = self.compute_isolation()
         return {
             'name': self.point.name if self.point else None,
+            # Every name in current use, the most important language first.
+            'names': [name.to_dict() for name in self.point.current_names()] if self.point else [],
             'alt': self.point.altitude if self.point else None,
             'countries': [c.code for c in self.point.countries.all()] if self.point else [],
             'key_col': self.key_col_dict(),

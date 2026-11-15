@@ -31,20 +31,16 @@
         {% endif %}
     </ul>
 
-    {% if point.names.all %}
-        <h3>Names</h3>
-        <table class="lineage">
-            <tbody>
-                {% for name in point.names.all %}
-                    <tr>
-                        <td>{{ name.name }}</td>
-                        <td>{{ name.language }}</td>
-                        <td>{% if name.local %}local{% endif %}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
+    {% with current=point.current_names historical=point.historical_names %}
+        {% if current %}
+            <h3>Names</h3>
+            {% include 'mountains/point/blocks/names.html' with names=current %}
+        {% endif %}
+        {% if historical %}
+            <h3>Historical names</h3>
+            {% include 'mountains/point/blocks/names.html' with names=historical %}
+        {% endif %}
+    {% endwith %}
 
     <h3>High point of</h3>
     <p>

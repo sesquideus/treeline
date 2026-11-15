@@ -66,5 +66,9 @@ class NamedPointInline(admin.TabularInline):
 @admin.register(PointName)
 class PointNameAdmin(admin.ModelAdmin):
     autocomplete_fields = ['point']
+    list_display = ['name', 'point', 'language', 'local', 'historical']
+    list_filter = ['historical', 'local', 'language']
+    list_select_related = ['point', 'language']
+    search_fields = ['name', 'point__name']
 
 

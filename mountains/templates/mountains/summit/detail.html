@@ -17,17 +17,33 @@
     <span class="latitude">{{ mountain.point.location.y|floatformat:6 }}°</span>
     <span class="longitude">{{ mountain.point.location.x|floatformat:6 }}°</span>
 
-    <h3>
-        Names
-    </h3>
-    <table class="lineage">
-        {% for name in mountain.point.names.all %}
-            <tr>
-                <td>{{ name.name }}</td>
-                <td>{% flaglet name.language.country_code %}</td>
-            </tr>
-        {% endfor %}
-    </table>
+    {% with current=mountain.point.current_names historical=mountain.point.historical_names %}
+        <h3>
+            Names
+        </h3>
+        <table class="lineage">
+            {% for name in current %}
+                <tr>
+                    <td>{{ name.name }}</td>
+                    <td>{% flaglet name.language.country_code %}</td>
+                </tr>
+            {% endfor %}
+        </table>
+
+        {% if historical %}
+            <h3>
+                Historical names
+            </h3>
+            <table class="lineage">
+                {% for name in historical %}
+                    <tr>
+                        <td>{{ name.name }}</td>
+                        <td>{% flaglet name.language.country_code %}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+    {% endwith %}
 
     <h3>
         Isolation

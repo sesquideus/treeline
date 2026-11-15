@@ -83,6 +83,18 @@ class NamedPoint(AdminModel):
         coordinates = self.coordinates()
         return f"(unnamed {coordinates})" if coordinates else "(unnamed)"
 
+    def current_names(self):
+        """
+        The names the point goes by now, the most important language first (see
+        `PointName.Meta.ordering`). Filtered in Python rather than in SQL, so that a
+        prefetched `names` — `with_names()`, or `point__names__language` — is all it reads.
+        """
+        return [name for name in self.names.all() if not name.historical]
+
+    def historical_names(self):
+        """ The names it used to go by, in the same order. """
+        return [name for name in self.names.all() if name.historical]
+
     def flags(self):
         return mark_safe(' '.join([flag(country.code) for country in self.countries.all()]))
 
@@ -116,13 +128,23 @@ class PointName(models.Model):
     """
     M2M for a point name (point, language)
     """
+    class Meta:
+        # Language priority counts up from the most important: English 0, Slovak 1, ...
+        ordering = ('language__priority', 'language__english_name', 'name')
+
     point = models.ForeignKey('NamedPoint', on_delete=models.CASCADE,
                               related_name='names')
 
     name = models.CharField(max_length=64)
     language = models.ForeignKey(Language, on_delete=models.PROTECT)
     local = models.BooleanField(default=False)
+    historical = models.BooleanField(default=False,
+                                     help_text='No longer in use: a former or obsolete name')
     source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.point} in {self.language}: {self.name}"
+
+    def to_dict(self):
+        """ For a map popup: the name and the flag its language is shown with. """
+        return {'name': self.name, 'flag': self.language.country_code}

@@ -103,12 +103,14 @@ def popup_html(**properties):
     The popup `map.js` builds for a feature with these properties.
 
     `popupHtml()` reads a feature only through `.get()`, so a plain object with that one
-    method stands in for the OpenLayers one. Values cross as JSON, which is exactly how they
-    arrive in the browser — they came from `to_dict()` through a GeoJSON endpoint.
+    method stands in for the OpenLayers one — and `getGeometry()`, which a summit's position
+    row reads, with none to give. Values cross as JSON, which is exactly how they arrive in
+    the browser — they came from `to_dict()` through a GeoJSON endpoint.
     """
     context = _context()
     context.eval('var __feature_properties = %s;' % json.dumps(properties))
-    return context.eval('popupHtml({ get: key => __feature_properties[key] })')
+    return context.eval(
+        'popupHtml({ get: key => __feature_properties[key], getGeometry: () => null })')
 
 
 def rows(html):

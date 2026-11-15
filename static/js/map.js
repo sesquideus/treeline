@@ -179,6 +179,15 @@ function popupSection(caption, rows) {
         .join('');
 }
 
+// Every name the summit goes by now, as the server sends them: the most important language
+// first, each with the flag of its language in the label column. Historical names stay on
+// the detail page.
+function namesSection(names) {
+    if (!names || !names.length) return '';
+    return popupSection('names',
+                        names.map(n => popupRow(flagsHtml([n.flag]), n.name, 'name')));
+}
+
 function popupTable(sections) {
     const body = sections.filter(Boolean).join('');
     return body ? `<table class="tooltip">${body}</table>` : '';
@@ -319,6 +328,7 @@ function popupHtml(feature) {
             return popupCaption('mountain', summitUrl(feature.get('pk')),
                                 feature.get('name') ?? 'unnamed peak', feature.get('countries'))
                 + popupTable([
+                    namesSection(feature.get('names')),
                     popupSection('summit', [
                         popupRow('position', featurePosition(feature)),
                         popupRow('altitude', orQuery(asAltitude(feature.get('alt'))), 'altitude'),

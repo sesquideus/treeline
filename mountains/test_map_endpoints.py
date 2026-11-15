@@ -130,8 +130,9 @@ class DetailKeyTests(MapDataTestCase):
     def test_summit_detail_adds_the_hierarchies_to_dict_does_not_carry(self):
         # `slope` / `horizon` rather than `slope_parent` / `horizon_parent`: those names are
         # the parent ids in the skeleton, and the client joins its lineage lines on them.
+        # `names`: the current names in every language, which only the popup lists.
         self.assertEqual(set(self.beta.to_detail_dict()) - set(self.beta.to_dict()),
-                         {'nhn', 'slope', 'horizon'})
+                         {'nhn', 'slope', 'horizon', 'names'})
 
     def test_col_detail_is_to_dict_without_the_geometry(self):
         col = Col.objects.with_point().with_minor().get(pk=self.alpha_col.pk)
