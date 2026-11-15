@@ -414,3 +414,48 @@ class ParentMarkTests(TestCase):
         """The marker on top is the one a hit test returns, and so the one a click opens."""
         self.assertGreater(evaluate('Z_POINT + Z_SUMMIT_SPAN + 1', source='static/js/styles.js'),
                            evaluate('prominenceZIndex(1e9)', source='static/js/styles.js'))
+
+
+class ColPageQueryTests(TestCase):
+    """
+    The col page printed every friend col and every sibling through bare relations: a query
+    per col, per summit, per name. A col draining to the sea has a hundred-odd friends, and
+    Baligówka's page ran 748 queries. Now it is a fixed handful, whatever the tables hold.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        # No mouth on purpose: a col's popup used to read the mouth's position regardless.
+        sea = River.objects.create(source=make_point('Sea', 0, 45.0, 15.0))
+        cls.parent = make_summit('Parent', 2600, 49.1, 20.1)
+        cls.col = make_col('The Col', 1800, 48.98, 20.05, confluence_river=sea)
+        make_summit('Summit', 2400, 49.0, 20.0, key_col=cls.col, prominence_parent=cls.parent)
+        for i in range(30):      # friends, all hanging off the same parent: siblings too
+            col = make_col(None if i % 3 else f'Friend {i}', 1000 + i, 49.0 + i / 100, 20.5,
+                           confluence_river=sea)
+            make_summit(f'Peak {i}', 1500 + i, 49.0 + i / 100, 20.6,
+                        key_col=col, prominence_parent=cls.parent)
+
+    def test_the_page_costs_a_fixed_handful_of_queries(self):
+        with self.assertNumQueries(7):
+            response = self.client.get(f'/col/{self.col.pk}/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_every_friend_and_sibling_is_still_listed_by_name(self):
+        html = self.client.get(f'/col/{self.col.pk}/').content.decode()
+        for i in range(30):
+            self.assertIn(f'>Peak {i}<', html)
+        self.assertIn('>Friend 0<', html)
+        self.assertIn('→ Peak 1', html)      # an unnamed col is named after its summit
+
+
+class WaypointOrderTests(TestCase):
+    def test_junctions_at_the_same_altitude_come_in_the_same_order_every_time(self):
+        river = River.objects.create(source=make_point('Spring', 1000, 49.0, 20.0),
+                                     mouth=make_point('Mouth', 100, 48.0, 21.0))
+        for lon in (20.3, 20.1, 20.2):      # three tributaries meeting at one altitude
+            River.objects.create(source=make_point(f'Trib {lon}', 900, 49.5, lon),
+                                 mouth=make_point(f'Junction {lon}', 500, 48.5, lon), parent=river)
+        orders = {tuple(tuple(p) for p in River.objects.get(pk=river.pk).to_geojson()
+                        ['geometry']['coordinates']) for _ in range(5)}
+        self.assertEqual(len(orders), 1)

@@ -129,7 +129,8 @@ class Col(GeoModel):
             'lat': self.point.location.y if self.point else None,
             'lon': self.point.location.x if self.point else None,
             'alt': self.point.altitude if self.point else None,
-            'depth': self.key_for.prominence if hasattr(self, 'key_for') else None,
+            # The annotation when the queryset made one (`with_minor()`), else from the col.
+            'depth': self.key_for.compute_prominence() if hasattr(self, 'key_for') else None,
             'confluence': {
                 # The river, as in the skeleton — this used to be the id of its source point.
                 'river': self.confluence_river_id,
@@ -138,7 +139,9 @@ class Col(GeoModel):
                 'lat': self.confluence_river.mouth.location.y,
                 'alt': self.confluence_river.mouth.altitude,
                 'dist': confluence_distance.m if confluence_distance is not None else None,
-            } if self.confluence_river else None,
+            # The confluence *is* the river's mouth: without one there is no place to give.
+            } if (self.confluence_river and self.confluence_river.mouth
+                  and self.confluence_river.mouth.location) else None,
             'river': {
                 'pk': self.confluence_river_id,
                 'name': self.confluence_river.name(),

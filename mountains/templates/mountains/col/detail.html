@@ -39,7 +39,7 @@
             Sibling cols have the same parent peak.
         </p>
         <table class="lineage">
-            {% for peak in lower.prominence_parent.prominence_children.all %}
+            {% for peak in siblings %}
                 <tr>
                     <td>
                         {% object_link peak.key_col 'col' attr='name' %}

@@ -303,6 +303,9 @@ class River(GeoModel):
         caller who prefetched them (`with_tributaries().with_branches()`) pays no extra
         query per river.
         """
+        # Ties in altitude are broken by position: tributaries and branches come from the
+        # database in no particular order (a River has none), and a stable sort would carry
+        # that order into the line — the same river drawn differently from one load to the next.
         junctions = [
             (trib.mouth.altitude, trib.mouth.location)
             for trib in self.tributaries.all()
@@ -314,7 +317,8 @@ class River(GeoModel):
         ]
         # An unknown altitude sorts first, which is what NULLS FIRST gave us under the
         # previous `order_by('-mouth__altitude')`.
-        junctions.sort(key=lambda junction: math.inf if junction[0] is None else junction[0],
+        junctions.sort(key=lambda junction: (math.inf if junction[0] is None else junction[0],
+                                             junction[1].x, junction[1].y),
                        reverse=True)
 
         points = []
