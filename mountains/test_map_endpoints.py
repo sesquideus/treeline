@@ -246,6 +246,6 @@ class CacheTests(MapDataTestCase):
         self.alpha_col.point.altitude = 2000.0
         self.alpha_col.point.save()
 
-        self.assertGreater(data_version(), version)
+        self.assertNotEqual(data_version(), version)
         after = self.features('summits-geojson')[self.alpha.pk]['properties']['prom']
         self.assertEqual((before, after), (500.0, 1000.0))

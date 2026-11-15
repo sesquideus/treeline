@@ -18,6 +18,8 @@ when it must *not* answer.
 """
 
 import re
+import tempfile
+import time
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -34,7 +36,8 @@ from mountains import views
 from mountains.models import Summit
 from mountains.signals import is_watched
 from mountains.test_factories import make_country, make_summit
-from mountains.views.cache import CachedPageMixin, data_version
+from mountains.views.cache import (VERSION_KEY, CachedPageMixin, bump_data_version,
+                                   data_version)
 
 
 def robots_rules(text):
@@ -245,3 +248,39 @@ class InvalidationScopeTests(SimpleTestCase):
                      views.IsolationForestView, views.SlopeTreeView, views.HorizonTreeView]:
             with self.subTest(view=view.__name__):
                 self.assertTrue(issubclass(view, CachedPageMixin))
+
+
+class VersionKeyLossTests(TestCase):
+    """
+    On the file backend, the one production runs. The in-memory one the tests use otherwise
+    keeps a key's expiry through `incr()`; the file one re-saved it with the default five
+    minutes, after which the version restarted at 1 and the map served the data from before
+    the save — two new summits went missing on the live site that way.
+    """
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        backend = {'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+                   'LOCATION': self.directory.name}
+        self.override = override_settings(CACHES={'default': backend})
+        self.override.enable()
+
+    def tearDown(self):
+        self.override.disable()
+        self.directory.cleanup()
+
+    def test_a_bumped_version_does_not_expire(self):
+        data_version()
+        bump_data_version()
+        bumped = data_version()
+        with mock.patch('time.time', return_value=time.time() + 3600):
+            self.assertEqual(data_version(), bumped)
+
+    def test_losing_the_version_never_brings_back_an_old_one(self):
+        """Culled past MAX_ENTRIES, or cleared: whatever comes next must be new."""
+        seen = {data_version()}
+        for _ in range(5):
+            bump_data_version()
+            seen.add(data_version())
+            cache.delete(VERSION_KEY)
+            self.assertNotIn(data_version(), seen)

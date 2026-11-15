@@ -5,11 +5,11 @@ The map and the tree pages fetch payloads that take a second to build, and the l
 forest pages take one to two and a half seconds to render — almost all of it template time
 over a couple of thousand rows, not SQL. All of them change only when the maintainer edits
 the data, several times a day at most. They are therefore cached whole, and the whole cache
-is dropped on any write, by bumping a version counter that every key is built from: there
+is dropped on any write, by replacing a version token that every key is built from: there
 is no partial invalidation to get wrong, and a stale page cannot outlive the next save.
 
 The backend is on disk (see CACHES in settings) so that every worker reads the same version
-counter. A per-process cache let a save invalidate one worker while the other kept serving
+token. A per-process cache let a save invalidate one worker while the other kept serving
 the old data.
 
 Every key also carries `BOOT`, minted once per process start. A disk cache survives a
@@ -30,22 +30,28 @@ TIMEOUT = None          # never expires by itself — a save is what invalidates
 BOOT = secrets.token_hex(4)
 
 
-def data_version() -> int:
-    """The current version of the geographic data. Every cache key carries it."""
+def data_version() -> str:
+    """
+    The current version of the geographic data. Every cache key carries it.
+
+    A random token rather than a counter. The version key can vanish — culled when the
+    directory passes MAX_ENTRIES, or cleared — and a counter that then restarted from 1
+    would hand back every page cached under the old 1, which never expire. A fresh token
+    can only miss. (A counter also lost to `incr()`: the file backend re-saves the value
+    with the default five-minute timeout, so the version fell back to 1 five minutes after
+    every save, and the map went back to the data from before it.)
+    """
     version = cache.get(VERSION_KEY)
     if version is None:
-        version = 1
-        cache.set(VERSION_KEY, version, TIMEOUT)
+        version = bump_data_version()
     return version
 
 
-def bump_data_version() -> int:
-    """Invalidate every cached payload. Called from the post_save/post_delete signals."""
-    try:
-        return cache.incr(VERSION_KEY)
-    except ValueError:      # nothing cached yet, so nothing to invalidate
-        cache.set(VERSION_KEY, 1, TIMEOUT)
-        return 1
+def bump_data_version() -> str:
+    """Invalidate every cached payload. Called from the save/delete/m2m signals."""
+    version = secrets.token_hex(4)
+    cache.set(VERSION_KEY, version, TIMEOUT)
+    return version
 
 
 def versioned_key(name: str) -> str:
