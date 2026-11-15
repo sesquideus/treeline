@@ -35,6 +35,7 @@ class RiverAdmin(PointModelAdmin):
         }),
     )
     search_fields = ['source__name']
+    autocomplete_fields = ['source', 'branches_off', 'mouth', 'parent', 'source_summit', 'watershed_high_point']
 
     @admin.display(boolean=True)
     def is_complete(self, obj):

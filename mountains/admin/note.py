@@ -6,6 +6,7 @@ from mountains.models.note import Note
 @admin.register(Note)
 class NoteAdmin(admin.ModelAdmin):
     model = Note
+    autocomplete_fields = ['point']
 
 
 class NoteInline(admin.TabularInline):

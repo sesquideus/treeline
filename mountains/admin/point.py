@@ -65,6 +65,6 @@ class NamedPointInline(admin.TabularInline):
 
 @admin.register(PointName)
 class PointNameAdmin(admin.ModelAdmin):
-    pass
+    autocomplete_fields = ['point']
 
 

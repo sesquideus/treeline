@@ -88,7 +88,7 @@ class SummitAdmin(ModelAdmin):
     actions = ['compute_slope_parent', 'compute_horizon_parent', 'compute_horizon_parent_std',
                'compute_points', 'assign_to_range']
     search_fields = ['point__name']
-    autocomplete_fields = ['point', 'key_col', 'isolation_parent', 'slope_parent', 'horizon_parent']
+    autocomplete_fields = ['point', 'key_col', 'prominence_parent', 'isolation_parent', 'slope_parent', 'horizon_parent']
     inlines = [SummitRangeInline]
     # `RelatedOnly` for the countries: a filter that offers the five countries no summit
     # sits in is five ways to reach an empty list.
