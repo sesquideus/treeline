@@ -53,23 +53,27 @@ class Command(BaseCommand):
         if self.author is None:
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
-                           skipped=0)
+                           removed=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
             with transaction.atomic():
+                # Splits and moves first, then relinks (which may free a col), then new summits
+                # (which may take one), names, and last the cols nothing needs any more.
                 new = {}
+                for split in data.get('splits', []):
+                    self.split(split)
+                for fix in data.get('points', []):
+                    self.move(fix)
+                self.relink(data.get('relinks', []))
                 for s in data.get('summits', []):
                     self.summit(s, new)
                 for n in data.get('point_names', []):
                     self.point_name(n)
                 for c in data.get('col_names', []):
                     self.col_name(c)
-                for split in data.get('splits', []):
-                    self.split(split)
-                for fix in data.get('points', []):
-                    self.move(fix)
-                self.relink(data.get('relinks', []))
+                for at in data.get('remove_cols', []):
+                    self.remove_col(at)
                 if dry_run:
                     raise DryRun
         except DryRun:
@@ -77,7 +81,8 @@ class Command(BaseCommand):
         c = self.counts
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
-            f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked; '
+            f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
+            f'{c["removed"]} cols removed; '
             f'{c["skipped"]} skipped'))
 
     # ------------------------------------------------------------------ summits
@@ -124,15 +129,24 @@ class Command(BaseCommand):
         if old:
             self.rename(old.point, s['name'], 'the summit')
             if old.key_col and old.key_col.point:
-                self.rename(old.key_col.point, s['col']['name'], 'its key col')
+                self.rename(old.key_col.point, s['col'].get('name'), 'its key col')
             self.stdout.write(f'  = {s["name"] or s["key"]}: already there as {old}')
             new[s['key']] = old
             self.counts['skipped'] += 1
             return
         c = s['col']
-        col = (Col.objects.filter(point__location__dwithin=(Point(c['lon'], c['lat'], srid=4326), SAME_PLACE),
-                                  key_for__isnull=True).first()
-               or Col.objects.create(point=self.point(c, 'its key col')))
+        if 'existing' in c:
+            # A col the DB has, freed by a relink: this summit is the one it is the key col of.
+            col = Col.objects.filter(point__pk=c['existing']['point'], point__name=c['existing']['name'],
+                                     key_for__isnull=True).first()
+            if col is None:
+                self.stdout.write(f'  ! {s["name"] or s["key"]}: col {c["existing"]["name"]} not found free: skipped')
+                self.counts['skipped'] += 1
+                return
+        else:
+            col = (Col.objects.filter(point__location__dwithin=(Point(c['lon'], c['lat'], srid=4326), SAME_PLACE),
+                                      key_for__isnull=True).first()
+                   or Col.objects.create(point=self.point(c, 'its key col')))
         parent = None
         if s['parent'] and 'pk' in s['parent']:
             parent = Summit.objects.filter(pk=s['parent']['pk'], point__name=s['parent']['name']).first()
@@ -219,8 +233,19 @@ class Command(BaseCommand):
         if Summit.objects.filter(point__location__dwithin=(Point(t['lon'], t['lat'], srid=4326), SAME_PLACE)).exists():
             self.counts['skipped'] += 1
             return
-        key_col, parent, source = old.key_col, old.prominence_parent, old.prominence_source
         own_col = Col.objects.create(point=self.point(dict(sp['col'], name=None, names=[]), 'the new col'))
+        if t['altitude'] <= old.point.altitude:
+            # The other top is no higher than the summit as the DB has it (a tie, within the
+            # lidar's reach): the summit stays as it is, and the other top hangs off it.
+            top = Summit(point=self.point(dict(t, name=None, names=[]), 'the new top'), key_col=own_col,
+                         prominence_parent=old, prominence_source=self.lidar)
+            top.full_clean()
+            top.save()
+            self.counts['splits'] += 1
+            self.stdout.write(f'  + {old.point}: the other top {top.point} is no higher, so it hangs off it, '
+                              f'key col {own_col.point}, P {top.compute_prominence():.1f}')
+            return
+        key_col, parent, source = old.key_col, old.prominence_parent, old.prominence_source
         Summit.objects.filter(pk=old.pk).update(key_col=own_col, prominence_parent=None, prominence_source=None)
         top = Summit(point=self.point(dict(t, name=None, names=[]), 'the new top'), key_col=key_col,
                      prominence_parent=parent, prominence_source=(source or self.lidar) if parent else None)
@@ -246,47 +271,83 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ corrections
 
     def move(self, fix):
-        """A point put where the lidar has it, at the lidar's height: an old col read off a map."""
+        """
+        A point put where the lidar has it: an old col read off a map, a summit label placed
+        on the slope. With an altitude, at the lidar's height too.
+        """
         point = self.found(fix['point'], fix['name'])
         if point is None:
             return
         here = Point(fix['lon'], fix['lat'], srid=4326)
-        if (point.location.distance(here) < 1e-7 and point.altitude == fix['altitude']
-                and point.altitude_datum and point.altitude_datum.code == fix['datum']):
+        # Without an altitude only the position moves: the height, its datum and its source stay.
+        height = fix.get('altitude')
+        if point.location.distance(here) < 1e-7 and (height is None or (
+                point.altitude == height and point.altitude_datum and point.altitude_datum.code == fix['datum'])):
             self.counts['skipped'] += 1
             return
         was = f'{point.location.y:.6f}, {point.location.x:.6f}, {point.altitude} m'
-        point.location, point.altitude = here, fix['altitude']
-        point.altitude_datum, point.source = self.datums[fix['datum']], self.lidar
+        point.location = here
+        if height is not None:
+            point.altitude, point.altitude_datum, point.source = height, self.datums[fix['datum']], self.lidar
         point.full_clean()
         point.save()
         self.counts['moved'] += 1
-        self.stdout.write(f'  + {point.name}: {was} -> {fix["lat"]:.6f}, {fix["lon"]:.6f}, {fix["altitude"]} m')
+        self.stdout.write(f'  + {point.name or point}: {was} -> {fix["lat"]:.6f}, {fix["lon"]:.6f}, {point.altitude} m')
 
     def relink(self, links):
         """
         New key cols and parents for a group of summits at once. A key col belongs to one
         summit, so cols trading places are let go of first and then handed out.
         """
+        def near(model, at):
+            return model.objects.filter(point__location__dwithin=(Point(at['lon'], at['lat'], srid=4326),
+                                                                  SAME_PLACE)).first()
         todo = []
         for link in links:
-            summit = Summit.objects.filter(pk=link['summit'], point__name=link['summit_name']).first()
-            col = Col.objects.filter(point__pk=link['key_col']['point'], point__name=link['key_col']['name']).first()
-            parent = Summit.objects.filter(pk=link['parent']['pk'], point__name=link['parent']['name']).first()
-            if None in (summit, col, parent):
-                self.stdout.write(f'  ! {link["summit_name"]}: summit, key col or parent not found as such: skipped')
+            # A summit or col this tooling created has no pk in common with the server: by position.
+            summit = (near(Summit, link['summit_at']) if 'summit_at' in link
+                      else Summit.objects.filter(pk=link['summit'], point__name=link['summit_name']).first())
+            k = link['key_col']
+            if 'new' in k:
+                col = near(Col, k['new']) or Col(point=None)
+            elif 'at' in k:
+                col = near(Col, k['at'])
+            else:
+                col = Col.objects.filter(point__pk=k['point'], point__name=k['name']).first()
+            parent = (summit.prominence_parent if summit and 'parent' not in link
+                      else link['parent'] and Summit.objects.filter(pk=link['parent']['pk'],
+                                                                    point__name=link['parent']['name']).first())
+            if summit is None or col is None or ('parent' in link and link['parent'] and parent is None):
+                self.stdout.write(f'  ! {link.get("summit_name")}: summit, key col or parent not found as such: skipped')
                 self.counts['skipped'] += 1
                 continue
-            if summit.key_col_id == col.pk and summit.prominence_parent_id == parent.pk:
+            if col.pk and summit.key_col_id == col.pk and summit.prominence_parent_id == (parent and parent.pk):
                 self.counts['skipped'] += 1
                 continue
+            if not col.pk:
+                col = Col.objects.create(point=self.point(k['new'], f'the new key col of {summit.point}'))
             todo.append((summit, col, parent))
         Summit.objects.filter(pk__in=[s.pk for s, _, _ in todo]).update(key_col=None)
         for summit, col, parent in todo:
             summit.refresh_from_db()
-            summit.key_col, summit.prominence_parent, summit.prominence_source = col, parent, self.lidar
+            summit.key_col, summit.prominence_parent = col, parent
+            summit.prominence_source = self.lidar if parent else None
             summit.full_clean()
             summit.save()
             self.counts['relinked'] += 1
             self.stdout.write(f'  + {summit.point}: key col {col.point}, parent {parent.point}, '
                               f'P {summit.compute_prominence():.1f}')
+
+    def remove_col(self, at):
+        """A col this tooling made that nothing needs any more: one it duplicated, say."""
+        here = Point(at['lon'], at['lat'], srid=4326)
+        col = Col.objects.filter(point__location__dwithin=(here, SAME_PLACE), key_for__isnull=True,
+                                 point__source=self.lidar).select_related('point').first()
+        if col is None:
+            self.counts['skipped'] += 1
+            return
+        self.stdout.write(f'  - col {col.point}: removed')
+        point = col.point
+        col.delete()
+        point.delete()
+        self.counts['removed'] += 1

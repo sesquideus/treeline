@@ -1,0 +1,312 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "points": [
+  {
+   "point": 160,
+   "name": "Sedlo pod Hrubým vrchom",
+   "lat": 49.199076,
+   "lon": 19.787141,
+   "altitude": 1818.44,
+   "datum": "Bpv"
+  },
+  {
+   "point": 331,
+   "name": "Bôrik",
+   "lat": 49.281737,
+   "lon": 19.705172,
+   "altitude": 940.44,
+   "datum": "Bpv"
+  },
+  {
+   "point": 130,
+   "name": "Štóske sedlo",
+   "lat": 48.722113,
+   "lon": 20.761919,
+   "altitude": 783.01,
+   "datum": "Bpv"
+  },
+  {
+   "point": 290,
+   "name": "Jastrabské sedlo",
+   "lat": 48.81102,
+   "lon": 18.089281,
+   "altitude": 352.94,
+   "datum": "Bpv"
+  },
+  {
+   "point": 563,
+   "name": "Pusté pole",
+   "lat": 49.212001,
+   "lon": 20.919163,
+   "altitude": 583.6,
+   "datum": "Bpv"
+  },
+  {
+   "point": 306,
+   "name": null,
+   "lat": 48.520808,
+   "lon": 19.464102,
+   "altitude": 407.79,
+   "datum": "Bpv"
+  },
+  {
+   "point": 5453,
+   "name": null,
+   "lat": 49.172165,
+   "lon": 18.540716,
+   "altitude": 445.45,
+   "datum": "Bpv"
+  },
+  {
+   "point": 247,
+   "name": "Javorinka",
+   "lat": 48.796069,
+   "lon": 20.135468,
+   "altitude": 944.14,
+   "datum": "Bpv"
+  },
+  {
+   "point": 200,
+   "name": "south of Poprad",
+   "lat": 49.033727,
+   "lon": 20.302292,
+   "altitude": 684.6,
+   "datum": "Bpv"
+  },
+  {
+   "point": 624,
+   "name": "Točňa",
+   "lat": 49.170631,
+   "lon": 20.618224,
+   "altitude": 1081.75,
+   "datum": "Bpv"
+  },
+  {
+   "point": 818,
+   "name": "Trohánka",
+   "lat": 48.765661,
+   "lon": 20.914398,
+   "altitude": 949.01,
+   "datum": "Bpv"
+  },
+  {
+   "point": 1231,
+   "name": null,
+   "lat": 48.760168,
+   "lon": 20.103986,
+   "altitude": 769.27,
+   "datum": "Bpv"
+  }
+ ],
+ "relinks": [
+  {
+   "summit": 99,
+   "summit_name": "Fabova hoľa",
+   "key_col": {
+    "new": {
+     "lat": 48.794998,
+     "lon": 20.125914,
+     "altitude": 928.27,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.801438,
+    "lon": 20.138944
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "point": 247,
+    "name": "Javorinka"
+   }
+  },
+  {
+   "summit": 80,
+   "summit_name": "Čierna hora",
+   "key_col": {
+    "new": {
+     "lat": 49.033166,
+     "lon": 20.346353,
+     "altitude": 684.62,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   }
+  },
+  {
+   "summit": 267,
+   "summit_name": "(Veľká Škapová)",
+   "key_col": {
+    "new": {
+     "lat": 49.179908,
+     "lon": 20.619045,
+     "altitude": 1079.77,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   }
+  },
+  {
+   "summit": 342,
+   "summit_name": "Kloptaň",
+   "key_col": {
+    "new": {
+     "lat": 48.769268,
+     "lon": 20.882736,
+     "altitude": 943.81,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   }
+  },
+  {
+   "summit": 499,
+   "summit_name": "Radzim Muránsky",
+   "key_col": {
+    "new": {
+     "lat": 48.772598,
+     "lon": 20.103751,
+     "altitude": 762.27,
+     "datum": "Bpv",
+     "name": "Predná hora",
+     "names": [
+      {
+       "lang": "sk",
+       "name": "Predná hora",
+       "local": true
+      }
+     ],
+     "countries": [
+      "sk"
+     ]
+    }
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.766655,
+    "lon": 20.102999
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "point": 1231,
+    "name": null
+   }
+  }
+ ],
+ "summits": [
+  {
+   "key": "lidar:49.041453,20.320205",
+   "lat": 49.041453,
+   "lon": 20.320205,
+   "name": null,
+   "names": [],
+   "altitude": 716.82,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 32.16,
+   "parent": {
+    "pk": 2275,
+    "name": "Zámčisko (Kozie chrbty)"
+   },
+   "notes": [
+    "Found as the summit whose key col south of Poprad is (2026-11-16): the col had stood for Čierna hora's, which the lidar puts elsewhere."
+   ],
+   "col": {
+    "existing": {
+     "point": 200,
+     "name": "south of Poprad"
+    }
+   }
+  },
+  {
+   "key": "lidar:49.173578,20.617008",
+   "lat": 49.173578,
+   "lon": 20.617008,
+   "name": null,
+   "names": [],
+   "altitude": 1104.56,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 22.8,
+   "parent": null,
+   "notes": [
+    "Found as the summit whose key col Točňa is (2026-11-16): the col had stood for (Veľká Škapová)'s, which the lidar puts elsewhere."
+   ],
+   "col": {
+    "existing": {
+     "point": 624,
+     "name": "Točňa"
+    }
+   }
+  },
+  {
+   "key": "lidar:48.768593,20.891788",
+   "lat": 48.768593,
+   "lon": 20.891788,
+   "name": "Ovčinec",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Ovčinec",
+     "local": true
+    }
+   ],
+   "altitude": 1012.48,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 63.52,
+   "parent": {
+    "pk": 188,
+    "name": "Zlatoidská hora"
+   },
+   "notes": [
+    "Found as the summit whose key col Trohánka is (2026-11-16): the col had stood for Kloptaň's, which the lidar puts elsewhere."
+   ],
+   "col": {
+    "existing": {
+     "point": 818,
+     "name": "Trohánka"
+    }
+   }
+  }
+ ],
+ "remove_cols": [
+  {
+   "lat": 48.796069,
+   "lon": 20.135468
+  },
+  {
+   "lat": 48.760168,
+   "lon": 20.103986
+  }
+ ]
+}

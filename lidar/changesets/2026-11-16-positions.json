@@ -1,0 +1,695 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "splits": [
+  {
+   "summit": 655,
+   "summit_name": "Vyhnatová",
+   "top": {
+    "lat": 48.760777,
+    "lon": 19.005688,
+    "altitude": 1283.83,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Vyhnatová (2026-11-16): the lidar shows this top 500 m away and +0.9 m against Vyhnatová's own, with a dip of 28.6 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.758974,
+    "lon": 19.004412,
+    "altitude": 1254.32,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 476,
+   "summit_name": "Boboty",
+   "top": {
+    "lat": 49.242711,
+    "lon": 19.054645,
+    "altitude": 1095.92,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Boboty (2026-11-16): the lidar shows this top 407 m away and +9.0 m against Boboty's own, with a dip of 23.8 m between them."
+    ]
+   },
+   "col": {
+    "lat": 49.242945,
+    "lon": 19.055186,
+    "altitude": 1063.14,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 567,
+   "summit_name": "Horeňovo",
+   "top": {
+    "lat": 48.785131,
+    "lon": 18.784097,
+    "altitude": 892.62,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Horeňovo (2026-11-16): the lidar shows this top 158 m away and +0.2 m against Horeňovo's own, with a dip of 12.7 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.785325,
+    "lon": 18.78436,
+    "altitude": 879.68,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 2560,
+   "summit_name": "Kýčera (Oravská vrchovina)",
+   "top": {
+    "lat": 49.250385,
+    "lon": 19.36454,
+    "altitude": 805.97,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Kýčera (Oravská vrchovina) (2026-11-16): the lidar shows this top 178 m away and +0.0 m against Kýčera (Oravská vrchovina)'s own, with a dip of 3.8 m between them."
+    ]
+   },
+   "col": {
+    "lat": 49.250024,
+    "lon": 19.363206,
+    "altitude": 802.16,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 691,
+   "summit_name": "Čierny vrch (Vtáčnik)",
+   "top": {
+    "lat": 48.521927,
+    "lon": 18.690924,
+    "altitude": 763.31,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Čierny vrch (Vtáčnik) (2026-11-16): the lidar shows this top 266 m away and +1.2 m against Čierny vrch (Vtáčnik)'s own, with a dip of 5.7 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.522217,
+    "lon": 18.691941,
+    "altitude": 756.41,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 391,
+   "summit_name": "Veľký Bučeň",
+   "top": {
+    "lat": 48.306977,
+    "lon": 19.87261,
+    "altitude": 514.54,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Veľký Bučeň (2026-11-16): the lidar shows this top 234 m away and +0.2 m against Veľký Bučeň's own, with a dip of 3.4 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.306263,
+    "lon": 19.871385,
+    "altitude": 511.03,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 612,
+   "summit_name": "Osečný vrch",
+   "top": {
+    "lat": 48.60001,
+    "lon": 18.39452,
+    "altitude": 551.59,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Osečný vrch (2026-11-16): the lidar shows this top 643 m away and +0.1 m against Osečný vrch's own, with a dip of 33.0 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.597394,
+    "lon": 18.392213,
+    "altitude": 518.5,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 530,
+   "summit_name": "Satan",
+   "top": {
+    "lat": 49.163667,
+    "lon": 20.052188,
+    "altitude": 2422.14,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Satan (2026-11-16): the lidar shows this top 76 m away and +0.4 m against Satan's own, with a dip of 10.6 m between them."
+    ]
+   },
+   "col": {
+    "lat": 49.163356,
+    "lon": 20.05266,
+    "altitude": 2411.11,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 2438,
+   "summit_name": "Nad Remetovou",
+   "top": {
+    "lat": 48.978764,
+    "lon": 21.376892,
+    "altitude": 950.98,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Nad Remetovou (2026-11-16): the lidar shows this top 35 m away and +0.0 m against Nad Remetovou's own, with a dip of 3.0 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.978783,
+    "lon": 21.376578,
+    "altitude": 947.92,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 2115,
+   "summit_name": "Vyšehrad",
+   "top": {
+    "lat": 48.87592,
+    "lon": 18.699737,
+    "altitude": 829.43,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Vyšehrad (2026-11-16): the lidar shows this top 43 m away and +0.1 m against Vyšehrad's own, with a dip of 2.7 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.875943,
+    "lon": 18.700009,
+    "altitude": 826.6,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 507,
+   "summit_name": "Žibrica",
+   "top": {
+    "lat": 48.368142,
+    "lon": 18.152412,
+    "altitude": 618.85,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Žibrica (2026-11-16): the lidar shows this top 103 m away and +2.4 m against Žibrica's own, with a dip of 5.0 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.367744,
+    "lon": 18.151962,
+    "altitude": 611.47,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 597,
+   "summit_name": "Šarišský hradný vrch",
+   "top": {
+    "lat": 49.051659,
+    "lon": 21.17627,
+    "altitude": 574.46,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Šarišský hradný vrch (2026-11-16): the lidar shows this top 55 m away and +1.2 m against Šarišský hradný vrch's own, with a dip of 7.8 m between them."
+    ]
+   },
+   "col": {
+    "lat": 49.052028,
+    "lon": 21.176135,
+    "altitude": 565.41,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 65,
+   "summit_name": "Devínska Kobyla",
+   "top": {
+    "lat": 48.189662,
+    "lon": 16.995148,
+    "altitude": 515.28,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Devínska Kobyla (2026-11-16): the lidar shows this top 60 m away and +0.3 m against Devínska Kobyla's own, with a dip of 2.1 m between them."
+    ]
+   },
+   "col": {
+    "lat": 48.189547,
+    "lon": 16.995224,
+    "altitude": 512.81,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  }
+ ],
+ "points": [
+  {
+   "point": 942,
+   "name": "Paráč",
+   "lat": 49.323788,
+   "lon": 19.213188
+  },
+  {
+   "point": 330,
+   "name": "Skorušina",
+   "lat": 49.297784,
+   "lon": 19.69229
+  },
+  {
+   "point": 1699,
+   "name": "Vyhnatová",
+   "lat": 48.756503,
+   "lon": 19.003557
+  },
+  {
+   "point": 1188,
+   "name": "Boboty",
+   "lat": 49.243862,
+   "lon": 19.059959
+  },
+  {
+   "point": 1468,
+   "name": "Horeňovo",
+   "lat": 48.786434,
+   "lon": 18.784951
+  },
+  {
+   "point": 5282,
+   "name": "Nemecký vrch",
+   "lat": 48.715823,
+   "lon": 19.054766
+  },
+  {
+   "point": 5834,
+   "name": "Kýčera (Oravská vrchovina)",
+   "lat": 49.249813,
+   "lon": 19.362251
+  },
+  {
+   "point": 1788,
+   "name": "Čierny vrch (Vtáčnik)",
+   "lat": 48.522973,
+   "lon": 18.694168
+  },
+  {
+   "point": 5290,
+   "name": "Nová hora",
+   "lat": 48.878409,
+   "lon": 17.75833
+  },
+  {
+   "point": 5920,
+   "name": "Krajčova hora",
+   "lat": 49.081801,
+   "lon": 18.232879
+  },
+  {
+   "point": 958,
+   "name": "Veľký Bučeň",
+   "lat": 48.305241,
+   "lon": 19.870814
+  },
+  {
+   "point": 1597,
+   "name": "Osečný vrch",
+   "lat": 48.595982,
+   "lon": 18.38827
+  },
+  {
+   "point": 1313,
+   "name": "Satan",
+   "lat": 49.163132,
+   "lon": 20.052843
+  },
+  {
+   "point": 349,
+   "name": "Poludnica",
+   "lat": 49.021072,
+   "lon": 19.631466
+  },
+  {
+   "point": 243,
+   "name": "Poľana",
+   "lat": 48.636659,
+   "lon": 19.48384
+  },
+  {
+   "point": 26,
+   "name": "Minčol Oravský",
+   "lat": 49.271651,
+   "lon": 19.249181
+  },
+  {
+   "point": 534,
+   "name": "Kľak",
+   "lat": 48.981486,
+   "lon": 18.640904
+  },
+  {
+   "point": 5226,
+   "name": "Vysoká (Partizánska Ľupča)",
+   "lat": 48.987401,
+   "lon": 19.454868
+  },
+  {
+   "point": 5480,
+   "name": "Ramzová",
+   "lat": 48.738211,
+   "lon": 20.622095
+  },
+  {
+   "point": 962,
+   "name": "Veľká Rača",
+   "lat": 49.413096,
+   "lon": 18.969025
+  },
+  {
+   "point": 4877,
+   "name": "Čelo (Muráň)",
+   "lat": 48.78266,
+   "lon": 20.144519
+  },
+  {
+   "point": 547,
+   "name": "Smrekovica (Branisko)",
+   "lat": 49.046487,
+   "lon": 20.871467
+  },
+  {
+   "point": 744,
+   "name": "Lúčanská Magura",
+   "lat": 49.158101,
+   "lon": 19.387223
+  },
+  {
+   "point": 4708,
+   "name": "Hýľ",
+   "lat": 48.887934,
+   "lon": 20.444993
+  },
+  {
+   "point": 5314,
+   "name": "Predný Japeň",
+   "lat": 48.839072,
+   "lon": 19.080743
+  },
+  {
+   "point": 1691,
+   "name": "Biela skala",
+   "lat": 48.68582,
+   "lon": 18.686943
+  },
+  {
+   "point": 4907,
+   "name": "Veľký Vtáčí vrch",
+   "lat": 48.756223,
+   "lon": 20.724234
+  },
+  {
+   "point": 4701,
+   "name": "Bukovec (Starohorské vrchy)",
+   "lat": 48.85587,
+   "lon": 19.188665
+  },
+  {
+   "point": 5208,
+   "name": "Malý kopec",
+   "lat": 49.441602,
+   "lon": 19.232321
+  },
+  {
+   "point": 582,
+   "name": "Holica",
+   "lat": 48.807865,
+   "lon": 22.385113
+  },
+  {
+   "point": 1690,
+   "name": "Veľký Grič",
+   "lat": 48.71256,
+   "lon": 18.714036
+  },
+  {
+   "point": 4496,
+   "name": "Orgoňova Kýčera",
+   "lat": 49.251646,
+   "lon": 18.347151
+  },
+  {
+   "point": 1530,
+   "name": "Baské",
+   "lat": 48.880244,
+   "lon": 18.259792
+  },
+  {
+   "point": 5523,
+   "name": "Nad Remetovou",
+   "lat": 48.978558,
+   "lon": 21.376535
+  },
+  {
+   "point": 761,
+   "name": "Sinec",
+   "lat": 48.5548,
+   "lon": 19.915656
+  },
+  {
+   "point": 5353,
+   "name": "Siksov",
+   "lat": 49.115515,
+   "lon": 19.355385
+  },
+  {
+   "point": 4972,
+   "name": "Malinné",
+   "lat": 49.27856,
+   "lon": 18.472545
+  },
+  {
+   "point": 5507,
+   "name": "Kobylia hora",
+   "lat": 48.734639,
+   "lon": 21.005134
+  },
+  {
+   "point": 1644,
+   "name": "Rydošová",
+   "lat": 49.180601,
+   "lon": 22.181464
+  },
+  {
+   "point": 5694,
+   "name": "Galkovo",
+   "lat": 49.366864,
+   "lon": 18.558068
+  },
+  {
+   "point": 4747,
+   "name": "Vyšehrad",
+   "lat": 48.875787,
+   "lon": 18.700289
+  },
+  {
+   "point": 1619,
+   "name": "Javorník",
+   "lat": 49.027446,
+   "lon": 17.995465
+  },
+  {
+   "point": 175,
+   "name": "Záruby",
+   "lat": 48.523483,
+   "lon": 17.392955
+  },
+  {
+   "point": 1696,
+   "name": "Čertov vrch",
+   "lat": 48.674017,
+   "lon": 18.894231
+  },
+  {
+   "point": 4643,
+   "name": "Bôn",
+   "lat": 49.226468,
+   "lon": 18.351632
+  },
+  {
+   "point": 1496,
+   "name": "Lysá Stráž",
+   "lat": 49.083994,
+   "lon": 21.229809
+  },
+  {
+   "point": 1111,
+   "name": "Klin (Laborecká vrchovina)",
+   "lat": 49.357707,
+   "lon": 21.788459
+  },
+  {
+   "point": 989,
+   "name": "Tlstá (Čierna hora)",
+   "lat": 48.87906,
+   "lon": 21.187379
+  },
+  {
+   "point": 5953,
+   "name": "Czeremcha",
+   "lat": 49.415507,
+   "lon": 21.458563
+  },
+  {
+   "point": 5710,
+   "name": "Makovica (Ondavská vrchovina)",
+   "lat": 49.31836,
+   "lon": 21.463219
+  },
+  {
+   "point": 5043,
+   "name": "Spišský hradný vrch",
+   "lat": 49.000547,
+   "lon": 20.768128
+  },
+  {
+   "point": 1257,
+   "name": "Žibrica",
+   "lat": 48.367401,
+   "lon": 18.151576
+  },
+  {
+   "point": 4474,
+   "name": "Džar",
+   "lat": 49.292674,
+   "lon": 21.805025
+  },
+  {
+   "point": 1558,
+   "name": "Šarišský hradný vrch",
+   "lat": 49.052145,
+   "lon": 21.176422
+  },
+  {
+   "point": 5578,
+   "name": "Záruba",
+   "lat": 49.226822,
+   "lon": 21.938169
+  },
+  {
+   "point": 172,
+   "name": "Devínska Kobyla",
+   "lat": 48.189389,
+   "lon": 16.995842
+  },
+  {
+   "point": 907,
+   "name": "Chlm",
+   "lat": 48.872108,
+   "lon": 21.94532
+  },
+  {
+   "point": 4544,
+   "name": "Fircová",
+   "lat": 49.15727,
+   "lon": 21.526684
+  },
+  {
+   "point": 5051,
+   "name": "Modrý vrch",
+   "lat": 47.826186,
+   "lon": 18.643495
+  },
+  {
+   "point": 4358,
+   "name": "Veľký Avaš",
+   "lat": 48.519473,
+   "lon": 21.791345
+  }
+ ]
+}

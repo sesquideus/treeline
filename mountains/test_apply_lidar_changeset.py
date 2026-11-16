@@ -174,3 +174,68 @@ class FixTests(TestCase):
         ApplyTests.run_it(self, self.data())
         out = ApplyTests.run_it(self, self.data())
         self.assertIn('0 moved, 0 relinked', out)
+
+
+class TieAndMoveTests(TestCase):
+    """A split where the other top is no higher, and a move that leaves the height alone."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_country('sk')
+        cls.parent = make_summit('Pilsko', 1556.1, 49.528, 19.317, key_col=make_col('Hliny', 808.3, 49.6, 19.4))
+        cls.kycera = make_summit('Kýčera', 806.0, 49.2500, 19.3640, key_col=make_col('Sedlo', 700.0, 49.24, 19.36),
+                                 prominence_parent=cls.parent)
+
+    def test_a_top_no_higher_hangs_off_the_summit(self):
+        ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), splits=[dict(
+            summit=self.kycera.pk, summit_name='Kýčera',
+            top=dict(lat=49.250385, lon=19.364540, altitude=805.97, datum='Bpv', countries=['sk'], notes=[]),
+            col=dict(lat=49.250024, lon=19.363206, altitude=802.2, datum='Bpv', countries=['sk']))]))
+        self.kycera.refresh_from_db()
+        self.assertEqual(self.kycera.prominence_parent, self.parent)     # untouched
+        other = Summit.objects.get(prominence_parent=self.kycera)
+        self.assertAlmostEqual(other.compute_prominence(), 805.97 - 802.2)
+
+    def test_a_move_without_an_altitude_keeps_the_height_and_its_source(self):
+        point = self.kycera.point
+        ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), points=[
+            dict(point=point.pk, name='Kýčera', lat=49.2502, lon=19.3641)]))
+        point.refresh_from_db()
+        self.assertEqual(point.altitude, 806.0)
+        self.assertIsNone(point.source)
+        self.assertAlmostEqual(point.location.y, 49.2502)
+
+
+class KeyColTests(TestCase):
+    """A summit given the key col the lidar shows; the col it had, given to the summit that owns it."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_country('sk')
+        cls.top = make_summit('Kráľova hoľa', 1944.9, 48.88, 20.14, key_col=make_col('Low', 300.0, 48.0, 20.0))
+        cls.javorinka = make_col('Javorinka', 942.0, 48.795843, 20.135847)
+        cls.fabova = make_summit('Fabova hoľa', 1439.3, 48.80, 20.10, key_col=cls.javorinka, prominence_parent=cls.top)
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'),
+                    relinks=[dict(summit=self.fabova.pk, summit_name='Fabova hoľa', key_col=dict(new=dict(
+                        lat=48.794998, lon=20.125914, altitude=928.3, datum='Bpv', name=None, names=[], countries=['sk'])))],
+                    summits=[dict(key='lidar:48.801438,20.138944', lat=48.801438, lon=20.138944, name=None, names=[],
+                                  altitude=1049.4, datum='Bpv', countries=['sk'], prominence=105.2,
+                                  parent=dict(pk=self.fabova.pk, name='Fabova hoľa'), notes=[],
+                                  col=dict(existing=dict(point=self.javorinka.point.pk, name='Javorinka')))])
+
+    def test_the_col_changes_hands(self):
+        ApplyTests.run_it(self, self.data())
+        self.fabova.refresh_from_db()
+        self.assertAlmostEqual(self.fabova.key_col.point.altitude, 928.3)
+        self.assertEqual(self.fabova.prominence_parent, self.top)            # kept
+        self.assertEqual(Summit.objects.get(key_col=self.javorinka).prominence_parent, self.fabova)
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        before = (Summit.objects.count(), NamedPoint.objects.count())
+        ApplyTests.run_it(self, self.data())
+        self.assertEqual((Summit.objects.count(), NamedPoint.objects.count()), before)
