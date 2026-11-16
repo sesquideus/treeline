@@ -1,0 +1,400 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "point_names": [
+  {
+   "point": 158,
+   "point_name": "Ľadové sedlo",
+   "lang": "pl",
+   "name": "Śnieżna Przełęcz",
+   "what": "col"
+  },
+  {
+   "point": 357,
+   "point_name": "Vysoká [SE summit]",
+   "lang": "de",
+   "name": "Tatraspitze",
+   "what": "summit"
+  },
+  {
+   "point": 357,
+   "point_name": "Vysoká [SE summit]",
+   "lang": "hu",
+   "name": "Tátra-csúcs",
+   "what": "summit"
+  },
+  {
+   "point": 355,
+   "point_name": "Východná Železná brána",
+   "lang": "pl",
+   "name": "Wschodnie Żelazne Wrota",
+   "what": "col"
+  },
+  {
+   "point": 234,
+   "point_name": "Váha",
+   "lang": "de",
+   "name": "Hunfalvy-Joch",
+   "what": "col"
+  },
+  {
+   "point": 234,
+   "point_name": "Váha",
+   "lang": "hu",
+   "name": "Hunfalvy-hágó",
+   "what": "col"
+  },
+  {
+   "point": 5158,
+   "point_name": "Krátka",
+   "lang": "pl",
+   "name": "Krótka",
+   "what": "summit"
+  },
+  {
+   "point": 947,
+   "point_name": "Klin",
+   "lang": "hu",
+   "name": "Ék-hegy",
+   "what": "summit"
+  },
+  {
+   "point": 534,
+   "point_name": "Kľak",
+   "lang": "hu",
+   "name": "Orrkő",
+   "what": "summit"
+  },
+  {
+   "point": 431,
+   "point_name": "Malý Rozsutec",
+   "lang": "hu",
+   "name": "Kis-Rozsutec",
+   "what": "summit"
+  },
+  {
+   "point": 432,
+   "point_name": "Medzirozsutce",
+   "lang": "hu",
+   "name": "Rozsutec-nyereg",
+   "what": "col"
+  },
+  {
+   "point": 131,
+   "point_name": "Zlatý stôl",
+   "lang": "hu",
+   "name": "Aranyasztal",
+   "what": "summit"
+  },
+  {
+   "point": 1023,
+   "point_name": "Veľký Polom",
+   "lang": "pl",
+   "name": "Wielki Połom",
+   "what": "summit"
+  },
+  {
+   "point": 14,
+   "point_name": "Vetrová skala",
+   "lang": "ru",
+   "name": "Витрова Скала",
+   "what": "summit"
+  },
+  {
+   "point": 307,
+   "point_name": "Sitno",
+   "lang": "hu",
+   "name": "Szitnya",
+   "what": "summit"
+  },
+  {
+   "point": 307,
+   "point_name": "Sitno",
+   "lang": "ru",
+   "name": "Ситно",
+   "what": "summit"
+  },
+  {
+   "point": 74,
+   "point_name": "Sninský kameň",
+   "lang": "hu",
+   "name": "Szinnai-kő",
+   "what": "summit"
+  },
+  {
+   "point": 976,
+   "point_name": "Železník",
+   "lang": "hu",
+   "name": "Vashegy",
+   "what": "summit"
+  },
+  {
+   "point": 586,
+   "point_name": "Rozhľadňa",
+   "lang": "hu",
+   "name": "Csókás",
+   "what": "summit"
+  },
+  {
+   "point": 5053,
+   "point_name": "(Veľké Kamence)",
+   "lang": "hu",
+   "name": "Baglyas teteje",
+   "what": "summit"
+  },
+  {
+   "point": 60,
+   "point_name": "Gerlachovský štít",
+   "lang": "bg",
+   "name": "Герлаховски щит",
+   "what": "summit"
+  },
+  {
+   "point": 138,
+   "point_name": "Lomnický štít",
+   "lang": "ru",
+   "name": "Ломницкий Штит",
+   "what": "summit"
+  },
+  {
+   "point": 5553,
+   "point_name": null,
+   "lang": "pl",
+   "name": "Rumanowa Przełęcz",
+   "what": "col"
+  },
+  {
+   "point": 5634,
+   "point_name": "Veľká Kôpka",
+   "lang": "pl",
+   "name": "Wielka Kopa Popradzka",
+   "what": "summit"
+  },
+  {
+   "point": 5632,
+   "point_name": "Štrbina pod Kôpkami",
+   "lang": "pl",
+   "name": "Przełączka pod Kopą Popradzką",
+   "what": "col"
+  },
+  {
+   "point": 449,
+   "point_name": "Tupá",
+   "lang": "hu",
+   "name": "Tompa-hegy",
+   "what": "summit"
+  },
+  {
+   "point": 162,
+   "point_name": "Tomanovské sedlo",
+   "lang": "de",
+   "name": "Tomanowapass",
+   "what": "col"
+  },
+  {
+   "point": 162,
+   "point_name": "Tomanovské sedlo",
+   "lang": "hu",
+   "name": "Tomanowa-hágó",
+   "what": "col"
+  },
+  {
+   "point": 951,
+   "point_name": "Kresanica",
+   "lang": "hu",
+   "name": "Vésett-kő",
+   "what": "summit"
+  },
+  {
+   "point": 1206,
+   "point_name": "Jamnícke sedlo",
+   "lang": "hu",
+   "name": "Jamniki-hágó",
+   "what": "col"
+  },
+  {
+   "point": 1667,
+   "point_name": "Závory",
+   "lang": "pl",
+   "name": "Zawory",
+   "what": "col"
+  },
+  {
+   "point": 168,
+   "point_name": "sedlo Skriniarok",
+   "lang": "pl",
+   "name": "Zadnia Salatyńska Przełęcz",
+   "what": "col"
+  },
+  {
+   "point": 237,
+   "point_name": "Čertovica",
+   "lang": "hu",
+   "name": "Ördöglakodalma-hágó",
+   "what": "col"
+  },
+  {
+   "point": 79,
+   "point_name": "Veľký Kriváň",
+   "lang": "hu",
+   "name": "Nagy-Kriván",
+   "what": "summit"
+  },
+  {
+   "point": 411,
+   "point_name": "Chleb",
+   "lang": "hu",
+   "name": "Chleb-csúcs",
+   "what": "summit"
+  },
+  {
+   "point": 405,
+   "point_name": "Veľký Rozsutec",
+   "lang": "hu",
+   "name": "Nagy-Rozsutec",
+   "what": "summit"
+  },
+  {
+   "point": 5665,
+   "point_name": "Kýčera (Belianske Tatry)",
+   "lang": "pl",
+   "name": "Kiczora",
+   "what": "summit"
+  },
+  {
+   "point": 5742,
+   "point_name": "Javorinka (Belianske Tatry)",
+   "lang": "pl",
+   "name": "Jaworzynka Bielska",
+   "what": "summit"
+  },
+  {
+   "point": 5743,
+   "point_name": null,
+   "lang": "pl",
+   "name": "Przełęcz pod Koszarzyskiem",
+   "what": "col"
+  },
+  {
+   "point": 1466,
+   "point_name": "Sedlo pod Príslopom",
+   "lang": "pl",
+   "name": "Zdziarska Przełęcz",
+   "what": "col"
+  },
+  {
+   "point": 4424,
+   "point_name": "Repisko (Levočské vrchy)",
+   "lang": "de",
+   "name": "Reps",
+   "what": "summit"
+  },
+  {
+   "point": 691,
+   "point_name": "Úhornianske sedlo",
+   "lang": "hu",
+   "name": "Dénesi-nyereg",
+   "what": "col"
+  },
+  {
+   "point": 4965,
+   "point_name": "(Veľká Tokáreň)",
+   "lang": "pl",
+   "name": "Tokarnia",
+   "what": "summit"
+  },
+  {
+   "point": 1213,
+   "point_name": "Fačkovské sedlo",
+   "lang": "hu",
+   "name": "Facskói-nyereg",
+   "what": "col"
+  },
+  {
+   "point": 765,
+   "point_name": "Ostrá (Stolické vrchy)",
+   "lang": "hu",
+   "name": "Osztra",
+   "what": "summit"
+  },
+  {
+   "point": 1196,
+   "point_name": "Rokoš",
+   "lang": "hu",
+   "name": "Rokos-csúcs",
+   "what": "summit"
+  },
+  {
+   "point": 5027,
+   "point_name": "Przełęcz Półgórska",
+   "lang": "sk",
+   "name": "Martoša",
+   "what": "col"
+  },
+  {
+   "point": 5469,
+   "point_name": "Červená studňa",
+   "lang": "hu",
+   "name": "Vörös-kúti-hágó",
+   "what": "col"
+  },
+  {
+   "point": 1765,
+   "point_name": "Veľký Javor",
+   "lang": "hu",
+   "name": "Jávor",
+   "what": "summit"
+  },
+  {
+   "point": 4366,
+   "point_name": "Ragáč",
+   "lang": "hu",
+   "name": "Ragács",
+   "what": "summit"
+  },
+  {
+   "point": 4606,
+   "point_name": "Steblová skala",
+   "lang": "hu",
+   "name": "Szárkő",
+   "what": "summit"
+  },
+  {
+   "point": 4609,
+   "point_name": "Zaboda",
+   "lang": "hu",
+   "name": "Zabotta",
+   "what": "summit"
+  }
+ ],
+ "col_names": [
+  {
+   "point": 5553,
+   "summit": "Gánok",
+   "name": "Rumanove sedlo",
+   "lang": "sk",
+   "names": [
+    {
+     "lang": "pl",
+     "name": "Rumanowa Przełęcz"
+    }
+   ]
+  },
+  {
+   "point": 5631,
+   "summit": "Kôprovský štít",
+   "name": "Temnosmrečinské sedlo",
+   "lang": "sk",
+   "names": []
+  },
+  {
+   "point": 5832,
+   "summit": "Malinné (Veľká Fatra)",
+   "name": "pod Vtáčnikom",
+   "lang": "sk",
+   "names": []
+  }
+ ]
+}

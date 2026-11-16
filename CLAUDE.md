@@ -58,6 +58,27 @@ Without a grid, a conversion stores null and logs a warning; it never stores the
 unconverted number (PROJ's "ballpark" fallback is refused). The grids must be readable by
 the user that uwsgi runs as.
 
+### Lidar (`lidar/`)
+
+Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m, one 156 GB
+GeoTIFF in `~/outdoors/DTM5`) against the database. The server needs none of it — only the
+changesets it writes.
+
+```bash
+uv run --group lidar python lidar/prominence.py --out OUT   # every P100, blind: ~12 min, cached in ~/.cache/treeline/lidar
+cd lidar && uv run --project .. --group lidar python parents.py --out OUT   # TreeLine's prominence parents
+LIDAR_DB=db.json uv run python manage.py shell < lidar/export_db.py
+cd lidar && uv run --project .. --group lidar python compare.py db.json OUT osm-peaks.json > cmp.json
+python3 lidar/report.py cmp.json report.html
+uv run --group lidar python lidar/changeset.py cmp.json db.json lidar/changesets/NEW.json
+uv run python manage.py apply_lidar_changeset lidar/changesets/NEW.json --dry-run   # then without, here and on amos
+```
+
+Beyond the border, Copernicus GLO-30 fills in (a 30 m surface model, forest canopy included):
+anything it decides is flagged less precise. Names come from an OpenStreetMap extract (what
+Freemap draws). `apply_lidar_changeset` is idempotent and checks each point's name before
+touching it, so a changeset can be applied locally, re-imported over, and applied on amos.
+
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,
 localhost — see `treeline/settings.py`. `db_import.sh` pulls the SQL dump from a remote host

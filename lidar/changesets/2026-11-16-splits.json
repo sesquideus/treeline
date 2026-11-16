@@ -1,0 +1,58 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "splits": [
+  {
+   "summit": 2369,
+   "summit_name": "Panská hoľa",
+   "top": {
+    "lat": 48.920451,
+    "lon": 20.045837,
+    "altitude": 1434.2,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Panská hoľa (2026-11-16): the lidar shows this top 4.8 m higher, owning the key col Panská hoľa had."
+    ]
+   },
+   "col": {
+    "lat": 48.923778,
+    "lon": 20.050006,
+    "altitude": 1384.64,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  },
+  {
+   "summit": 2181,
+   "summit_name": "Čierna hora (Dobšiná)",
+   "top": {
+    "lat": 48.849691,
+    "lon": 20.323486,
+    "altitude": 1152.26,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Split off from Čierna hora (2026-11-16): the lidar has this top 2 cm higher than Čierna hora, which is below what it can resolve: the two are a tie."
+    ]
+   },
+   "col": {
+    "lat": 48.84741,
+    "lon": 20.322631,
+    "altitude": 1092.71,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ]
+   }
+  }
+ ]
+}

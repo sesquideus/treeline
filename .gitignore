@@ -4,3 +4,4 @@
 *.sql
 *.log
 .cache/
+__pycache__/

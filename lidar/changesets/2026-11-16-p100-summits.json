@@ -1,0 +1,779 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "summits": [
+  {
+   "key": "lidar:48.557382,21.379606",
+   "lat": 48.557382,
+   "lon": 21.379606,
+   "name": "Szurok-hegy",
+   "names": [
+    {
+     "lang": "hu",
+     "name": "Szurok-hegy",
+     "local": true
+    },
+    {
+     "lang": "sk",
+     "name": "Smolák",
+     "local": false
+    }
+   ],
+   "altitude": 643.67,
+   "datum": "Bpv",
+   "countries": [
+    "hu"
+   ],
+   "prominence": 223.53,
+   "parent": {
+    "pk": 71,
+    "name": "Veľký Milič"
+   },
+   "notes": [
+    "Key col from Copernicus GLO-30 (30 m surface model with the forest canopy in it), outside the lidar: less precise than lidar."
+   ],
+   "col": {
+    "lat": 48.551843,
+    "lon": 21.397492,
+    "name": null,
+    "names": [],
+    "altitude": 420.15,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": [
+     "Key col from Copernicus GLO-30 (30 m surface model with the forest canopy in it), outside the lidar: less precise than lidar."
+    ]
+   }
+  },
+  {
+   "key": "lidar:49.356472,18.395296",
+   "lat": 49.356472,
+   "lon": 18.395296,
+   "name": null,
+   "names": [],
+   "altitude": 950.11,
+   "datum": "Bpv",
+   "countries": [
+    "cz"
+   ],
+   "prominence": 148.13,
+   "parent": {
+    "pk": 2313,
+    "name": "Beskydek"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.382924,
+    "lon": 18.410612,
+    "name": "Makovský průsmyk",
+    "names": [
+     {
+      "lang": "sk",
+      "name": "Makovský průsmyk",
+      "local": true
+     }
+    ],
+    "altitude": 801.96,
+    "datum": "Bpv",
+    "countries": [
+     "sk",
+     "cz"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.727964,20.059140",
+   "lat": 48.727964,
+   "lon": 20.05914,
+   "name": null,
+   "names": [],
+   "altitude": 568.99,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 143.38,
+   "parent": {
+    "pk": 293,
+    "name": "Kľak Muránsky"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.732296,
+    "lon": 20.048805,
+    "name": null,
+    "names": [],
+    "altitude": 425.58,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.010128,18.456204",
+   "lat": 49.010128,
+   "lon": 18.456204,
+   "name": "Radová",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Radová",
+     "local": true
+    }
+   ],
+   "altitude": 577.22,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 132.2,
+   "parent": {
+    "pk": 409,
+    "name": "Hrubá Kečka"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.010467,
+    "lon": 18.467114,
+    "name": null,
+    "names": [],
+    "altitude": 445.02,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.551140,18.670771",
+   "lat": 48.55114,
+   "lon": 18.670771,
+   "name": "Ostrý grúň",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Ostrý grúň",
+     "local": true
+    }
+   ],
+   "altitude": 585.77,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 126.39,
+   "parent": {
+    "pk": 95,
+    "name": "Vtáčnik"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.55657,
+    "lon": 18.671457,
+    "name": null,
+    "names": [],
+    "altitude": 459.38,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.995376,20.865187",
+   "lat": 48.995376,
+   "lon": 20.865187,
+   "name": "Rajtopíky",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Rajtopíky",
+     "local": true
+    }
+   ],
+   "altitude": 1034.88,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 126.26,
+   "parent": {
+    "pk": 237,
+    "name": "Sľubica"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.990455,
+    "lon": 20.864804,
+    "name": null,
+    "names": [],
+    "altitude": 908.61,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.937689,18.935801",
+   "lat": 48.937689,
+   "lon": 18.935801,
+   "name": null,
+   "names": [],
+   "altitude": 685.42,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 120.16,
+   "parent": {
+    "pk": 529,
+    "name": "Kozia skala"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.946087,
+    "lon": 18.943623,
+    "name": null,
+    "names": [],
+    "altitude": 565.27,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.796310,20.586242",
+   "lat": 48.79631,
+   "lon": 20.586242,
+   "name": "Breziny",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Breziny",
+     "local": true
+    }
+   ],
+   "altitude": 1029.17,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 118.25,
+   "parent": {
+    "pk": 699,
+    "name": "Hoľa"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.794625,
+    "lon": 20.580591,
+    "name": null,
+    "names": [],
+    "altitude": 910.9,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.102759,18.111199",
+   "lat": 49.102759,
+   "lon": 18.111199,
+   "name": "Kaňúr",
+   "names": [
+    {
+     "lang": "cs",
+     "name": "Kaňúr",
+     "local": true
+    }
+   ],
+   "altitude": 791.73,
+   "datum": "Bpv",
+   "countries": [
+    "cz"
+   ],
+   "prominence": 118.06,
+   "parent": {
+    "pk": 383,
+    "name": "Chmeľová"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.094125,
+    "lon": 18.115263,
+    "name": null,
+    "names": [],
+    "altitude": 673.67,
+    "datum": "Bpv",
+    "countries": [
+     "sk",
+     "cz"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.510648,18.790097",
+   "lat": 48.510648,
+   "lon": 18.790097,
+   "name": "Kamenná",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Kamenná",
+     "local": true
+    }
+   ],
+   "altitude": 503.6,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 116.68,
+   "parent": {
+    "pk": 481,
+    "name": "Paradajs"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.510052,
+    "lon": 18.796555,
+    "name": null,
+    "names": [],
+    "altitude": 386.92,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.254747,20.661675",
+   "lat": 49.254747,
+   "lon": 20.661675,
+   "name": "Borsučiny",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Borsučiny",
+     "local": true
+    }
+   ],
+   "altitude": 957.38,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 112.07,
+   "parent": {
+    "pk": 1984,
+    "name": "Repisko (Levočské vrchy)"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.247429,
+    "lon": 20.657039,
+    "name": null,
+    "names": [],
+    "altitude": 845.24,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.101196,21.517953",
+   "lat": 49.101196,
+   "lon": 21.517953,
+   "name": null,
+   "names": [],
+   "altitude": 303.33,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 109.86,
+   "parent": {
+    "pk": 2034,
+    "name": "Fircová"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.113231,
+    "lon": 21.516078,
+    "name": null,
+    "names": [],
+    "altitude": 193.51,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.969383,20.101185",
+   "lat": 48.969383,
+   "lon": 20.101185,
+   "name": null,
+   "names": [],
+   "altitude": 1047.51,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 107.43,
+   "parent": null,
+   "notes": [],
+   "col": {
+    "lat": 48.962927,
+    "lon": 20.100372,
+    "name": null,
+    "names": [],
+    "altitude": 940.05,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.766655,20.102999",
+   "lat": 48.766655,
+   "lon": 20.102999,
+   "name": null,
+   "names": [],
+   "altitude": 876.54,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 107.28,
+   "parent": {
+    "pk": 499,
+    "name": "Radzim Muránsky"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.760168,
+    "lon": 20.103986,
+    "name": null,
+    "names": [],
+    "altitude": 769.27,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.828307,20.611485",
+   "lat": 48.828307,
+   "lon": 20.611485,
+   "name": "Strelecký vrch",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Strelecký vrch",
+     "local": true
+    }
+   ],
+   "altitude": 765.31,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 106.31,
+   "parent": {
+    "new": "lidar:48.796310,20.586242"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.817574,
+    "lon": 20.608721,
+    "name": null,
+    "names": [],
+    "altitude": 658.97,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.435722,18.808129",
+   "lat": 48.435722,
+   "lon": 18.808129,
+   "name": "Hrb",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Hrb",
+     "local": true
+    }
+   ],
+   "altitude": 759.98,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 105.27,
+   "parent": {
+    "pk": 481,
+    "name": "Paradajs"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.43165,
+    "lon": 18.813496,
+    "name": null,
+    "names": [],
+    "altitude": 654.71,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.801438,20.138944",
+   "lat": 48.801438,
+   "lon": 20.138944,
+   "name": null,
+   "names": [],
+   "altitude": 1049.38,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 105.25,
+   "parent": {
+    "pk": 2171,
+    "name": "Čelo (Muráň)"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.796069,
+    "lon": 20.135468,
+    "name": "Javorinka",
+    "names": [
+     {
+      "lang": "sk",
+      "name": "Javorinka",
+      "local": true
+     }
+    ],
+    "altitude": 944.14,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.950399,19.157175",
+   "lat": 48.950399,
+   "lon": 19.157175,
+   "name": "Minčol",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Minčol",
+     "local": true
+    }
+   ],
+   "altitude": 1397.75,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 101.94,
+   "parent": {
+    "pk": 156,
+    "name": "Rakytov"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.955971,
+    "lon": 19.172065,
+    "name": "Južné rakytovské sedlo",
+    "names": [
+     {
+      "lang": "sk",
+      "name": "Južné rakytovské sedlo",
+      "local": true
+     }
+    ],
+    "altitude": 1295.83,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.415226,20.457794",
+   "lat": 49.415226,
+   "lon": 20.457794,
+   "name": null,
+   "names": [],
+   "altitude": 704.05,
+   "datum": "Bpv",
+   "countries": [
+    "sk",
+    "pl"
+   ],
+   "prominence": 101.94,
+   "parent": {
+    "pk": 579,
+    "name": "Vysoké Skalky"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.414975,
+    "lon": 20.461754,
+    "name": null,
+    "names": [],
+    "altitude": 602.11,
+    "datum": "Bpv",
+    "countries": [
+     "sk",
+     "pl"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.855309,21.048470",
+   "lat": 48.855309,
+   "lon": 21.04847,
+   "name": "Hoľa",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Hoľa",
+     "local": true
+    }
+   ],
+   "altitude": 617.99,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 101.73,
+   "parent": {
+    "pk": 365,
+    "name": "Šľuchta"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.853125,
+    "lon": 21.044038,
+    "name": null,
+    "names": [],
+    "altitude": 516.24,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:48.474240,18.857821",
+   "lat": 48.47424,
+   "lon": 18.857821,
+   "name": "Budárka",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Budárka",
+     "local": true
+    }
+   ],
+   "altitude": 870.49,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 100.98,
+   "parent": {
+    "pk": 481,
+    "name": "Paradajs"
+   },
+   "notes": [],
+   "col": {
+    "lat": 48.469526,
+    "lon": 18.871901,
+    "name": null,
+    "names": [],
+    "altitude": 769.5,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  },
+  {
+   "key": "lidar:49.155960,18.301914",
+   "lat": 49.15596,
+   "lon": 18.301914,
+   "name": "Gýmeš",
+   "names": [
+    {
+     "lang": "sk",
+     "name": "Gýmeš",
+     "local": true
+    }
+   ],
+   "altitude": 490.71,
+   "datum": "Bpv",
+   "countries": [
+    "sk"
+   ],
+   "prominence": 100.63,
+   "parent": {
+    "pk": 2019,
+    "name": "Vrchstráň"
+   },
+   "notes": [],
+   "col": {
+    "lat": 49.152658,
+    "lon": 18.306496,
+    "name": null,
+    "names": [],
+    "altitude": 390.09,
+    "datum": "Bpv",
+    "countries": [
+     "sk"
+    ],
+    "notes": []
+   }
+  }
+ ]
+}
