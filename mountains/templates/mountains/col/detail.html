@@ -32,49 +32,62 @@
         <p>Depth <span class="altitude">{{ col.depth|altitude }}</span></p>
 
 
-        <h3>
-            Sibling cols
-        </h3>
-        <p>
-            Sibling cols have the same parent peak.
-        </p>
-        <table class="lineage">
-            {% for peak in siblings %}
-                <tr>
-                    <td>
-                        {% object_link peak.key_col 'col' attr='name' %}
-                    </td>
-                    <td>&rightarrow;</td>
-                    <td>
-                        {% object_link peak 'mountain' %}
-                    </td>
-                </tr>
-            {% endfor %}
-        </table>
-
         {% include 'mountains/col/blocks/drainage.html' %}
-        <h3>
-            Friend cols
-        </h3>
-        <p>
-            Friend cols have the same key confluence. Together they form a natural ridge.
-        </p>
-        <table class="lineage">
-            {% for col in friend_cols %}
-                <tr>
-                    <td>
-                        {% object_link col 'col' attr='name' %}
-                    </td>
-                    <td>
-                        {% object_link col.key_for 'mountain' attr='name' %}
-                    </td>
-                    <td>&rightarrow;</td>
-                    <td>
-                        {% object_link col.key_for.prominence_parent 'mountain' attr='name' %}
-                    </td>
-                </tr>
-            {% endfor %}
-        </table>
+
+        {# Both lists folded away entirely, the switch counting what it unfolds: a col on #}
+        {# a major ridge has dozens of either. #}
+        <div class="section foldable">
+            <div class="fold-head">
+                <h3>
+                    Sibling cols
+                </h3>
+                {% include 'mountains/summit/blocks/fold-toggle.html' with what=siblings|length %}
+            </div>
+            <p>
+                Sibling cols have the same parent peak.
+            </p>
+            <table class="lineage">
+                {% for peak in siblings %}
+                    <tr class="more">
+                        <td>
+                            {% object_link peak.key_col 'col' attr='name' %}
+                        </td>
+                        <td>&rightarrow;</td>
+                        <td>
+                            {% object_link peak 'mountain' %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="section foldable">
+            <div class="fold-head">
+                <h3>
+                    Friend cols
+                </h3>
+                {% include 'mountains/summit/blocks/fold-toggle.html' with what=friend_cols|length %}
+            </div>
+            <p>
+                Friend cols have the same key confluence. Together they form a natural ridge.
+            </p>
+            <table class="lineage">
+                {% for col in friend_cols %}
+                    <tr class="more">
+                        <td>
+                            {% object_link col 'col' attr='name' %}
+                        </td>
+                        <td>
+                            {% object_link col.key_for 'mountain' attr='name' %}
+                        </td>
+                        <td>&rightarrow;</td>
+                        <td>
+                            {% object_link col.key_for.prominence_parent 'mountain' attr='name' %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
     {% endwith %}
 
 {% endblock page_content %}

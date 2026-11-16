@@ -278,6 +278,8 @@ class River(GeoModel):
         return {
             'pk': self.pk,
             'name': self.__str__(),
+            # A river is named by its source point, so are its names in other languages.
+            'local_names': self.source.local_names() if self.source else [],
             'source': {
                 'lat': self.source.location.y,
                 'lon': self.source.location.x,

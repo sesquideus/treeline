@@ -286,7 +286,14 @@ class RiverMapTests(TestCase):
         self.assertEqual(downstream[0]['geometry']['coordinates'],
                          [[21.11, 47.94], [22.0, 47.0]])          # from our mouth to main's
         self.assertTrue(all(f['properties']['frame'] is False for f in downstream))
-        self.assertEqual(downstream[0]['properties']['url'], f'/river/{main.pk}/')
+        self.assertEqual(downstream[0]['properties']['name'], 'Main source')
+        self.assertEqual(downstream[0]['properties']['parent']['name'], 'Sea source')
+        # A point at this river's mouth and at every one below; the root has none.
+        mouths = [f['properties'] for f in self.collection()['features']
+                  if f['properties']['type'] == 'mouth']
+        self.assertEqual([(m['minor']['name'], m['major'] and m['major']['name']) for m in mouths],
+                         [('Stream', 'Main source'), ('Main source', 'Sea source'),
+                          ('Sea source', None)])
 
     def test_the_page_describes_the_watershed_high_point(self):
         html = self.client.get(f'/river/{self.river.pk}/').content.decode()
@@ -431,6 +438,23 @@ class ColRiversTests(TestCase):
     def test_neither_widens_the_view(self):
         self.assertFalse(any(f['properties'].get('frame') for f in self.rivers().values()))
 
+    def test_the_joined_water_is_drawn_on_down_to_the_sea_unframed(self):
+        """
+        Below the confluence the major river carries both sides' water on, and from there
+        down the rest of the tree: drawn faded from the junction, and out of the frame.
+        """
+        ocean = River.objects.create(source=make_point('Ocean', 0, 53.0, 22.0))
+        River.objects.filter(pk=self.major.pk).update(parent=ocean)
+        collection = map_data(self.client.get(f'/col/{self.col.pk}/'))
+        below = [f for f in collection['features'] if f['properties']['type'] == 'downstream']
+        self.assertEqual([f['properties']['pk'] for f in below], [self.major.pk])
+        self.assertEqual(below[0]['geometry']['coordinates'][0], [20.8, 50.0])
+        self.assertEqual(below[0]['geometry']['coordinates'][-1], [21.0, 52.0])
+        self.assertFalse(below[0]['properties']['frame'])
+        mouths = [f['properties']['minor']['pk'] for f in collection['features']
+                  if f['properties']['type'] == 'mouth']
+        self.assertIn(self.major.pk, mouths)
+
     def test_a_col_with_no_confluence_has_no_rivers(self):
         dry = make_col('Dry', 700, 48.0, 19.0)
         collection = map_data(self.client.get(f'/col/{dry.pk}/'))
@@ -538,7 +562,9 @@ class ColPageQueryTests(TestCase):
                         key_col=col, prominence_parent=cls.parent)
 
     def test_the_page_costs_a_fixed_handful_of_queries(self):
-        with self.assertNumQueries(7):
+        # Two of them the local names in the popup titles: the col's, its rivers'; one the
+        # river tree, for where the water goes below the confluence.
+        with self.assertNumQueries(10):
             response = self.client.get(f'/col/{self.col.pk}/')
         self.assertEqual(response.status_code, 200)
 
@@ -588,15 +614,63 @@ class SummitLikePopupTests(SimpleTestCase):
 
 
 class RiverLinePopupTests(SimpleTestCase):
-    """The highlighted drainage runs and the faded way down name their river on hover."""
+    """The drainage runs and the way down get the global map's river popup; mouths their own."""
 
-    def test_each_names_its_river_and_links_to_it(self):
+    def popup(self, **properties):
+        return evaluate('popupHtml({ get: key => (%s)[key], getGeometry: () => null })'
+                        % json.dumps(properties))
+
+    def test_a_river_line_gets_the_river_popup(self):
         for kind in ('drainage_run', 'downstream'):
             with self.subTest(kind=kind):
-                props = {'type': kind, 'pk': 4, 'label': '≋ Laborec', 'url': '/river/4/'}
-                html = evaluate('popupHtml({ get: key => (%s)[key], getGeometry: () => null })'
-                                % json.dumps(props))
-                self.assertIn('≋ Laborec', html)
+                props = {'type': kind, 'pk': 4, 'name': 'Laborec',
+                         'source': {'lat': 49.2, 'lon': 22.1, 'alt': 700},
+                         'parent': {'name': 'Bodrog', 'id': 9},
+                         'mouth': {'lat': 48.6, 'lon': 21.9, 'alt': 98.9, 'pk': 1, 'name': None}}
+                html = self.popup(**props)
                 self.assertIn('/river/4/', html)
+                self.assertIn('Laborec', html)
+                self.assertIn('flows into', html)
+                self.assertIn('/river/9/', html)
                 self.assertEqual(evaluate('detailUrl({ get: key => (%s)[key] })'
                                           % json.dumps(props)), '/river/4/')
+
+    def test_a_mouth_names_both_rivers_the_bank_and_where(self):
+        html = self.popup(type='mouth', name=None, alt=98.9, lat=48.6, lon=21.9,
+                          minor={'pk': 11, 'name': 'Uh'}, major={'pk': 4, 'name': 'Laborec'},
+                          mouth_side={'code': 'left', 'title': 'joins from the left bank'})
+        for text in ('mouth of Uh', '/river/11/', '/river/4/', 'mouth-side-left', '98.9',
+                     '48.60000'):
+            self.assertIn(text, html)
+
+    def test_the_junction_reads_as_one_line_and_where_comes_before_how_high(self):
+        html = self.popup(type='mouth', name=None, alt=98.9, lat=48.6, lon=21.9,
+                          minor={'pk': 11, 'name': 'Uh'}, major={'pk': 4, 'name': 'Laborec'},
+                          mouth_side={'code': 'left', 'title': 'joins from the left bank'})
+        row = re.search(r'<tr[^>]*>(?:(?!</tr>).)*/river/11/(?:(?!</tr>).)*</tr>', html, re.S).group(0)
+        self.assertLess(row.index('/river/11/'), row.index('mouth-side-left'))
+        self.assertLess(row.index('mouth-side-left'), row.index('/river/4/'))
+        self.assertLess(html.index('48.60000'), html.index('98.9'))
+
+    def test_an_unrecorded_bank_says_so(self):
+        html = self.popup(type='mouth', name='Soutok', alt=0, lat=1, lon=1,
+                          minor={'pk': 1, 'name': 'A'}, major=None, mouth_side=None)
+        self.assertIn('not recorded', html)
+        self.assertIn('Soutok', html)
+
+
+class ColPageFoldTests(ColPageQueryTests):
+    """Siblings and friends sit under the drainage, folded away behind a counting switch."""
+
+    def test_order_and_folding(self):
+        html = self.client.get(f'/col/{self.col.pk}/').content.decode()
+        drainage, siblings, friends = (html.index(text) for text in
+                                       ('class="section drainage"', 'Sibling cols', 'Friend cols'))
+        self.assertLess(drainage, siblings)
+        self.assertLess(siblings, friends)
+        for heading, count in (('Sibling cols', 31), ('Friend cols', 31)):
+            with self.subTest(heading=heading):
+                block = html[html.index(heading):].split('</table>')[0]
+                self.assertIn(f'data-what="{count}"', block)
+                self.assertEqual(block.count('<tr class="more">'), count)
+                self.assertNotIn('<tr>', block)

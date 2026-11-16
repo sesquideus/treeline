@@ -110,3 +110,52 @@ class PopupNamesTests(SimpleTestCase):
     def test_no_names_no_section(self):
         self.assertNotIn('>names<', popup_html(type='summit', pk=1, name='X', names=[]))
         self.assertNotIn('>names<', popup_html(type='summit', pk=1, name='X'))
+
+
+class LocalNamesTests(TestCase):
+    """The best current name in each local language, for the popup titles."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.summit = make_summit('Ruské sedlo peak', 800.0, 49.1, 22.3)
+        point = cls.summit.point
+        slovak, ukrainian, polish = (make_language('sk', 1), make_language('uk', 40),
+                                     make_language('pl', 50))
+        PointName.objects.create(point=point, name='Ruský vrch', language=slovak, local=True)
+        PointName.objects.create(point=point, name='Руський верх', language=ukrainian, local=True)
+        PointName.objects.create(point=point, name='Руська гора', language=ukrainian, local=True)
+        PointName.objects.create(point=point, name='Ruski Wierch', language=polish)
+        PointName.objects.create(point=point, name='Ruský štít', language=slovak, local=True,
+                                 historical=True)
+
+    def test_one_per_local_language_current_only(self):
+        names = self.summit.point.local_names()
+        self.assertEqual(len(names), 2)                     # sk, uk; pl is not local
+        self.assertEqual(names[0], 'Ruský vrch')            # by language priority
+        self.assertIn(names[1], ('Руський верх', 'Руська гора'))
+        self.assertNotIn('Ruský štít', names)               # historical
+
+    def test_every_popup_payload_carries_them(self):
+        summit = Summit.objects.with_popup().get(pk=self.summit.pk)
+        with self.assertNumQueries(0):
+            self.assertEqual(len(summit.to_detail_dict()['local_names']), 2)
+
+
+class PopupTitleTests(SimpleTestCase):
+    def test_the_title_follows_the_main_name_with_the_other_local_names(self):
+        for kind in ('summit', 'col', 'river'):
+            with self.subTest(kind=kind):
+                html = popup_html(type=kind, pk=1, name='Ruský vrch',
+                                  local_names=['Ruský vrch', 'Руський верх'])
+                title = html.split('</h3>')[0]
+                self.assertIn('<span class="local-names">Руський верх</span>', title)
+                self.assertEqual(title.count('Ruský vrch'), 1)   # not repeated
+
+    def test_a_mouth_title_too(self):
+        html = popup_html(type='mouth', name='Soutok', local_names=['Soutok', 'Злиття'],
+                          minor={'pk': 1, 'name': 'A'}, major=None, mouth_side=None)
+        self.assertIn('<span class="local-names">Злиття</span>', html.split('</h3>')[0])
+
+    def test_no_other_local_names_no_span(self):
+        self.assertNotIn('local-names', popup_html(type='summit', pk=1, name='X',
+                                                   local_names=['X']))

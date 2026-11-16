@@ -8,20 +8,28 @@ from django.db.models import Prefetch, prefetch_related_objects
 from mountains.models import River
 
 
-def drainage_context(col):
+def drainage_context(col, downstream=False):
     """
     `col.drainage()` with the river pks swapped for rivers to link to: the whole river tree
     in one query of plain values for the analysis, the few rivers shown in one more.
+    With `downstream`, also where the joined water goes from where it meets, down to the
+    sea, for `detail_map.downstream_from()`.
     """
-    drainage = col.drainage()
+    from mountains.models.drainage import RiverIndex
+    index = RiverIndex() if downstream or col.river_a_id or col.river_b_id else None
+    drainage = col.drainage(index)
     wanted = {pk for side in drainage.sides for pk in side.chain}
     wanted |= {pk for pk in (drainage.meet_river, drainage.meet_into) if pk is not None}
-    # The confluence and its parent came with the col; only the rest needs fetching.
+    # With only a confluence, its two rivers came with the col. With sides, all of them in
+    # one query with what their popups read — the confluence's too, since a summit's map
+    # loads its key col with less.
     rivers = {river.pk: river for river in (col.confluence_river,
                                             col.confluence_river.parent if col.confluence_river else None)
               if river is not None}
-    if wanted - rivers.keys():
-        rivers |= River.objects.select_related('source', 'mouth').in_bulk(wanted - rivers.keys())
+    if drainage.sides:
+        from mountains.views.detail_map import RIVER_POPUP
+        rivers = (River.objects.select_related(*RIVER_POPUP)
+                  .prefetch_related('source__names', 'mouth__names').in_bulk(wanted))
     runs = drainage_runs(drainage, rivers)
     # Their junctions, for the map — the confluence river and its parent drawn whole, the
     # runs cut between them: one query each for all those not loaded already.
@@ -36,6 +44,7 @@ def drainage_context(col):
             Prefetch('branches', queryset=River.objects.select_related('source')))
     return {
         'runs': runs,
+        'downstream': below_meeting(index, drainage, runs) if downstream else [],
         # Each side's rivers above where the waters meet; the meeting river itself is shown
         # once, in the junction row under both columns.
         # Each river with the one above it that flows into it, whose bank mark joins them.
@@ -90,3 +99,18 @@ def drainage_runs(drainage, rivers):
             high, low = sorted(entries, key=lambda point: point.altitude, reverse=True)
             runs.append((meet_river, high.pk, low.pk))
     return runs
+
+
+def below_meeting(index, drainage, runs):
+    """
+    Where the joined water flows on: at a confluence X → P, P from the mouth of X; on a
+    common river C, C from the lower of the two sides' entries (from its source when that is
+    not known, as for a spur); then everything below, to the root.
+    """
+    from mountains.views.detail_map import downstream_from
+    if drainage.meet == 'mouth' and drainage.meet_into is not None:
+        return downstream_from(index, drainage.meet_into, index.mouth.get(drainage.meet_river))
+    if drainage.meet == 'on' and drainage.meet_river is not None:
+        lowest = next((leave for river, enter, leave in runs if river.pk == drainage.meet_river), None)
+        return downstream_from(index, drainage.meet_river, lowest)
+    return []

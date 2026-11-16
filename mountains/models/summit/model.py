@@ -712,6 +712,7 @@ class Summit(GeoModel):
         isolation = self.compute_isolation()
         return {
             'name': self.point.name if self.point else None,
+            'local_names': self.point.local_names() if self.point else [],
             # Every name in current use, in `current_names()` order: local first, then by
             # language priority — the same as the names table on the detail pages.
             'names': [name.to_dict() for name in self.point.current_names()]

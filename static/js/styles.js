@@ -507,6 +507,7 @@ function styleFor(feature) {
                                                     ? minorRiverLine : riverLine];
         case 'drainage_run':            return drainageRun;
         case 'downstream':              return downstreamLine;
+        case 'mouth':                   return dot('#1a40f9', 5);
         case 'river_source':            return dot('#1a40f9');
         case 'source_summit':           return summitMarker('#16a085');
         // A summit as a summit; a named point nobody has catalogued as one, as a point.

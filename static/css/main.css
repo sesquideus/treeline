@@ -154,6 +154,13 @@ img.flag {
 
 /* A name's flag, in the label column: on white, not the label grey, which crowds the flag
    and swallows the white in half of them. */
+/* A popup title's names in the other local languages, after the main one. */
+.map-popup h3 span.local-names {
+    font-weight: normal;
+    font-size: 85%;
+    color: dimgray;
+}
+
 .map-popup table th.flag {
     background: #fff;
     text-align: center;

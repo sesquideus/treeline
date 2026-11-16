@@ -36,7 +36,8 @@ class DetailView(DjangoDetailView):
                 .with_source_summit().with_watershed_high_point()
                 .select_related('source_summit__key_col__point',
                                 'watershed_high_point__summit__key_col__point',
-                                'watershed_high_point__altitude_datum'))
+                                'watershed_high_point__altitude_datum')
+                .prefetch_related('mouth__names'))
 
     def get_context_data(self, **kwargs):
         downstream = river_downstream(self.object)

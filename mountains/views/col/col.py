@@ -28,7 +28,10 @@ class DetailView(DjangoDetailView):
         return (super().get_queryset().with_full_name()
                 .annotate(depth=F('key_for__point__altitude') - F('point__altitude'))
                 .select_related(*self.JOINED)
-                .prefetch_related('point__countries', 'point__notes'))
+                .prefetch_related('point__countries', 'point__notes', 'point__names',
+                                  # The local names in the popup titles of the two rivers.
+                                  'confluence_river__source__names',
+                                  'confluence_river__parent__source__names'))
 
     def get_object(self, queryset=None):
         col = super().get_object(queryset)
@@ -61,15 +64,18 @@ class DetailView(DjangoDetailView):
             ).select_related('point', 'key_for__point', 'key_for__prominence_parent__point')
              .order_by('-point__altitude', 'pk'),
         }
-        drainage = drainage_context(self.object)
+        drainage = drainage_context(self.object, downstream=True)
         context['drainage'] = drainage
-        context['map_data'] = col_features(self.object, runs=drainage['runs'])
+        context['map_data'] = col_features(self.object, runs=drainage['runs'],
+                                          downstream=drainage['downstream'])
         return context
 
 
 class ColTreeView(TreeView):
     def get_queryset(self):
-        return Col.objects.with_rivers().with_minor().with_point().with_countries()
+        # `point__names`: the popup title prints the col's local names.
+        return (Col.objects.with_rivers().with_minor().with_point().with_countries()
+                .prefetch_related('point__names'))
 
 
 class GeoJsonView(CachedJsonMixin, View):

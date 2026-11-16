@@ -210,20 +210,22 @@ class PageTests(DrainageTestCase):
     def test_nothing_recorded(self):
         self.assertIn('No drainage recorded', self.section(self.page()))
 
-    def test_the_drainage_costs_a_fixed_four_queries(self):
-        # The river tree, the side rivers shown, and their junctions for the map (two).
+    def test_the_drainage_costs_a_fixed_eleven_queries(self):
+        # The river tree, the side rivers shown, their sources' and mouths' names for the
+        # popup titles (two), and their junctions for the map (two); then the same five, but
+        # the tree, for the way down from the confluence to the sea, however long it is.
         col = make_col(None, 1200.0, 49.0, 20.0)
         Col.objects.filter(pk=col.pk).update(confluence_river=self.x, river_a=self.y,
                                              river_b=self.b1)
         url = col.get_absolute_url()
-        with self.assertNumQueries(self.queries_without_drainage(url) + 4):
+        with self.assertNumQueries(self.queries_without_drainage(url) + 11):
             self.client.get(url)
 
     def queries_without_drainage(self, url):
         from unittest import mock
         from mountains.views.col import col as views
         empty = {'sides': [], 'meet': None, 'meet_river': None, 'meet_into': None,
-                 'findings': [], 'runs': []}
+                 'findings': [], 'runs': [], 'downstream': []}
         with mock.patch.object(views, 'drainage_context', return_value=empty):
             from django.db import connection
             from django.test.utils import CaptureQueriesContext
@@ -305,8 +307,18 @@ class SummitMapTests(DrainageTestCase):
     def test_the_runs_and_the_two_rivers_are_drawn_but_not_framed(self):
         features = self.features(confluence_river=self.x, river_a=self.y, river_b=self.b1)
         runs = [f['properties'] for f in features if f['properties']['type'] == 'drainage_run']
-        self.assertEqual([run['label'] for run in runs], ['≋ B1', '≋ X', '≋ Y', '≋ P'])
-        self.assertEqual(runs[0]['url'], f'/river/{self.b1.pk}/')
+        self.assertEqual([run['name'] for run in runs], ['B1', 'X', 'Y', 'P'])
+        # The global map's river popup: the river's own properties.
+        self.assertEqual(runs[0]['pk'], self.b1.pk)
+        self.assertEqual(runs[0]['parent']['name'], 'X')
+        for key in ('source', 'mouth', 'mouth_side', 'source_summit', 'watershed_high_point'):
+            self.assertIn(key, runs[0])
+        # A point at every mouth a run reaches: B1's, X's (where the waters meet), Y's —
+        # not P's, which the run leaves at X's mouth.
+        mouths = [f['properties'] for f in features if f['properties']['type'] == 'mouth']
+        self.assertEqual([(m['minor']['name'], m['major']['name']) for m in mouths],
+                         [('B1', 'X'), ('X', 'P'), ('Y', 'P')])
+        self.assertEqual(mouths[1]['alt'], 500.0)
         self.assertTrue(all(run['frame'] is False for run in runs))
         roles = sorted(f['properties'].get('role') for f in features
                        if f['properties']['type'] == 'river')

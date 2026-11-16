@@ -159,6 +159,19 @@ class NamedPoint(AdminModel):
         return sorted((name for name in self.names.all() if not name.historical),
                       key=lambda name: not name.local)
 
+    def local_names(self):
+        """
+        The best current name in each local language — the popup titles print them beside
+        the main name. Reads the same prefetched `names` as `current_names()`; grouped by
+        `language_id`, so the languages themselves need not be loaded.
+        """
+        seen, names = set(), []
+        for name in self.current_names():
+            if name.local and name.language_id not in seen:
+                seen.add(name.language_id)
+                names.append(name.name)
+        return names
+
     def historical_names(self):
         """ The names it used to go by, ordered the same way. """
         return sorted((name for name in self.names.all() if name.historical),

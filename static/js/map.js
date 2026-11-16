@@ -136,9 +136,14 @@ const pointUrl  = pk => pk != null ? `/point/${pk}/` : null;
 const SUMMIT_KINDS = new Set(['summit', 'prominence_child', 'isolation_parent', 'confluence_summit']);
 const SUMMIT_KINDS_IF_DETAILED = new Set(['source_summit', 'watershed_high_point']);
 
+// Stretches of a river drawn for another page's sake — a col's drainage, the way on down
+// from a river — carry the river's own properties and get its popup.
+const RIVER_KINDS = new Set(['drainage_run', 'downstream']);
+
 function describedAs(feature) {
     const type = feature.get('type');
     if (SUMMIT_KINDS.has(type)) return 'summit';
+    if (RIVER_KINDS.has(type)) return 'river';
     if (SUMMIT_KINDS_IF_DETAILED.has(type) && feature.get('pk') != null) return 'summit';
     return type;
 }
@@ -163,9 +168,16 @@ function objectLink(kind, url, label) {
 
 // The caption links to the feature's own detail page. The h3 already carries the object
 // class, so the anchor inside it inherits the colour and adds no second glyph.
-function popupCaption(cls, url, name, codes) {
+//
+// `localNames` — the best current name in each local language (`NamedPoint.local_names()`)
+// — follow the main name, less any that merely repeat it.
+function popupCaption(cls, url, name, codes, localNames) {
     const label = url ? `<a href="${url}">${name}</a>` : name;
-    return `<h3 class="${cls}">${label} ${flagsHtml(codes)}</h3>`;
+    const others = (localNames || []).filter(other => other !== name);
+    const locals = others.length
+        ? ` <span class="local-names">${others.join(' · ')}</span>`
+        : '';
+    return `<h3 class="${cls}">${label}${locals} ${flagsHtml(codes)}</h3>`;
 }
 
 // A popup body is one table; a section is a caption cell down its left edge, spanning the
@@ -338,7 +350,8 @@ function popupHtml(feature) {
                 ? `${ilp.name} of ${ilpParent}`
                 : (ilp && ilp.name) ?? ilpParent;
             return popupCaption('mountain', summitUrl(feature.get('pk')),
-                                feature.get('name') ?? 'unnamed peak', feature.get('countries'))
+                                feature.get('name') ?? 'unnamed peak', feature.get('countries'),
+                                feature.get('local_names'))
                 + popupTable([
                     namesSection(feature.get('names')),
                     popupSection('summit', [
@@ -383,7 +396,8 @@ function popupHtml(feature) {
                 ? objectLink('river', riverUrl(river.parent_pk), river.parent)
                 : null;
             return popupCaption('col', colUrl(feature.get('pk')),
-                                feature.get('name') ?? 'unnamed col', feature.get('countries'))
+                                feature.get('name') ?? 'unnamed col', feature.get('countries'),
+                                feature.get('local_names'))
                 + popupTable([
                     popupSection('col', [
                         popupRow('altitude', orQuery(asAltitude(feature.get('alt'))), 'altitude'),
@@ -405,6 +419,32 @@ function popupHtml(feature) {
                     ]),
                 ]);
         }
+        // A junction: the river ending there, the one it joins and on which bank.
+        case 'mouth': {
+            const minor = feature.get('minor');
+            const major = feature.get('major');
+            // The junction in one line, as the river pages write it: minor, the bank mark,
+            // major; a plain arrow while the bank is not recorded.
+            const side = feature.get('mouth_side');
+            const sideMark = side
+                ? `<abbr title="${side.title}"><svg class="mouth-side" role="img">` +
+                  `<use href="#mouth-side-${side.code}"></use></svg></abbr>`
+                : '<abbr title="joins, the bank not recorded">&rarr;</abbr>';
+            const majorLink = major ? objectLink('river', riverUrl(major.pk), major.name) : '?';
+            return popupCaption('river', null,
+                                feature.get('name') ?? `mouth of ${minor.name}`, null,
+                                feature.get('local_names'))
+                + popupTable([
+                    popupSection('rivers', [
+                        popupRow(null, `${objectLink('river', riverUrl(minor.pk), minor.name)}` +
+                                       `&nbsp;${sideMark}&nbsp;${majorLink}`, 'name'),
+                    ]),
+                    popupSection('mouth', [
+                        popupRow('position', positionValue(feature.get('lon'), feature.get('lat'))),
+                        popupRow('altitude', asAltitude(feature.get('alt')), 'altitude'),
+                    ]),
+                ]);
+        }
         case 'river': {
             const parent = feature.get('parent');
             const source = feature.get('source');
@@ -421,7 +461,8 @@ function popupHtml(feature) {
                   `<use href="#mouth-side-${side.code}"></use></svg></abbr>&nbsp;`
                 : '';
             return popupCaption('river', riverUrl(feature.get('pk')),
-                                feature.get('name') ?? 'unknown', null)
+                                feature.get('name') ?? 'unknown', null,
+                                feature.get('local_names'))
                 + popupTable([
                     source ? popupSection('source', [
                         popupRow('altitude', asAltitude(source.alt), 'altitude'),

@@ -169,6 +169,7 @@ class Col(GeoModel):
         return {
             'pk': self.pk,
             'name': self.point.name if self.point else None,
+            'local_names': self.point.local_names() if self.point else [],
             'countries': [c.code for c in self.point.countries.all()] if self.point else [],
             'lat': self.point.location.y if self.point else None,
             'lon': self.point.location.x if self.point else None,
