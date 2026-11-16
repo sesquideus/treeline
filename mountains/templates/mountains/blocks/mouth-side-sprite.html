@@ -13,6 +13,12 @@
     tributary is drawn arriving from the right — and it is how these trees are drawn
     everywhere else here: the parent above its children, the sea at the top.
 
+    Lists that run *downstream* — a col's drainage, one river below the other — need the
+    water flowing **down** instead: the `-down` variants below. They are not a plain vertical
+    flip. Facing downstream with downstream down the page, your left hand points to the
+    picture's right, so a left-bank tributary must arrive from the right: the down variant
+    of a mark is the up one turned through 180°.
+
     `<use href="#...">` only works within the same document, so this must be inlined rather
     than served as a static file. It is included once from `core/base.html`.
 {% endcomment %}
@@ -65,5 +71,30 @@
               stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
         <path d="M1 1.5 q 1.75 1.7 3.5 0 t 3.5 0 t 3.5 0 t 3.5 0" fill="none"
               stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </symbol>
+
+    {# The water flowing down: each mark turned through 180°, which keeps the banks literal. #}
+    <symbol id="mouth-side-left-down" viewBox="0 0 16 16">
+        <use href="#mouth-side-left" transform="rotate(180 8 8)"/>
+    </symbol>
+    <symbol id="mouth-side-right-down" viewBox="0 0 16 16">
+        <use href="#mouth-side-right" transform="rotate(180 8 8)"/>
+    </symbol>
+    <symbol id="mouth-side-undecided-down" viewBox="0 0 16 16">
+        <use href="#mouth-side-undecided" transform="rotate(180 8 8)"/>
+    </symbol>
+    <symbol id="mouth-side-sea-down" viewBox="0 0 16 16">
+        <use href="#mouth-side-sea" transform="rotate(180 8 8)"/>
+    </symbol>
+    {% comment %}
+        A junction whose bank nobody has recorded yet (`mouth_side` empty, which is not
+        'undecided'): only the main river, with the arrowhead of the water arriving on its
+        axis, so the column still reads as one flow without claiming a side.
+    {% endcomment %}
+    <symbol id="mouth-side-unrecorded-down" viewBox="0 0 16 16">
+        <path d="M8 0 L8 16" fill="none" stroke="currentColor"
+              stroke-width="2.6" stroke-linecap="butt"/>
+        <path d="M4.6 5.2 L8 8.6 L11.4 5.2" fill="none" stroke="currentColor"
+              stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
 </svg>

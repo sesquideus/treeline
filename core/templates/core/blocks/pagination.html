@@ -1,0 +1,38 @@
+{% comment %}
+    Page links for a paginated ListView: arrows to the ends and either side, and a link to
+    every page — elided past forty, see `page_links`. `{% querystring %}` keeps the rest of
+    the query string, so the ordering and the filter survive the move to another page.
+{% endcomment %}
+{% load pagination %}
+{% if is_paginated %}
+    <nav class="pagination">
+        <ul>
+            {% if page_obj.has_previous %}
+                <li class="arrow"><a href="{% querystring page=1 %}" title="First page">&laquo;</a></li>
+                <li class="arrow"><a href="{% querystring page=page_obj.previous_page_number %}" title="Previous page">&lsaquo;</a></li>
+            {% else %}
+                <li class="arrow disabled">&laquo;</li>
+                <li class="arrow disabled">&lsaquo;</li>
+            {% endif %}
+            {% for number in page_obj|page_links %}
+                {% if number == page_obj.number %}
+                    <li class="current" aria-current="page">{{ number }}</li>
+                {% elif number == paginator.ELLIPSIS %}
+                    <li class="ellipsis">{{ number }}</li>
+                {% else %}
+                    <li><a href="{% querystring page=number %}">{{ number }}</a></li>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+                <li class="arrow"><a href="{% querystring page=page_obj.next_page_number %}" title="Next page">&rsaquo;</a></li>
+                <li class="arrow"><a href="{% querystring page=paginator.num_pages %}" title="Last page">&raquo;</a></li>
+            {% else %}
+                <li class="arrow disabled">&rsaquo;</li>
+                <li class="arrow disabled">&raquo;</li>
+            {% endif %}
+        </ul>
+        <span class="summary">
+            {{ page_obj.start_index }}&ndash;{{ page_obj.end_index }} of {{ paginator.count }}
+        </span>
+    </nav>
+{% endif %}

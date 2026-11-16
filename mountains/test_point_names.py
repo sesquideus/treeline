@@ -31,7 +31,7 @@ class NamesTests(TestCase):
         slovak = make_language('sk', 1)
         german = make_language('de', 20)
         hungarian = make_language('hu', 75)
-        PointName.objects.create(point=point, name='Gerlach', language=polish)
+        PointName.objects.create(point=point, name='Gerlach', language=polish, local=True)
         PointName.objects.create(point=point, name='Gerlachovský štít', language=slovak)
         PointName.objects.create(point=point, name='Gerlsdorfer Spitze', language=german)
         PointName.objects.create(point=point, name='Štít Františka Jozefa', language=slovak,
@@ -39,10 +39,10 @@ class NamesTests(TestCase):
         PointName.objects.create(point=point, name='Ferenc József-csúcs', language=hungarian,
                                  historical=True)
 
-    def test_current_and_historical_names_are_apart_and_by_priority(self):
+    def test_current_and_historical_names_are_apart_local_first_then_by_priority(self):
         point = self.summit.point
         self.assertEqual([n.name for n in point.current_names()],
-                         ['Gerlachovský štít', 'Gerlsdorfer Spitze', 'Gerlach'])
+                         ['Gerlach', 'Gerlachovský štít', 'Gerlsdorfer Spitze'])
         self.assertEqual([n.name for n in point.historical_names()],
                          ['Štít Františka Jozefa', 'Ferenc József-csúcs'])
 
@@ -50,11 +50,21 @@ class NamesTests(TestCase):
         summit = Summit.objects.with_popup().get(pk=self.summit.pk)
         with self.assertNumQueries(0):
             names = summit.to_detail_dict()['names']
+        # The local name first, however low its language's priority; the rest by priority.
         self.assertEqual(names, [
+            {'name': 'Gerlach', 'flag': 'pl'},
             {'name': 'Gerlachovský štít', 'flag': 'sk'},
             {'name': 'Gerlsdorfer Spitze', 'flag': 'de'},
-            {'name': 'Gerlach', 'flag': 'pl'},
         ])
+
+    def test_the_pages_order_names_as_the_popup_does(self):
+        for url in (self.summit.get_absolute_url(), self.summit.point.get_absolute_url()):
+            with self.subTest(url=url):
+                html = self.client.get(url).content.decode()
+                names = html.split('Historical names')[0].split('Names')[-1]
+                order = [names.index(n) for n in
+                         ('>Gerlach<', '>Gerlachovský štít<', '>Gerlsdorfer Spitze<')]
+                self.assertEqual(order, sorted(order))
 
     def test_the_summit_page_lists_historical_names_apart(self):
         html = self.client.get(self.summit.get_absolute_url()).content.decode()
@@ -95,6 +105,7 @@ class PopupNamesTests(SimpleTestCase):
         self.assertIn('<th class="section" rowspan="2">names</th>', html)
         self.assertLess(html.index('Gerlachovský štít</td>'), html.index('Gerlach</td>'))
         self.assertIn('mini/pl.png', html)
+        self.assertIn('<th class="flag">', html)
 
     def test_no_names_no_section(self):
         self.assertNotIn('>names<', popup_html(type='summit', pk=1, name='X', names=[]))

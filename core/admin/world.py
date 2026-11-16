@@ -7,7 +7,7 @@ import mapwidgets
 from cairn.admin import ModelAdmin
 
 from core.fields import PointFormField
-from core.models import Country, Language
+from core.models import Country, Language, VerticalDatum
 
 
 @admin.register(Language)
@@ -18,6 +18,12 @@ class LanguageAdmin(admin.ModelAdmin):
 @admin.register(Country)
 class CountryAdmin(ModelAdmin):
     list_display = ['code', 'name', 'english_name', 'full_name']
+
+
+@admin.register(VerticalDatum)
+class VerticalDatumAdmin(admin.ModelAdmin):
+    list_display = ['code', 'name', 'kind', 'crs']
+    search_fields = ['code', 'name']
 
 
 class PointModelAdmin(ModelAdmin):

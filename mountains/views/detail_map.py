@@ -162,8 +162,9 @@ def isolation_features(summit):
         yield mark(nearest, 'isolation_point',
                    f'{ISOLATION_MARK} {summit.isolation_name}{of} ({radius.km:.3f} km)',
                    frame=False)
+        # From the summit out, as the global map draws it: the gradient runs that way.
         yield {'type': 'Feature',
-               'geometry': {'type': 'LineString', 'coordinates': [coords(nearest), coords(here)]},
+               'geometry': {'type': 'LineString', 'coordinates': [coords(here), coords(nearest)]},
                'properties': {'type': 'isolation_line_first'}}
         yield {'type': 'Feature',
                'geometry': isolation_circle(here.y, here.x, radius.m),
@@ -256,12 +257,14 @@ def summit_map_queryset():
 
 # ---------------------------------------------------------------- one col, one river
 
-def col_features(col):
+def col_features(col, runs=()):
     """
     The col; both slopes that meet at it — the summit it is the key col for and that
     summit's parent — and the climb from one to the other through it. Also the two rivers
     meeting below it: the minor one, whose mouth is the col's confluence, and the major one
-    it flows into. Drawn, not framed.
+    it flows into. Drawn, not framed. `runs` — (river, enter, leave), see
+    `views.col.col.drainage_runs` — are the stretches a drop from either side runs along
+    down to where the two waters meet, drawn over the rivers and framed: they are the point.
     """
     lower = getattr(col, 'key_for', None)
     upper = lower.prominence_parent if lower else None
@@ -274,7 +277,19 @@ def col_features(col):
     minor = col.confluence_river
     features += [river_feature(minor, frame=False, role='minor'),
                  river_feature(minor.parent if minor else None, frame=False, role='major')]
+    features += [drainage_run(river, enter, leave) for river, enter, leave in runs]
     return collection(features)
+
+
+def drainage_run(river, enter, leave):
+    path = [coords(point.location) for point in river.course(enter, leave)]
+    if len(path) < 2:
+        return None
+    return {
+        'type': 'Feature',
+        'geometry': {'type': 'LineString', 'coordinates': path},
+        'properties': {'type': 'drainage_run', 'name': str(river), 'frame': True},
+    }
 
 
 def river_features(river):

@@ -26,7 +26,11 @@ class NamedPointAdmin(GISModelAdmin):
             "default_zoom": 7,
         },
     }
-    list_display = ['__str__', 'location_display', 'altitude', 'flags']
+    list_display = ['__str__', 'location_display', 'altitude', 'altitude_datum',
+                    'altitude_egm2008', 'flags']
+    list_filter = [('altitude_datum', admin.EmptyFieldListFilter), 'altitude_datum']
+    list_select_related = ['altitude_datum']
+    readonly_fields = ['altitude_egm2008']
     inlines = [PointNameInline, NoteInline]
     search_fields = ['name']
     autocomplete_search_fields = ['name']
@@ -35,12 +39,25 @@ class NamedPointAdmin(GISModelAdmin):
             'fields': ('name',)
         }),
         ('Position', {
-            'fields': (('location', 'altitude'), 'countries')
+            'fields': (('location', 'altitude'), ('altitude_datum', 'altitude_egm2008'),
+                       'countries')
         }),
         ('Source', {
             'fields': ('source',)
         }),
     )
+
+    def save_related(self, request, form, formsets, change):
+        """
+        A new point with no datum chosen gets the one its countries imply. Only on adding:
+        an existing point left without one is unknown on purpose.
+        """
+        super().save_related(request, form, formsets, change)
+        point = form.instance
+        if not change and point.altitude_datum_id is None:
+            point.altitude_datum = point.default_datum()
+            if point.altitude_datum is not None:
+                point.save(update_fields=['altitude_datum'])
 
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)

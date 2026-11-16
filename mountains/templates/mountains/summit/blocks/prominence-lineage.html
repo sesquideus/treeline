@@ -1,8 +1,13 @@
 {% load tree %}
 
-<h3>
-    Prominence lineage
-</h3>
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        Prominence lineage
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 <table class="lineage">
     {% render_prominence_lineage mountain mountain.compute_encirclement_parent.pk %}
 </table>
+</div>

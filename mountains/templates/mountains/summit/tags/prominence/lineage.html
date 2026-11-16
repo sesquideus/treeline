@@ -1,7 +1,7 @@
 {% load tree cairn %}
 
 {% if node.prominence_parent %}
-    <tr>
+    <tr{% if more %} class="more"{% endif %}>
         <td class="prominence altitude">
             {% if node.compute_prominence %}
                 {{ node.compute_prominence|altitude }}
@@ -30,7 +30,9 @@
             {% endif %}
         </td>
     </tr>
-    {% render_prominence_lineage node.prominence_parent encirclement_parent_pk %}
+    {% if not last %}
+        {% render_prominence_lineage node.prominence_parent encirclement_parent_pk depth|add:1 %}
+    {% endif %}
 {% elif node.island_high_point %}
 
 {% else %}

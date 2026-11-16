@@ -259,6 +259,20 @@ class River(GeoModel):
             '<use href="#mouth-side-{}"></use></svg></abbr>',
             mark['title'], mark['code'])
 
+    def mouth_side_abbr_down(self):
+        """
+        `mouth_side_abbr()` for a list running downstream: the water flowing down the mark
+        (the sprite's `-down` variants). An unrecorded side still gets a mark, a plain one,
+        so a column of them reads as one continuous flow.
+        """
+        mark = self.mouth_side_mark()
+        code, title = ((mark['code'], mark['title']) if mark
+                       else ('unrecorded', 'joins; the bank is not recorded yet'))
+        return format_html(
+            '<abbr title="{} {}"><svg class="mouth-side" role="img">'
+            '<use href="#mouth-side-{}-down"></use></svg></abbr>',
+            self, title, code)
+
     def to_dict(self):
         return {
             'pk': self.pk,
@@ -303,32 +317,44 @@ class River(GeoModel):
         caller who prefetched them (`with_tributaries().with_branches()`) pays no extra
         query per river.
         """
+        return [point.location for point in self.course()]
+
+    def course(self, enter=None, leave=None):
+        """
+        The `NamedPoint`s along the channel, in the order the water reaches them: source,
+        junctions, mouth (see `get_waypoints()`). With `enter` and `leave` — point pks, such
+        as the mouth of a tributary — only the stretch between them; an end not on the
+        course is left open.
+        """
         # Ties in altitude are broken by position: tributaries and branches come from the
         # database in no particular order (a River has none), and a stable sort would carry
         # that order into the line — the same river drawn differently from one load to the next.
         junctions = [
-            (trib.mouth.altitude, trib.mouth.location)
+            trib.mouth
             for trib in self.tributaries.all()
             if trib.mouth and trib.mouth.location
         ] + [
-            (branch.source.altitude, branch.source.location)
+            branch.source
             for branch in self.branches.all()
             if branch.source is not None and branch.source.location is not None
         ]
         # An unknown altitude sorts first, which is what NULLS FIRST gave us under the
         # previous `order_by('-mouth__altitude')`.
-        junctions.sort(key=lambda junction: (math.inf if junction[0] is None else junction[0],
-                                             junction[1].x, junction[1].y),
+        junctions.sort(key=lambda point: (math.inf if point.altitude is None else point.altitude,
+                                          point.location.x, point.location.y),
                        reverse=True)
 
         points = []
         if self.source and self.source.location:
-            points.append(self.source.location)
-        points.extend(location for _, location in junctions)
+            points.append(self.source)
+        points.extend(junctions)
         if self.mouth and self.mouth.location:
-            points.append(self.mouth.location)
+            points.append(self.mouth)
 
-        return points
+        pks = [point.pk for point in points]
+        start = pks.index(enter) if enter in pks else 0
+        end = len(pks) - 1 - pks[::-1].index(leave) if leave in pks else len(pks) - 1
+        return points[start:end + 1]
 
     def to_geojson(self):
         waypoints = self.get_waypoints()

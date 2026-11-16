@@ -1,7 +1,7 @@
 {% load tree cairn %}
 
 {% if node.slope_parent %}
-    <tr>
+    <tr{% if more %} class="more"{% endif %}>
         <td class="altitude">
             {{ node.ascent_to_slope_parent|floatformat:1 }}
         </td>
@@ -18,7 +18,7 @@
             {% object_link node.slope_parent 'mountain' %}
         </td>
     </tr>
-    {% render_slope_lineage node.slope_parent %}
+    {% if not last %}{% render_slope_lineage node.slope_parent depth|add:1 %}{% endif %}
 {% else %}
     {% comment %}This is not unknown, but does not exist!{% endcomment%}
 {% endif %}

@@ -22,14 +22,19 @@ class ColAdmin(ModelAdmin):
                 'point',
             )
         }),
-        ('Confluence', {
+        ('Drainage', {
             'fields': (
                 'confluence_river',
-            )
+                ('river_a', 'river_b'),
+            ),
+            'description': 'The confluence is where the waters of the two sides meet: the '
+                           'mouth of that river. Each side may name the most minor catalogued '
+                           'river its water reaches; both the same river means the col is a '
+                           'spur inside its basin, and then the confluence stays empty.',
         }),
     )
     search_fields = ['point__name', 'key_for__point__name']
-    autocomplete_fields = ['point', 'confluence_river']
+    autocomplete_fields = ['point', 'confluence_river', 'river_a', 'river_b']
 
     def get_search_results(self, request, queryset, search_term):
         """

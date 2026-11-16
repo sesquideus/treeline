@@ -188,6 +188,26 @@ def prime_lineages(summit):
     return summit
 
 
+#: How many summits the slope and horizon tables fold away below the parent.
+RANKED_MORE = 25
+
+
+def parent_first(ranked, parent_pk):
+    """
+    The head of a ranking for a table that shows the parent and folds the rest away: the
+    parent first, flagged `is_parent`, then the next RANKED_MORE in order. The parent is
+    the stored one, matched by pk — normally the top of the ranking anyway, but the ranking
+    is computed live and the parent when the data last settled, and the row the table
+    shows open must be the one the lineage above it names. A parent too far down to be
+    among the rows fetched is left out rather than chased with another query.
+    """
+    rows = list(ranked[:RANKED_MORE + 1])
+    for row in rows:
+        row.is_parent = row.pk == parent_pk
+    parents = [row for row in rows if row.is_parent]
+    return parents + [row for row in rows if not row.is_parent][:RANKED_MORE]
+
+
 class MountainDetailView(DetailView):
     model = Summit
     context_object_name = 'mountain'
@@ -206,7 +226,8 @@ class MountainDetailView(DetailView):
                     Prefetch('prominence_children',
                              queryset=Summit.objects.with_prominence()
                              .select_related('key_col__point').order_by('-prominence')),
-                ))
+                )
+                .select_related('point__altitude_datum'))
 
     def ranked_against_this(self):
         """
@@ -247,8 +268,10 @@ class MountainDetailView(DetailView):
         # Descending, nulls last: Postgres sorts NULLs first on a descending order, and a
         # summit whose metric could not be computed would head the table.
         return context | {
-            'by_slope': ranked.order_by(F('slope').desc(nulls_last=True))[:20],
-            'by_horizon': ranked.order_by(F('hhp_angle').desc(nulls_last=True))[:20],
+            'by_slope': parent_first(ranked.order_by(F('slope').desc(nulls_last=True)),
+                                     self.object.slope_parent_id),
+            'by_horizon': parent_first(ranked.order_by(F('hhp_angle').desc(nulls_last=True)),
+                                       self.object.horizon_parent_id),
             # In the page rather than fetched after it, as on the col and river pages: the
             # map then opens with the page, already framed.
             'map_data': collection(summit_features(

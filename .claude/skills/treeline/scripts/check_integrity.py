@@ -231,6 +231,34 @@ for r in River.objects.select_related('source', 'mouth', 'parent__source',
     if r.parent_id == r.pk:
         err('river-self-parent', r, f'{r.name()} is its own parent')
 
+# Drainage of each col (mountains/models/drainage.py): contradictions the river tree proves
+# are errors; a side not yet connected downstream, or a missing mouth altitude, is a gap in
+# the catalogue and only counted. Rivers without a parent other than the root are such gaps.
+from mountains.models.drainage import ERROR as DRAIN_ERROR, HINT as DRAIN_HINT, RiverIndex
+
+river_index = RiverIndex()
+fragments = [pk for pk, parent in river_index.parent.items()
+             if parent is None and pk != river_index.root]
+if fragments:
+    warn('river-not-connected', None,
+         f'{len(fragments)} rivers are not yet connected downstream to '
+         f'{river_index.name[river_index.root]}: '
+         + ', '.join(sorted(river_index.name[pk] for pk in fragments)))
+
+unverifiable = 0
+for col in Col.objects.filter(Q(confluence_river__isnull=False) | Q(river_a__isnull=False)
+                              | Q(river_b__isnull=False)).select_related('point'):
+    for finding in col.drainage(river_index).findings:
+        where = f'col {col.point.name or "unnamed"} #{col.pk}'
+        if finding.level == DRAIN_ERROR:
+            err('col-drainage', col, f'{where}: {finding.message}')
+        elif finding.level == DRAIN_HINT:
+            warn('col-drainage-hint', col, f'{where}: {finding.message}')
+        else:
+            unverifiable += 1
+if unverifiable:
+    info.append(f'{unverifiable} col drainage checks cannot be made yet (gaps in the river tree)')
+
 # --- duplicates -------------------------------------------------------------
 
 # Pairs that are legitimately close: a summit and its own key col.

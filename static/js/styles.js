@@ -99,17 +99,24 @@ function prominenceZIndex(prominence) {
     return Z_POINT + Math.round(Math.pow(t, SUMMIT_SCALE_EXPONENT) * Z_SUMMIT_SPAN);
 }
 
-const GREEN  = [39, 174, 96];
-const ISOLATION_BEGIN = [241, 86, 255];
-const ISOLATION_MID = [241, 86, 255];
-const ISOLATION_END = [241, 86, 255];
-const RIVER  = [11, 34, 255];
-const RED    = [192, 57, 43];
-const BLUE   = [43, 57, 192];
-const PURPLE = [142, 68, 173];
-// Named but never defined until now, though two cases below already reached for it — the
-// warm end of the prominence line, where the walk arrives at the parent.
-const YELLOW = [241, 196, 15];
+// The lineage lines, as the global map draws them (`lineageStyle()` in map.js) and the
+// detail maps after it, so a climb or an isolation leg reads the same on either. Each is a
+// gradient from the peak towards its parent, split at the waypoint when the line is routed.
+const PROMINENCE_PEAK_TO_COL_A   = [180, 0,   255, 1];   // purple
+const PROMINENCE_PEAK_TO_COL_B   = [0,   180, 255, 1];   // cyan
+const PROMINENCE_COL_TO_PARENT_A = [0,   180, 255, 1];   // cyan
+const PROMINENCE_COL_TO_PARENT_B = [0,   255, 180, 1];   // turquoise
+
+const ISOLATION_PEAK_TO_NHP_A    = [255,   0,   0,  1];
+const ISOLATION_PEAK_TO_NHP_B    = [255,   0, 255,  1];
+const ISOLATION_NHP_TO_PARENT_A  = [255,   0, 255,  1];
+const ISOLATION_NHP_TO_PARENT_B  = [  0,   0, 255,  1];
+
+const SLOPE_COLOUR_A             = [50,  50,  220, 1];
+const SLOPE_COLOUR_B             = [180, 220, 255, 1];
+
+const HORIZON_COLOUR_A           = [180, 50,  180, 1];
+const HORIZON_COLOUR_B           = [255, 200, 255, 1];
 
 
 function denseCoords(coords) {
@@ -140,6 +147,26 @@ function segmentStyles(coords, c1, c2) {
 
 function gradientLine(feature, c1, c2) {
     return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()), c1, c2);
+}
+
+// A climb to the parent as one feature, the way the detail and comparison maps serve it:
+// [peak, col, parent] while routed through the col, [peak, parent] once straightened. The
+// global map draws the same thing as two features, `peak_to_col` and `col_to_parent`, and
+// these are its gradients — so the routed line is those two, and the straight one runs
+// from the first colour of the one to the last of the other, as the global map's does.
+function prominenceClimb(feature) {
+    const coords = feature.getGeometry().getCoordinates();
+    if (coords.length < 3) {
+        return segmentStyles(denseCoords(coords),
+                             PROMINENCE_PEAK_TO_COL_A, PROMINENCE_COL_TO_PARENT_B);
+    }
+    const col = coords.length - 2;
+    return [
+        ...segmentStyles(denseCoords(coords.slice(0, col + 1)),
+                         PROMINENCE_PEAK_TO_COL_A, PROMINENCE_PEAK_TO_COL_B),
+        ...segmentStyles(denseCoords(coords.slice(col)),
+                         PROMINENCE_COL_TO_PARENT_A, PROMINENCE_COL_TO_PARENT_B),
+    ];
 }
 
 function interpolateColor(c1, c2, t) {
@@ -198,6 +225,14 @@ function glyphAbove(glyph, offsetY = -10, zIndex = Z_POINT) {
         }),
         zIndex: zIndex,
     });
+}
+
+// A summit as the global map draws it: its prominence band's colour, its size, and its
+// place in the stack. Every peak on a detail map is one of these, whatever its relation to
+// the page's own; the lines say what that relation is.
+function bandSummit(prom) {
+    return summitMarker(prominenceBand(prom).colour, prominenceRadius(prom),
+                        { zIndex: prominenceZIndex(prom) });
 }
 
 // The ordinary marker with a glyph riding above it. Used for the roots of a hierarchy, which
@@ -282,6 +317,19 @@ const riverLine = new ol.style.Style({
 const minorRiverLine = new ol.style.Style({
     stroke: new ol.style.Stroke({ color: '#1a40f9', width: 2 }),
 });
+
+// On a col's page, the way a drop from either side runs down to where the two waters meet:
+// the river's blue, haloed, over the rivers it follows.
+const drainageRun = [
+    new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: 'rgba(0, 170, 255, 0.45)', width: 10 }),
+        zIndex: 5,
+    }),
+    new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#1a40f9', width: 3 }),
+        zIndex: 6,
+    }),
+];
 
 const isolationCircleStyle = new ol.style.Style({
     stroke: new ol.style.Stroke(
@@ -438,16 +486,16 @@ function styleFor(feature) {
                                                                   ? Z_SUBJECT
                                                                   : prominenceZIndex(prom) });
         case 'prominence_parent':       return summitMarker('#2980b9');
-        // The detail maps. A col's page draws the summit it is the key col for in its own
-        // band colour, as the summit's page would; children are smaller, a paler blue than
-        // the parent, and their climbs thinner than the summit's own line.
-        case 'key_for_summit':          return summitMarker(prominenceBand(prom).colour,
-                                                            prominenceRadius(prom));
+        // The detail maps. Every summit is drawn as the global map draws it, in its band;
+        // only the parent is set apart, lit as the global map lights it on hover.
+        case 'key_for_summit':          return bandSummit(prom);
         case 'lit_parent':              return litParent(prom);
-        case 'prominence_child':        return summitMarker('#85c1e9', 6);
-        case 'child_line':              return [dashedLine('rgba(41,128,185,0.6)')];
+        case 'prominence_child':        return bandSummit(prom);
+        // A child's climb up to the page's summit: the same line as any climb.
+        case 'child_line':              return prominenceClimb(feature);
         case 'river':                   return [feature.get('role') === 'minor'
                                                     ? minorRiverLine : riverLine];
+        case 'drainage_run':            return drainageRun;
         case 'river_source':            return dot('#1a40f9');
         case 'source_summit':           return summitMarker('#16a085');
         case 'watershed_high_point':    return summitMarker('#d35400');
@@ -465,20 +513,19 @@ function styleFor(feature) {
         case 'highlight_parent':        return highlightParent(prom);
         case 'highlight_line':          return highlightLine();
         case 'isolation_point':         return dot('#f1c40f');
-        // The nearest higher neighbour: a peak, in the purple the isolation line ends in.
-        case 'isolation_parent':        return summitMarker('#8e44ad', 7);
-        case 'encirclement_parent':     return summitMarker('#c0392b', 12);
+        case 'isolation_parent':        return bandSummit(prom);
+        case 'encirclement_parent':     return bandSummit(prom);
         case 'range':                   return rangeStyle;
         case 'isolation_circle':        return isolationCircleStyle;
-        case 'isolation_line_first':    return gradientLine(feature, ISOLATION_BEGIN, ISOLATION_MID);
-        case 'isolation_line_second':   return gradientLine(feature, ISOLATION_MID, ISOLATION_END);
+        // The global map's `peak_to_nhp` and `nhp_to_parent`.
+        case 'isolation_line_first':    return gradientLine(feature, ISOLATION_PEAK_TO_NHP_A,
+                                                            ISOLATION_PEAK_TO_NHP_B);
+        case 'isolation_line_second':   return gradientLine(feature, ISOLATION_NHP_TO_PARENT_A,
+                                                            ISOLATION_NHP_TO_PARENT_B);
         // The whole climb in one line — peak, key col, parent — as the detail and compare
-        // maps serve it. The split pair below is the global map's, one style per segment.
-        case 'prominence_line':         return gradientLine(feature, BLUE, YELLOW);
-        case 'prominence_line_first':   return gradientLine(feature, BLUE, RED);
-        case 'prominence_line_second':  return gradientLine(feature, RED, YELLOW);
+        // maps serve it.
+        case 'prominence_line':         return prominenceClimb(feature);
         case 'encirclement_line':       return [dashedLine('rgba(35,14,4,0.8)')];
-        case 'slope_line':              return gradientLine(feature, RED, YELLOW);
         // A summit with nothing above it in the hierarchy on show: the crown for a horizon
         // king, a question mark where a slope parent was never worked out.
         case 'horizon_king':            return markedSummit(prom, '👑');

@@ -1,7 +1,7 @@
 {% load tree cairn %}
 
 {% if node.horizon_parent_std %}
-    <tr>
+    <tr{% if more %} class="more"{% endif %}>
         <td class="distance">
             {{ node.distance_to_horizon_parent_std|floatformat:3 }}
         </td>
@@ -18,7 +18,7 @@
             {% endif %}
         </td>
     </tr>
-    {% render_horizon_lineage_std node.horizon_parent_std %}
+    {% if not last %}{% render_horizon_lineage_std node.horizon_parent_std depth|add:1 %}{% endif %}
 {% else %}
     {% comment %}This is not unknown, but does not exist!{% endcomment%}
 {% endif %}

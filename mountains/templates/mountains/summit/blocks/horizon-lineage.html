@@ -1,12 +1,17 @@
 {% load tree %}
 
-<h3>
-    Horizon lineage
-</h3>
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        Horizon lineage
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 <table class="lineage">
     {% if mountain.horizon_parent %}
         {% render_horizon_lineage mountain %}
     {% else %}
-        This summit has a clear horizon.
+        This summit has a clear horizon (or the database is incomplete).
     {% endif %}
 </table>
+</div>

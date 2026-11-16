@@ -1,14 +1,22 @@
 {% load cairn tree %}
 
-<h3>
-    Horizon children
-</h3>
-<table class="lineage">
-    {% for child in mountain.horizon_children.by_angle %}
-        <tr>
-            <td>{% object_link child 'mountain' attr='name' %}</td>
-            <td class="altitude">{{ child.point.altitude|altitude }}</td>
-            <td class="angle">{{ child.angle|degrees|floatformat:2 }}</td>
-        </tr>
-    {% endfor %}
-</table>
+{# Folded away entirely: a major peak has a hundred and more, and none of them is a parent. #}
+{% with children=mountain.horizon_children.by_angle %}
+    <div class="section foldable">
+        <div class="fold-head">
+            <h3>
+                Horizon children
+            </h3>
+            {% include 'mountains/summit/blocks/fold-toggle.html' with what=children|length %}
+        </div>
+        <table class="lineage">
+            {% for child in children %}
+                <tr class="more">
+                    <td>{% object_link child 'mountain' attr='name' %}</td>
+                    <td class="altitude">{{ child.point.altitude|altitude }}</td>
+                    <td class="angle">{{ child.angle|degrees|floatformat:2 }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+{% endwith %}

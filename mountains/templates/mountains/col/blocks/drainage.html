@@ -1,0 +1,72 @@
+{% load cairn tree %}
+
+{% comment %}
+    Where a drop on either side of the col goes: each side's rivers, from the most minor one
+    its water reaches, down to the row where the two waters meet. With a confluence that row
+    is the confluence river flowing into its parent, the tributary side's column above the
+    one and the main side's above the other; without one, the common river both reach.
+    See mountains/models/drainage.py.
+{% endcomment %}
+<div class="section drainage">
+    <h2>
+        Drainage
+    </h2>
+
+    {% if drainage.sides or drainage.meet %}
+        <div class="drainage-grid">
+            {% for side in drainage.sides %}
+                <div class="drainage-side {% cycle 'left' 'right' %}">
+                    <h4>
+                        {% if side.role == 'tributary' %}tributary side{% elif side.role == 'main' %}main side{% else %}side{% endif %}
+                    </h4>
+                    <ol>
+                        {% for step in side.rivers %}
+                            <li>
+                                {% if step.joined_by %}{{ step.joined_by.mouth_side_abbr_down }}{% else %}<span class="mark-space"></span>{% endif %}
+                                {% object_link step.river 'river' attr='name' %}
+                                {% if step.river.mouth and side.end == 'target' or step.river.mouth and not forloop.last %}
+                                    <span class="mouth" title="its mouth">&rarr;&nbsp;<span class="altitude">{{ step.river.mouth.altitude|altitude }}</span></span>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                        {% if side.end == 'gap' %}
+                            <li class="gap">&hellip; not yet connected</li>
+                        {% endif %}
+                    </ol>
+                </div>
+            {% endfor %}
+
+            {% if drainage.meet == 'mouth' %}
+                <div class="meet left">
+                    {% for side in drainage.sides %}{% if side.role == 'tributary' and side.into_meet %}{{ side.into_meet.mouth_side_abbr_down }}{% endif %}{% empty %}<span class="mark-space"></span>{% endfor %}
+                    {% object_link drainage.meet_river 'river' attr='name' %}
+                </div>
+                <div class="meet arrow" title="the waters of the two sides meet here">
+                    {{ drainage.meet_river.mouth_side_abbr }}
+                    {% if drainage.meet_river.mouth %}<span class="altitude">{{ drainage.meet_river.mouth.altitude|altitude }}</span>{% endif %}
+                    &#x27F6;
+                </div>
+                <div class="meet right">
+                    {% for side in drainage.sides %}{% if side.role == 'main' and side.into_meet %}{{ side.into_meet.mouth_side_abbr_down }}{% endif %}{% empty %}<span class="mark-space"></span>{% endfor %}
+                    {% object_link drainage.meet_into 'river' attr='name' %}
+                </div>
+            {% elif drainage.meet == 'on' %}
+                <div class="meet common" title="the waters meet on this river, at a junction not in the catalogue">
+                    &searr; {% object_link drainage.meet_river 'river' attr='name' %} &swarr;
+                </div>
+            {% elif drainage.meet == 'unknown' %}
+                <div class="meet common empty">where the waters meet is not known yet</div>
+            {% endif %}
+        </div>
+    {% else %}
+        <p class="empty">No drainage recorded</p>
+    {% endif %}
+
+    {% if drainage.findings %}
+        <ul class="findings">
+            {% for finding in drainage.findings %}
+                <li class="{{ finding.level }}">{{ finding.message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>

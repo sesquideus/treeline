@@ -1,8 +1,13 @@
 {% load tree %}
 
-<h3>
-    Horizon lineage (standard refraction)
-</h3>
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        Horizon lineage (standard refraction)
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 <table class="lineage">
     {% render_horizon_lineage_std mountain %}
 </table>
+</div>

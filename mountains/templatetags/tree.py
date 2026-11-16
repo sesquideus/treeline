@@ -55,11 +55,25 @@ def river_tree(nodes, tree):
     }
 
 
+#: A lineage shows its first row — the parent — and folds away up to this many more.
+LINEAGE_MORE = 25
+
+
+def lineage_level(depth):
+    """
+    Where a row of a lineage stands: past the first it is folded away (`more`), and at the
+    last row shown the recursion stops (`last`). Chains run long — slope chains in
+    particular — and every row past the fold is one only a curious reader opens.
+    """
+    return {'depth': depth, 'more': depth > 0, 'last': depth >= LINEAGE_MORE}
+
+
 @register.inclusion_tag('mountains/summit/tags/prominence/lineage.html')
-def render_prominence_lineage(node, encirclement_parent_pk):
+def render_prominence_lineage(node, encirclement_parent_pk, depth=0):
     return {
         'node': node,
         'encirclement_parent_pk': encirclement_parent_pk,
+        **lineage_level(depth),
     }
 
 
@@ -71,31 +85,23 @@ def render_encirclement_lineage(node):
 
 
 @register.inclusion_tag('mountains/summit/tags/isolation/lineage.html')
-def render_isolation_lineage(node):
-    return {
-        'node': node,
-    }
+def render_isolation_lineage(node, depth=0):
+    return {'node': node, **lineage_level(depth)}
 
 
 @register.inclusion_tag('mountains/summit/tags/slope/lineage.html')
-def render_slope_lineage(node):
-    return {
-        'node': node,
-    }
+def render_slope_lineage(node, depth=0):
+    return {'node': node, **lineage_level(depth)}
 
 
 @register.inclusion_tag('mountains/summit/tags/horizon/lineage.html')
-def render_horizon_lineage(node):
-    return {
-        'node': node,
-    }
+def render_horizon_lineage(node, depth=0):
+    return {'node': node, **lineage_level(depth)}
 
 
 @register.inclusion_tag('mountains/summit/tags/horizon/lineage-std.html')
-def render_horizon_lineage_std(node):
-    return {
-        'node': node,
-    }
+def render_horizon_lineage_std(node, depth=0):
+    return {'node': node, **lineage_level(depth)}
 
 
 @register.filter
@@ -139,6 +145,25 @@ def altitude(alt_m: Optional[float]):
     if not alt_m:
         return "?"
     return f"{alt_m:.1f}"
+
+
+@register.filter
+def datum(point):
+    """
+    What a point's altitude is measured from, after the altitude itself: "Bpv · 2654.4 m
+    EGM2008". The EGM2008 figure only when it reads differently at a decimetre; a '?' for an
+    unknown datum.
+    """
+    if point is None:
+        return ''
+    if point.altitude_datum_id is None:
+        return mark_safe('<span class="datum unknown" title="vertical datum unknown">?</span>')
+    code = point.altitude_datum.code
+    html = f'<span class="datum" title="{point.altitude_datum.name}">{code}</span>'
+    egm = point.altitude_egm2008
+    if egm is not None and code != 'EGM2008' and f'{egm:.1f}' != f'{point.altitude:.1f}':
+        html += f' &middot; <span class="datum egm2008">{egm:.1f}&nbsp;m EGM2008</span>'
+    return mark_safe(html)
 
 
 @register.filter

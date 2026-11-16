@@ -179,13 +179,14 @@ function popupSection(caption, rows) {
         .join('');
 }
 
-// Every name the summit goes by now, as the server sends them: the most important language
-// first, each with the flag of its language in the label column. Historical names stay on
-// the detail page.
+// Every name the summit goes by now, in the order the server sends them — local names
+// first, then by language priority — each with the flag of its language in the label
+// column, on white rather than the label grey so the flag reads as itself. Historical
+// names stay on the detail page.
 function namesSection(names) {
     if (!names || !names.length) return '';
-    return popupSection('names',
-                        names.map(n => popupRow(flagsHtml([n.flag]), n.name, 'name')));
+    return popupSection('names', names.map(n =>
+        `<tr><th class="flag">${flagsHtml([n.flag])}</th><td class="name">${n.name}</td></tr>`));
 }
 
 function popupTable(sections) {
@@ -672,21 +673,8 @@ function makeMap(geojson, styleFor, coords, zoom, onHover, onOpen) {
     return { map, tileLayer, vectorLayer, refreshPopup, clearPopup: () => hovered(null) };
 }
 
-const PROMINENCE_PEAK_TO_COL_A   = [180, 0,   255, 1];   // purple
-const PROMINENCE_PEAK_TO_COL_B   = [0,   180, 255, 1];   // cyan
-const PROMINENCE_COL_TO_PARENT_A = [0,   180, 255, 1];   // cyan
-const PROMINENCE_COL_TO_PARENT_B = [0,   255, 180, 1];   // turquoise
-
-const ISOLATION_PEAK_TO_NHP_A    = [255,   0,   0,  1];
-const ISOLATION_PEAK_TO_NHP_B    = [255,   0, 255,  1];
-const ISOLATION_NHP_TO_PARENT_A  = [255,   0, 255,  1];
-const ISOLATION_NHP_TO_PARENT_B  = [  0,   0, 255,  1];
-
-const SLOPE_COLOUR_A             = [50,  50,  220, 1];
-const SLOPE_COLOUR_B             = [180, 220, 255, 1];
-
-const HORIZON_COLOUR_A           = [180, 50,  180, 1];
-const HORIZON_COLOUR_B           = [255, 200, 255, 1];
+// The lineage colours — prominence, isolation, slope, horizon — are in styles.js, shared
+// with the detail maps.
 
 const CONFLUENCE_COLOUR_A        = [255, 100, 255, 1];   // pink at the col
 const CONFLUENCE_COLOUR_B        = [255, 200, 255, 1];   // pale pink at the confluence

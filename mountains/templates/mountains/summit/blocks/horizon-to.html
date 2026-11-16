@@ -1,8 +1,12 @@
 {% load tree cairn %}
 
-<h3>
-    Horizon angle
-</h3>
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        Horizon angle
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 
 <table>
     <thead>
@@ -14,8 +18,13 @@
             <th>&#x2197; (air)</th>
         </tr>
     </thead>
+    {% if by_horizon and not by_horizon.0.is_parent %}
+        <tr>
+            <td colspan="99" class="empty">no horizon parent</td>
+        </tr>
+    {% endif %}
     {% for summit in by_horizon %}
-        <tr class="{% if summit.hhp_angle > 0 %}up{% else %}down{% endif %}">
+        <tr class="{% if not summit.is_parent %}more {% endif %}{% if summit.hhp_angle > 0 %}up{% else %}down{% endif %}">
             <td class="summit">
                 {% object_link summit 'mountain' %}
             </td>
@@ -36,3 +45,4 @@
         </tr>
     {% endfor %}
 </table>
+</div>

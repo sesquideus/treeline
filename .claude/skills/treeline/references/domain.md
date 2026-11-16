@@ -136,6 +136,18 @@ and both together is a normal combination:
 
 - `confluence_river` — the river the col drains toward. Where the water arrives is that
   river's `mouth`, which is a `NamedPoint`.
+- `river_a`, `river_b` — optional refinements: on each side, the most minor catalogued
+  river a drop's water reaches. Symmetric; equal means the col is a spur inside that
+  river's basin (and then `confluence_river` must be empty).
+
+`confluence_river` is the primary fact, set exactly when the two waters meet at a catalogued
+mouth; the sides refine it downward and never override it. Each side's lineage is its chain
+of `parent`s: through the confluence river X on the tributary side, to its parent P on the
+main side, which must join P above X's mouth. `mountains/models/drainage.py` holds the rules
+and sorts findings into errors (proved contradictions, refused by `Col.clean()`),
+unverifiable (a side not yet connected downstream, a missing mouth altitude) and hints. The
+river tree has one root, the ocean; any other parentless river is a fragment still to be
+connected, a legitimate gap.
 
 (There was once a separate `Confluence` model holding the junction itself. It was superseded
 by the river mouth being a point of its own and removed in migration 0034; its 52 points

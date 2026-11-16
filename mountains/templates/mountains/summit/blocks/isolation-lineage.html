@@ -1,8 +1,13 @@
 {% load tree %}
 
-<h3>
-    Isolation lineage
-</h3>
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        Isolation lineage
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 <table class="lineage">
     {% render_isolation_lineage mountain %}
 </table>
+</div>

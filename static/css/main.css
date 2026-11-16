@@ -152,6 +152,13 @@ img.flag {
     text-align: center;
 }
 
+/* A name's flag, in the label column: on white, not the label grey, which crowds the flag
+   and swallows the white in half of them. */
+.map-popup table th.flag {
+    background: #fff;
+    text-align: center;
+}
+
 /* The prominence band, as the marker draws it: bigger than the type around it and stroked in
    the same ink the markers are outlined with, so a pale ultra still has a defined edge
    against white. `line-height: 1` keeps the larger glyph from growing the row. The cell is
@@ -230,6 +237,74 @@ form.filter #id_countries {
 
 form.filter .helptext {
     font-size: 0.85em;
+    color: hsl(0, 0%, 45%);
+}
+
+/* Page links above and below a paginated list (core/blocks/pagination.html): square blocks
+   in the colours of the table headers — the current page black like a superhead, the arrows
+   that lead nowhere faded. Wraps to a second row rather than widening the page. */
+nav.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4em 1em;
+    margin: 0.8em 0;
+}
+
+nav.pagination ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+nav.pagination li {
+    min-width: 2.2em;
+    line-height: 2.2em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+nav.pagination li a {
+    display: block;
+    padding: 0 0.4em;
+    background-color: dimgray;
+    color: white;
+    text-decoration: none;
+}
+
+nav.pagination li a:hover {
+    background-color: orangered;
+}
+
+nav.pagination li.arrow a {
+    background-color: steelblue;
+}
+
+nav.pagination li.arrow a:hover {
+    background-color: orangered;
+}
+
+nav.pagination li.current {
+    padding: 0 0.4em;
+    background-color: black;
+    color: white;
+    font-weight: 700;
+}
+
+nav.pagination li.disabled {
+    background-color: hsla(207, 44%, 49%, 0.3);
+    color: white;
+}
+
+nav.pagination li.ellipsis {
+    min-width: 1.2em;
+    color: dimgray;
+}
+
+nav.pagination .summary {
     color: hsl(0, 0%, 45%);
 }
 
@@ -463,6 +538,16 @@ tr.down {
 }
 
 .altitude { text-align: right; }
+span.datum { font-size: 0.6em; font-weight: normal; color: dimgray; }
+span.datum.unknown { color: orangered; }
+ul.altitudes {
+    list-style: none;
+    margin: 0.6em 0 1em;
+    padding: 0.1em 0 0.1em 0.7em;
+    border-left: 3px solid steelblue;
+}
+ul.altitudes li { padding: 0.2em 0; }
+ul.altitudes span.datum { font-size: 0.85em; margin-left: 0.4em; }
 .prominence { text-align: right; }
 .distance { text-align: right; }
 .azimuth { text-align: right; }
@@ -652,3 +737,139 @@ div.detail-page div#map {
     border: 1px solid rgba(11, 11, 11, 0.15);
     flex: none;
 }
+
+/* Each section of a detail page in its own faint box, so the headings and tables do not
+   run together into one long column. */
+div.section {
+    margin: 0.6em 0;
+    padding: 0 0.6em 0.6em;
+    border: 1px solid #e4e4e4;
+    background-color: #fcfcfc;
+}
+
+div.section h3 {
+    padding-top: 0.4em;
+}
+
+/* A section that shows its first row and folds the rest away — the lineages, and the slope
+   and horizon rankings on a summit's page. The rows past the first are `tr.more`; the
+   checkbox in `label.fold` (mountains/summit/blocks/fold-toggle.html) shows them. No
+   script: `:has()` reads the checkbox, so it works on a page swapped in place too. */
+/* Collapsed rather than `display: none`: a collapsed row still counts towards its table's
+   column widths, so a table — and the data pane, which is as wide as its widest table —
+   keeps one width folded or not. */
+div.foldable:not(:has(label.fold input:checked)) tr.more {
+    visibility: collapse;
+}
+
+div.foldable:not(:has(tr.more)) label.fold {
+    display: none;
+}
+
+/* The switch sits on the heading's line, after its text, so a folded section costs no
+   extra line. Inline in the row, it adds nothing to the pane's width. */
+div.fold-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8em;
+}
+
+label.fold {
+    flex: none;
+    font-size: 85%;
+    color: steelblue;
+    cursor: pointer;
+    user-select: none;
+}
+
+label.fold:hover {
+    color: orangered;
+}
+
+label.fold input {
+    display: none;
+}
+
+label.fold span::after {
+    content: '▸ show ' attr(data-what);
+}
+
+label.fold input:checked + span::after {
+    content: '▾ fold';
+}
+
+/* A col's drainage: one column per side, each running down from the most minor river its
+   water reaches to where the two waters meet (mountains/col/blocks/drainage.html). */
+/* Two columns, one per side, bottom-aligned so both chains run into the junction row
+   beneath them: the confluence river, an arrow, the river it joins. */
+div.drainage-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    column-gap: 0.8em;
+    align-items: end;
+}
+
+div.drainage-side.left, div.meet.left { grid-column: 1; }
+div.drainage-side.right, div.meet.right { grid-column: 3; }
+div.drainage-side { grid-row: 1; }
+div.meet { grid-row: 2; padding: 0.15em 0; }
+div.meet.arrow { grid-column: 2; color: steelblue; white-space: nowrap; text-align: center; }
+div.meet.arrow span.altitude { color: grey; font-size: 85%; }
+div.meet.common { grid-column: 1 / 4; text-align: center; }
+
+div.drainage-side h4 {
+    color: dimgray;
+    font-size: 85%;
+    padding: 0.2em 0;
+}
+
+div.drainage-side ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+div.drainage-side li {
+    padding: 0.15em 0;
+}
+
+/* Downstream: each river after the first is joined by the one above it, through the
+   confluence mark of that junction with the water flowing down. A step with no mark — the
+   first — keeps the mark's room, so the names stand in one column. */
+div.drainage-side svg.mouth-side, div.meet svg.mouth-side {
+    color: steelblue;
+    margin-right: 0.15em;
+}
+
+span.mark-space {
+    display: inline-block;
+    width: 1.65em;
+}
+
+div.drainage-side span.mouth {
+    color: grey;
+    font-size: 85%;
+    white-space: nowrap;
+}
+
+div.drainage-side li.gap {
+    color: grey;
+    font-style: italic;
+}
+
+ul.findings {
+    list-style: none;
+    margin: 0.4em 0 0;
+    padding: 0;
+    font-size: 90%;
+}
+
+ul.findings li {
+    padding: 0.15em 0 0.15em 0.6em;
+    border-left: 3px solid grey;
+    margin-bottom: 0.2em;
+}
+
+ul.findings li.error { border-color: orangered; color: orangered; }
+ul.findings li.unverifiable { border-color: goldenrod; }
+ul.findings li.hint { border-color: steelblue; }

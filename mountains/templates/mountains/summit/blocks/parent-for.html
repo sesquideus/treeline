@@ -1,31 +1,33 @@
 {% load cairn tree %}
 
-<h3>
-    Parent peak for
-</h3>
-<table class="lineage">
-    {% for child in mountain.prominence_children.all %}
-        <tr>
-            <td>
-                {% object_link child 'mountain' %}
-            </td>
-            <td>&#x2198;</td>
-            <td class="altitude">{{ child.prominence|altitude }}</td>
-            <td>
-                {% if child.key_col %}
-                    {% object_link child.key_col 'col' attr='name' %}
-                {% else %}
-                    <span class="error">key col undefined</span>
-                {% endif %}
-            </td>
-            <td class="altitude">{{ child.key_col.point.altitude|altitude }}</td>
-            <td>&#x2197;</td>
-        </tr>
-    {% empty %}
-        <tr>
-            <td colspan="99" class="empty">
-                no peaks in the database
-            </td>
-        </tr>
-    {% endfor %}
-</table>
+<div class="section">
+    <h3>
+        Parent peak for
+    </h3>
+    <table class="lineage">
+        {% for child in mountain.prominence_children.all %}
+            <tr>
+                <td>
+                    {% object_link child 'mountain' %}
+                </td>
+                <td>&#x2198;</td>
+                <td class="altitude">{{ child.prominence|altitude }}</td>
+                <td>
+                    {% if child.key_col %}
+                        {% object_link child.key_col 'col' attr='name' %}
+                    {% else %}
+                        <span class="error">key col undefined</span>
+                    {% endif %}
+                </td>
+                <td class="altitude">{{ child.key_col.point.altitude|altitude }}</td>
+                <td>&#x2197;</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="99" class="empty">
+                    no peaks in the database
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>

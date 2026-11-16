@@ -1,4 +1,5 @@
 from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Prefetch, F, Value, CharField
 from django.db.models.functions import Concat, Coalesce
@@ -84,6 +85,17 @@ class Col(GeoModel):
 
     point = models.OneToOneField('NamedPoint', on_delete=models.CASCADE, null=True, blank=False, related_name='col')
     confluence_river = models.ForeignKey('River', on_delete=models.CASCADE, null=True, blank=True, related_name='cols')
+    #: Where a drop falling on either side of the col goes: the most minor catalogued river
+    #: its water reaches on that side. Optional refinements below `confluence_river`, which
+    #: stays the primary fact — see `mountains/models/drainage.py` for how the three fit
+    #: together and what is checked. The two are symmetric (neither side is "a"), may be the
+    #: same river (the col is a spur inside that river's basin), and either may be empty.
+    river_a = models.ForeignKey('River', on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='col_sides_a',
+                                help_text='The most minor catalogued river the water on one side reaches')
+    river_b = models.ForeignKey('River', on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='col_sides_b',
+                                help_text='Likewise for the other side; may equal the first')
 
     objects = ColQuerySet.as_manager()
 
@@ -107,6 +119,24 @@ class Col(GeoModel):
 
     def get_absolute_url(self):
         return reverse('col', kwargs={'pk': self.pk})
+
+    def drainage(self, index=None):
+        """ Both sides' river lineages and where they meet; see `mountains.models.drainage`. """
+        from mountains.models.drainage import analyse
+        return analyse(self, index)
+
+    def clean(self):
+        """
+        Refuses what the river tree proves wrong. What it cannot check yet — a side whose
+        rivers are not connected down to the confluence, a missing mouth altitude — is a
+        gap in the catalogue, not an error, and is shown on the col's page instead.
+        """
+        super().clean()
+        errors = {}
+        for finding in self.drainage().errors():
+            errors.setdefault(finding.field or '__all__', []).append(finding.message)
+        if errors:
+            raise ValidationError(errors)
 
     def distance_to_confluence(self):
         """ Geodesic distance from the col down to its confluence (the river mouth) """

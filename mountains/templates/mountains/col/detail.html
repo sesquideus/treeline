@@ -3,7 +3,7 @@
 {% load static countries tree cairn %}
 
 {% block page_title %}
-    <span class="col">{{ col.name }}</span> ({{ col.point.altitude }} m)
+    <span class="col">{{ col.name }}</span> ({{ col.point.altitude }} m {{ col.point|datum }})
     {{ col.point|flags }}
     <a class="edit" href="{{ col.admin_change_url }}">&#x1F589;</a>
 {% endblock page_title %}
@@ -52,12 +52,7 @@
             {% endfor %}
         </table>
 
-        <h2>
-            Confluence
-        </h2>
-        {% object_link col.confluence_river 'river' attr='source' %}
-        &rightarrow;
-        {% object_link col.confluence_river.parent 'river' %}
+        {% include 'mountains/col/blocks/drainage.html' %}
         <h3>
             Friend cols
         </h3>

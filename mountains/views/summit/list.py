@@ -1,5 +1,6 @@
 from cairn.views import OrderableListView
 from django.contrib.gis.measure import D
+from django.db.models import F
 
 from mountains.forms.filter import SummitFilterForm
 from mountains.models import Summit
@@ -20,6 +21,7 @@ class MountainListView(CachedPageMixin, OrderableListView):
     model = Summit
     context_object_name = 'mountains'
     template_name = 'mountains/summit/list/list.html'
+    paginate_by = 100
 
     ORDERING = {
         'name': 'point__name',
@@ -81,6 +83,16 @@ class MountainListView(CachedPageMixin, OrderableListView):
 
         self.queryset = qs
         return super().get_queryset()
+
+    def get_ordering(self):
+        """
+        The requested ordering, or the model's, with the pk as the last tiebreak. Paged, an
+        ordering has to be total: two summits of one altitude, or the many with no isolation,
+        may otherwise come back in a different order on the next request, and one of them
+        appears on two pages while another appears on none.
+        """
+        ordering = super().get_ordering() or list(Summit._meta.ordering)
+        return [*ordering, F('pk').asc()]
 
     def get_context_data(self, **kwargs):
         return super().get_context_data(**kwargs) | {

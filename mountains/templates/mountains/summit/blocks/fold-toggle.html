@@ -1,0 +1,7 @@
+{% comment %}
+    The switch for a `div.foldable`: the rows marked `more` in its table stay hidden until it
+    is ticked — see `div.foldable` in main.css. A checkbox rather than a script, so it keeps
+    working on a page swapped in place; and it hides itself when there is nothing to unfold.
+    `what` says what it unfolds — "show 104" — and defaults to "more".
+{% endcomment %}
+<label class="fold"><input type="checkbox"><span data-what="{{ what|default:'more' }}"></span></label>

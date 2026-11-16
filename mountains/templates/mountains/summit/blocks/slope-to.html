@@ -1,7 +1,9 @@
 {% load tree cairn %}
 
-<h3>
-    <abbr title="Slope is a measure of the peak's independence. A geodesic line is drawn to every other (higher) summit.
+<div class="section foldable">
+<div class="fold-head">
+    <h3>
+        <abbr title="Slope is a measure of the peak's independence. A geodesic line is drawn to every other (higher) summit.
         Slope is the measure of how quickly one has to rise along this line to reach the other summit,
         or the ratio of height difference to distance.
         However, this does not account for the curvature of the Earth!
@@ -23,7 +25,9 @@
         Determining this is possible, but computationally much more difficult and probably better left
         to more specialized tools. On the other hand, determining the slope from the databse is straightforward
         and can be done automatically as long as the database is complete enough.">Slope</abbr>
-</h3>
+    </h3>
+    {% include 'mountains/summit/blocks/fold-toggle.html' %}
+</div>
 
 <table>
     <thead>
@@ -34,8 +38,13 @@
             <th>&#x2197;</th>
         </tr>
     </thead>
+    {% if by_slope and not by_slope.0.is_parent %}
+        <tr>
+            <td colspan="99" class="empty">no slope parent</td>
+        </tr>
+    {% endif %}
     {% for summit in by_slope %}
-        <tr class="{% if summit.slope > 0 %}up{% else %}down{% endif %}">
+        <tr class="{% if not summit.is_parent %}more {% endif %}{% if summit.slope > 0 %}up{% else %}down{% endif %}">
             <td class="summit">
                 {% object_link summit 'mountain' %}
             </td>
@@ -57,3 +66,4 @@
         </tr>
     {% endfor %}
 </table>
+</div>

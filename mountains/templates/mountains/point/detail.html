@@ -13,7 +13,7 @@
 
 {% block page_content %}
     <p>
-        <span class="altitude">{{ point.altitude|altitude }}</span>
+        <span class="altitude">{{ point.altitude|altitude }}</span> {{ point|datum }}
         {% if point.coordinates %}at {{ point.coordinates }}{% endif %}
         {{ point|flags }}
     </p>

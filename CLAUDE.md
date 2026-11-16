@@ -36,6 +36,28 @@ sudo -u postgres psql -d template1 -c 'CREATE EXTENSION postgis'   # so new DBs 
 Without the first, `manage.py test` reports "permission denied to create database"; without
 the second, it gets as far as `CREATE EXTENSION postgis` and stops at "must be superuser".
 
+### Vertical datums
+
+Every `NamedPoint.altitude` is stored as its source gave it, in `altitude_datum` (a
+`core.VerticalDatum`: Bpv, PL-EVRF2007, EGM2008, ETRS89-h, …; null = unknown).
+`altitude_egm2008` is that altitude converted to EGM2008, the canonical system, by
+`core/functions/heights.py` on every save. Prominence and the other metrics still use the
+raw `altitude`. The conversion needs PROJ grids that pyproj does not ship. Fetch them once
+per machine (laptop and amos), then fill the column:
+
+```bash
+mkdir -p ~/.local/share/proj
+for g in sk_gku_Slovakia_ETRS89h_to_Baltic1957 cz_cuzk_CR-2005 pl_gugik_geoid2021-PL-EVRF2007-NH \
+         pl_gugik_geoid2011-PL-KRON86-NH us_nga_egm08_25; do
+    uv run pyproj sync --file $g --target-directory ~/.local/share/proj
+done
+uv run python manage.py recompute_altitudes
+```
+
+Without a grid, a conversion stores null and logs a warning; it never stores the
+unconverted number (PROJ's "ballpark" fallback is refused). The grids must be readable by
+the user that uwsgi runs as.
+
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,
 localhost — see `treeline/settings.py`. `db_import.sh` pulls the SQL dump from a remote host

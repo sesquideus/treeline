@@ -17,7 +17,24 @@
     <span class="latitude">{{ mountain.point.location.y|floatformat:6 }}°</span>
     <span class="longitude">{{ mountain.point.location.x|floatformat:6 }}°</span>
 
+    {% with point=mountain.point %}
+        <ul class="altitudes">
+            <li>
+                {{ point.altitude }} m
+                {% if point.altitude_datum %}
+                    {{ point.altitude_datum.code }} <span class="datum">{{ point.altitude_datum.name }}</span>
+                {% else %}
+                    <span class="datum unknown">vertical datum unknown</span>
+                {% endif %}
+            </li>
+            {% if point.altitude_egm2008 is not None and point.altitude_datum.code != 'EGM2008' %}
+                <li>{{ point.altitude_egm2008|floatformat:2 }} m EGM2008</li>
+            {% endif %}
+        </ul>
+    {% endwith %}
+
     {% with current=mountain.point.current_names historical=mountain.point.historical_names %}
+        <div class="section">
         <h3>
             Names
         </h3>
@@ -30,7 +47,10 @@
             {% endfor %}
         </table>
 
+        </div>
+
         {% if historical %}
+            <div class="section">
             <h3>
                 Historical names
             </h3>
@@ -42,9 +62,11 @@
                     </tr>
                 {% endfor %}
             </table>
+            </div>
         {% endif %}
     {% endwith %}
 
+    <div class="section">
     <h3>
         Isolation
     </h3>
@@ -63,6 +85,7 @@
             {% endif %}
         {% endwith %}
     </table>
+    </div>
 
     {% include "mountains/summit/blocks/prominence-lineage.html" %}
     {% include "mountains/summit/blocks/slope-lineage.html" %}
