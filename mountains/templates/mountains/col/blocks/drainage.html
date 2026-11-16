@@ -22,10 +22,9 @@
                     <ol>
                         {% for step in side.rivers %}
                             <li>
-                                {% if step.joined_by %}{{ step.joined_by.mouth_side_abbr_down }}{% else %}<span class="mark-space"></span>{% endif %}
-                                {% object_link step.river 'river' attr='name' %}
+                                <span class="name">{% if step.joined_by %}{{ step.joined_by.mouth_side_abbr_down }}{% else %}<span class="mark-space"></span>{% endif %}{% object_link step.river 'river' attr='name' %}</span>
                                 {% if step.river.mouth and side.end == 'target' or step.river.mouth and not forloop.last %}
-                                    <span class="mouth" title="its mouth">&rarr;&nbsp;<span class="altitude">{{ step.river.mouth.altitude|altitude }}</span></span>
+                                    <span class="mouth altitude" title="its mouth: where it joins the river below">{{ step.river.mouth.altitude|altitude }}</span>
                                 {% endif %}
                             </li>
                         {% endfor %}
@@ -38,13 +37,13 @@
 
             {% if drainage.meet == 'mouth' %}
                 <div class="meet left">
-                    {% for side in drainage.sides %}{% if side.role == 'tributary' and side.into_meet %}{{ side.into_meet.mouth_side_abbr_down }}{% endif %}{% empty %}<span class="mark-space"></span>{% endfor %}
-                    {% object_link drainage.meet_river 'river' attr='name' %}
+                    <span class="name">{% for side in drainage.sides %}{% if side.role == 'tributary' and side.into_meet %}{{ side.into_meet.mouth_side_abbr_down }}{% endif %}{% empty %}<span class="mark-space"></span>{% endfor %}{% object_link drainage.meet_river 'river' attr='name' %}</span>
+                    {% if drainage.meet_river.mouth %}
+                        <span class="mouth altitude" title="its mouth: where the waters of the two sides meet">{{ drainage.meet_river.mouth.altitude|altitude }}</span>
+                    {% endif %}
                 </div>
                 <div class="meet arrow" title="the waters of the two sides meet here">
-                    {{ drainage.meet_river.mouth_side_abbr }}
-                    {% if drainage.meet_river.mouth %}<span class="altitude">{{ drainage.meet_river.mouth.altitude|altitude }}</span>{% endif %}
-                    &#x27F6;
+                    {{ drainage.meet_river.mouth_side_abbr }}&#x27F6;
                 </div>
                 <div class="meet right">
                     {% for side in drainage.sides %}{% if side.role == 'main' and side.into_meet %}{{ side.into_meet.mouth_side_abbr_down }}{% endif %}{% empty %}<span class="mark-space"></span>{% endfor %}

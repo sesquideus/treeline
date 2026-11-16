@@ -129,12 +129,24 @@ const pointUrl  = pk => pk != null ? `/point/${pk}/` : null;
 // The detail page a feature stands for, or null for everything that has no page of its own
 // — isolation points, lineage segments, highlight marks, range polygons. Reading the type
 // rather than the layer, because the same layer can carry more than one kind of mark.
+// Marks on the detail maps that stand for a summit and carry everything the global map's
+// popup reads (`summit_feature()` in mountains/views/detail_map.py). A source summit or a
+// watershed high point is one only when the server sent a summit's full properties — the
+// latter can be a bare named point, which keeps its label-only mark.
+const SUMMIT_KINDS = new Set(['summit', 'prominence_child', 'isolation_parent', 'confluence_summit']);
+const SUMMIT_KINDS_IF_DETAILED = new Set(['source_summit', 'watershed_high_point']);
+
+function describedAs(feature) {
+    const type = feature.get('type');
+    if (SUMMIT_KINDS.has(type)) return 'summit';
+    if (SUMMIT_KINDS_IF_DETAILED.has(type) && feature.get('pk') != null) return 'summit';
+    return type;
+}
+
 function detailUrl(feature) {
     if (!feature) return null;
-    switch (feature.get('type')) {
-        case 'summit':
-        case 'prominence_child':
-        case 'isolation_parent': return summitUrl(feature.get('pk'));
+    switch (describedAs(feature)) {
+        case 'summit': return summitUrl(feature.get('pk'));
         case 'col':    return colUrl(feature.get('pk'));
         case 'river':  return riverUrl(feature.get('pk'));
         default:       return feature.get('label') ? feature.get('url') ?? null : null;
@@ -306,12 +318,11 @@ function bandMark(prominence) {
 
 function popupHtml(feature) {
     if (!feature) return '';
-    switch (feature.get('type')) {
-        // A child or the nearest higher neighbour on a summit's page is drawn with a mark
-        // of its own but described like any summit on the global map.
-        case 'summit':
-        case 'prominence_child':
-        case 'isolation_parent': {
+    switch (describedAs(feature)) {
+        // A child or the nearest higher neighbour on a summit's page, a river's source
+        // summit or watershed high point, is drawn with a mark of its own but described like
+        // any summit on the global map.
+        case 'summit': {
             const keyCol = feature.get('key_col');
             const parent = feature.get('parent');
             const ilp = feature.get('ilp');

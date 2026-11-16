@@ -17,11 +17,11 @@ a col drains into — is drawn but never framed, or it would shrink everything t
 to one dot.
 """
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.urls import reverse
 
 from core.functions.world import distance
-from mountains.models import Summit
+from mountains.models import River, Summit
 
 SUMMIT_MARK = '⛰'
 PARENT_MARK = '⊃'
@@ -217,8 +217,12 @@ def child_features(summit):
         yield line('child_line', [child.point, col, summit.point])
 
 
-def summit_features(summit):
-    """Everything on a summit's map, as a list of features."""
+def summit_features(summit, runs=()):
+    """
+    Everything on a summit's map, as a list of features. `runs` are its key col's drainage
+    (see `views.drainage.drainage_runs`): with the confluence's two rivers, as on the col's
+    own page, but not framed.
+    """
     parent = summit.prominence_parent
     col = summit.key_col
     own = summit_feature(summit)
@@ -230,20 +234,31 @@ def summit_features(summit):
         own,
         *isolation_features(summit),
         summit_mark(parent, 'lit_parent', PARENT_MARK),
-        col_feature(col, summit),
+        key_col_feature(col, summit),
     ]
     if parent is not None and col is not None:
         features.append(line('prominence_line', [summit.point, col.point, parent.point]))
     features.extend(encirclement_features(summit))
     features.extend(child_features(summit))
+    if col is not None:
+        features.extend(drainage_features(col, runs, frame=False))
     return [f for f in features if f is not None]
+
+
+def key_col_feature(col, summit):
+    """ The summit's own key col: drawn larger than its children's, which share the map. """
+    feature = col_feature(col, summit)
+    if feature is not None:
+        feature['properties']['key'] = True
+    return feature
 
 
 #: What a key col's popup reads beyond the col itself, loaded through the key col that
 #: `with_prominence()` already prefetches — so the summit's col and every child's cost a
 #: fixed number of queries, however many children there are.
 COL_RELATIONS = ('key_col__point__countries', 'key_col__confluence_river__source',
-                 'key_col__confluence_river__mouth', 'key_col__confluence_river__parent__source')
+                 'key_col__confluence_river__mouth', 'key_col__confluence_river__parent__source',
+                 'key_col__confluence_river__parent__mouth')
 
 
 def summit_map_queryset():
@@ -274,40 +289,118 @@ def col_features(col, runs=()):
         if upper is not None:
             features += [summit_mark(upper, 'lit_parent', PARENT_MARK),
                          line('prominence_line', [lower.point, col.point, upper.point])]
-    minor = col.confluence_river
-    features += [river_feature(minor, frame=False, role='minor'),
-                 river_feature(minor.parent if minor else None, frame=False, role='major')]
-    features += [drainage_run(river, enter, leave) for river, enter, leave in runs]
+    features += drainage_features(col, runs, frame=True)
     return collection(features)
 
 
-def drainage_run(river, enter, leave):
+def drainage_features(col, runs, frame):
+    """
+    The two rivers meeting below a col — the minor one, whose mouth is its confluence, and
+    the major one it flows into — and the runs a drop from either side takes down to them.
+    The col's own page frames the runs; a summit's leaves them out of the frame, since a
+    key col's waters can meet a sea away.
+    """
+    minor = col.confluence_river if col is not None else None
+    features = [river_feature(minor, frame=False, role='minor'),
+                river_feature(minor.parent if minor else None, frame=False, role='major')]
+    features += [drainage_run(river, enter, leave, frame) for river, enter, leave in runs]
+    return features
+
+
+def drainage_run(river, enter, leave, frame=True):
     path = [coords(point.location) for point in river.course(enter, leave)]
     if len(path) < 2:
         return None
     return {
         'type': 'Feature',
         'geometry': {'type': 'LineString', 'coordinates': path},
-        'properties': {'type': 'drainage_run', 'name': str(river), 'frame': True},
+        'properties': {'type': 'drainage_run', 'name': str(river), 'frame': frame},
     }
 
 
-def river_features(river):
+def river_features(river, summits=None, downstream=None):
     """
     The river from source to mouth through every junction on the way, and the two summits
     it is named against: the one up-slope from its source and the highest point of the
     basin. A river with only a source to its name is shown as that point.
+
+    `summits` — `with_popup()` summits by pk, from `river_map_summits()` — gives those two
+    the global map's full popup, and adds every summit whose key col has this river as its
+    confluence, with that col and the line down to it: the ridges the river's basin closes
+    against.
+
+    `downstream` — from `river_downstream()` — is the rest of the water's way to the root:
+    each river below, from where the one above joins it to its own mouth. Drawn lighter, and
+    not framed: it can run to a sea.
     """
+    summits = summits or {}
     course = river_feature(river)
     features = [course]
     if course is None and has_location(river.source):
         features.append(mark(river.source.location, 'river_source', f'≋ {river}'))
-    features.append(summit_mark(river.source_summit, 'source_summit', SOURCE_SUMMIT_MARK))
+    source_summit = summits.get(river.source_summit_id)
+    features.append(summit_feature(source_summit, 'source_summit') if source_summit is not None
+                    else summit_mark(river.source_summit, 'source_summit', SOURCE_SUMMIT_MARK))
     point = river.watershed_high_point
     if has_location(point):
         summit = getattr(point, 'summit', None)
-        url = (summit.get_absolute_url() if summit
-               else reverse('point-detail', kwargs={'pk': point.pk}))
-        features.append(mark(point.location, 'watershed_high_point',
-                             point_label(WATERSHED_MARK, point), url))
+        if summit is not None and summit.pk in summits:
+            features.append(summit_feature(summits[summit.pk], 'watershed_high_point'))
+        else:
+            url = (summit.get_absolute_url() if summit
+                   else reverse('point-detail', kwargs={'pk': point.pk}))
+            features.append(mark(point.location, 'watershed_high_point',
+                                 point_label(WATERSHED_MARK, point), url))
+    features += [downstream_feature(below, enter, leave)
+                 for below, enter, leave in downstream or ()]
+    for summit in summits.values():
+        if summit.key_col is not None and summit.key_col.confluence_river_id == river.pk:
+            # The col's pink line down to this river's mouth comes with the col, on hover.
+            features += [summit_feature(summit, 'confluence_summit', frame=False),
+                         col_feature(summit.key_col, summit, frame=False),
+                         line('key_col_line', [summit.point, summit.key_col.point])]
     return collection(features)
+
+
+def downstream_feature(river, enter, leave):
+    path = [coords(point.location) for point in river.course(enter, leave)]
+    if len(path) < 2:
+        return None
+    return {
+        'type': 'Feature',
+        'geometry': {'type': 'LineString', 'coordinates': path},
+        # A label and a link, like the other related marks: hovering names the river, a
+        # click goes to it.
+        'properties': {'type': 'downstream', 'pk': river.pk, 'label': f'≋ {river}',
+                       'url': river.get_absolute_url(), 'frame': False},
+    }
+
+
+def river_downstream(river):
+    """
+    The rivers below this one down to the root, as (river, enter, leave) for `River.course()`:
+    each entered at the mouth of the one above it and left at its own. The whole tree in one
+    query of plain values for the chain, then the rivers and their junctions in three more.
+    """
+    from mountains.models.drainage import RiverIndex
+    chain = RiverIndex().chain(river.pk)[1:]
+    if not chain:
+        return []
+    rivers = (River.objects.select_related('source', 'mouth')
+              .prefetch_related(Prefetch('tributaries', queryset=River.objects.select_related('mouth')),
+                                Prefetch('branches', queryset=River.objects.select_related('source')))
+              .in_bulk(chain))
+    above = [river.mouth_id] + [rivers[pk].mouth_id for pk in chain[:-1]]
+    return [(rivers[pk], enter, rivers[pk].mouth_id) for pk, enter in zip(chain, above)]
+
+
+def river_map_summits(river):
+    """
+    The summits `river_features()` draws with a full popup, in one query plus the popup's
+    prefetches: the source summit, the watershed high point if it is a summit, and every
+    summit whose key col drains to this river.
+    """
+    point = river.watershed_high_point
+    named = {river.source_summit_id, getattr(getattr(point, 'summit', None), 'pk', None)} - {None}
+    return Summit.objects.with_popup().prefetch_related(*COL_RELATIONS).filter(
+        Q(pk__in=named) | Q(key_col__confluence_river=river)).in_bulk()

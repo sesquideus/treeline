@@ -79,7 +79,12 @@ class SummitMapTests(TestCase):
 
     def test_both_cols_carry_the_same_properties(self):
         own, childs = (self.cols()[pk]['properties'] for pk in (self.col.pk, self.child_col.pk))
-        self.assertEqual(set(own), set(childs))
+        self.assertEqual(set(own) - {'key'}, set(childs))
+
+    def test_the_summits_own_key_col_is_marked_to_be_drawn_larger(self):
+        own, childs = (self.cols()[pk]['properties'] for pk in (self.col.pk, self.child_col.pk))
+        self.assertIs(own['key'], True)
+        self.assertNotIn('key', childs)
 
     def test_a_child_carries_everything_the_global_popup_shows(self):
         """
@@ -232,6 +237,102 @@ class RiverMapTests(TestCase):
 
     def test_it_offers_no_col_routing(self):
         self.assertNotContains(self.client.get(f'/river/{self.river.pk}/'), 'toggle-col')
+
+    def test_the_source_summit_carries_the_full_summit_popup(self):
+        mark = next(f for f in self.collection()['features']
+                    if f['properties']['type'] == 'source_summit')
+        self.assertEqual(mark['properties']['pk'], self.peak.pk)
+        for key in ('key_col', 'parent', 'countries', 'names'):
+            self.assertIn(key, mark['properties'])
+
+    def test_a_watershed_high_point_that_is_a_summit_carries_it_too(self):
+        summit = Summit.objects.create(point=self.high_point)
+        mark = next(f for f in self.collection()['features']
+                    if f['properties']['type'] == 'watershed_high_point')
+        self.assertEqual(mark['properties']['pk'], summit.pk)
+        self.assertIn('key_col', mark['properties'])
+
+    def test_summits_whose_key_col_drains_here_are_shown_with_the_col_unframed(self):
+        col = make_col('Saddle', 1100, 48.78, 20.25, confluence_river=self.river)
+        summit = make_summit('Ridge', 1250, 48.79, 20.26, key_col=col)
+        elsewhere = make_summit('Elsewhere', 1250, 48.5, 20.5,
+                                key_col=make_col('Other saddle', 1000, 48.5, 20.4))
+        features = self.collection()['features']
+        shown = {(f['properties']['type'], f['properties'].get('pk')) for f in features}
+        self.assertIn(('confluence_summit', summit.pk), shown)
+        self.assertIn(('col', col.pk), shown)
+        line = next(f for f in features if f['properties']['type'] == 'key_col_line')
+        self.assertEqual(line['geometry']['coordinates'], [[20.26, 48.79], [20.25, 48.78]])
+        self.assertFalse(line['properties']['frame'])
+        # What the hover draws its pink line to: the col carries the river's mouth.
+        col_props = next(f['properties'] for f in features
+                         if f['properties']['type'] == 'col' and f['properties']['pk'] == col.pk)
+        self.assertEqual((col_props['confluence']['lon'], col_props['confluence']['lat']),
+                         (21.11, 47.94))
+        self.assertNotIn(('confluence_summit', elsewhere.pk), shown)
+        self.assertEqual(kinds({'features': features}, framed=True),
+                         ['river', 'source_summit', 'watershed_high_point'])
+
+    def test_the_way_down_to_the_root_is_drawn_faded_and_unframed(self):
+        sea = River.objects.create(source=make_point('Sea source', 50, 47.0, 22.0),
+                                   mouth=make_point('Sea mouth', 0, 46.0, 23.0))
+        main = River.objects.create(source=make_point('Main source', 800, 48.5, 20.5),
+                                    mouth=make_point('Main mouth', 20, 47.0, 22.0), parent=sea)
+        River.objects.filter(pk=self.river.pk).update(parent=main)
+        # The page's river joins `main` partway down: its mouth is one of main's junctions.
+        downstream = [f for f in self.collection()['features']
+                      if f['properties']['type'] == 'downstream']
+        self.assertEqual([f['properties']['pk'] for f in downstream], [main.pk, sea.pk])
+        self.assertEqual(downstream[0]['geometry']['coordinates'],
+                         [[21.11, 47.94], [22.0, 47.0]])          # from our mouth to main's
+        self.assertTrue(all(f['properties']['frame'] is False for f in downstream))
+        self.assertEqual(downstream[0]['properties']['url'], f'/river/{main.pk}/')
+
+    def test_the_page_describes_the_watershed_high_point(self):
+        html = self.client.get(f'/river/{self.river.pk}/').content.decode()
+        section = html.split('Watershed high point')[1].split('<div class="section">')[0]
+        self.assertIn('High point', section)
+        self.assertIn('Not catalogued as a summit', section)
+        Summit.objects.create(point=self.high_point)
+        html = self.client.get(f'/river/{self.river.pk}/').content.decode()
+        section = html.split('Watershed high point')[1].split('<div class="section">')[0]
+        self.assertIn('/summit/', section)
+        self.assertIn('Prominence', section)
+
+    def test_the_page_lists_the_way_down_faded(self):
+        sea = River.objects.create(source=make_point('Sea source', 50, 47.0, 22.0),
+                                   mouth=make_point('Sea mouth', 0, 46.0, 23.0))
+        main = River.objects.create(source=make_point('Main source', 800, 48.5, 20.5),
+                                    mouth=make_point('Main mouth', 20, 47.0, 22.0), parent=sea)
+        River.objects.filter(pk=self.river.pk).update(parent=main, mouth_side='L')
+        html = self.client.get(f'/river/{self.river.pk}/').content.decode()
+        section = html.split('<div class="section downstream">')[1].split('</ol>')[0]
+        self.assertLess(section.index('>Main source<'), section.index('>Sea source<'))
+        # Main is joined by this river, from its left bank, flowing down.
+        self.assertRegex(section, r'#mouth-side-left-down"></use></svg></abbr>\s*<a [^>]*>Main source<')
+        self.assertIn('>20.0<', section)                   # main's own mouth
+        self.assertIn('>0.0<', section)                    # sea level is an altitude, not "?"
+
+    def test_a_root_river_has_no_downstream_section(self):
+        self.assertNotIn('section downstream',
+                         self.client.get(f'/river/{self.river.pk}/').content.decode())
+
+    def test_a_root_river_has_nothing_below_it(self):
+        self.assertFalse(any(f['properties']['type'] == 'downstream'
+                             for f in self.collection()['features']))
+
+    def test_the_page_costs_a_fixed_number_of_queries(self):
+        for i in range(3):
+            col = make_col(f'Saddle {i}', 1100, 48.78, 20.25 + i / 100, confluence_river=self.river)
+            make_summit(f'Ridge {i}', 1250, 48.79, 20.26 + i / 100, key_col=col)
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as three:
+            self.collection()
+        col = make_col('Saddle 9', 1100, 48.78, 20.4, confluence_river=self.river)
+        make_summit('Ridge 9', 1250, 48.79, 20.41, key_col=col)
+        with self.assertNumQueries(len(three)):
+            self.collection()
 
 
 #: Just enough of `ol.extent` to run `fitToFramed()`: extents are [minX, minY, maxX, maxY].
@@ -459,3 +560,28 @@ class WaypointOrderTests(TestCase):
         orders = {tuple(tuple(p) for p in River.objects.get(pk=river.pk).to_geojson()
                         ['geometry']['coordinates']) for _ in range(5)}
         self.assertEqual(len(orders), 1)
+
+
+class SummitLikePopupTests(SimpleTestCase):
+    """Which marks `popupHtml()` and `detailUrl()` describe as a summit (static/js/map.js)."""
+
+    def popup(self, **properties):
+        from mountains.test_point_names import popup_html
+        return popup_html(**properties)
+
+    def url(self, **properties):
+        return evaluate('detailUrl({ get: key => (%s)[key] })' % json.dumps(properties))
+
+    def test_a_detailed_watershed_high_point_or_source_summit_gets_the_summit_popup(self):
+        for kind in ('watershed_high_point', 'source_summit', 'confluence_summit'):
+            with self.subTest(kind=kind):
+                html = self.popup(type=kind, pk=7, name='Kremenec', prom=300)
+                self.assertIn('/summit/7/', html)
+                self.assertIn('Kremenec', html)
+                self.assertEqual(self.url(type=kind, pk=7), '/summit/7/')
+
+    def test_a_bare_named_point_keeps_its_label(self):
+        html = self.popup(type='watershed_high_point', label='⩓ Somewhere', url='/point/3/')
+        self.assertIn('⩓ Somewhere', html)
+        self.assertEqual(self.url(type='watershed_high_point', label='x', url='/point/3/'),
+                         '/point/3/')

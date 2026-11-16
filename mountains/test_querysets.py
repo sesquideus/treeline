@@ -129,6 +129,7 @@ CASES: dict[type[dm.Model], dict[str, Case]] = {
                                     'confluence_river.parent.source')),
         'with_countries': Case(cached=('point.countries',)),
         'with_full_name': Case(annotations=('full_name',)),
+        'with_db_status': Case(annotations=('complete',)),
         'skeleton_features': Case(terminal=True),
     },
     River: {

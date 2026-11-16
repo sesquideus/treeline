@@ -1,7 +1,7 @@
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Prefetch, F, Value, CharField
+from django.db.models import Prefetch, F, Q, Value, CharField
 from django.db.models.functions import Concat, Coalesce
 from django.urls import reverse
 
@@ -10,6 +10,20 @@ from mountains.models.base import GeoModel
 
 
 class ColQuerySet(models.QuerySet):
+    def with_db_status(self):
+        """
+        `complete`: the col is located and its drainage fully recorded — both sides' rivers,
+        and the confluence where their waters meet. Both sides the same river is a spur, whose
+        waters meet at a junction not in the catalogue, so it is complete without one.
+        """
+        return self.annotate(
+            complete=(
+                Q(point__location__isnull=False) &
+                Q(river_a__isnull=False) & Q(river_b__isnull=False) &
+                (Q(confluence_river__isnull=False) | Q(river_a=F('river_b')))
+            ),
+        )
+
     def with_siblings(self):
         return self.prefetch_related('key_for__prominence_children__key_col')
 

@@ -6,7 +6,7 @@ from django.views.generic import ListView as DjangoListView, DetailView as Djang
 
 from mountains.models import River
 from mountains.views.cache import CachedPageMixin
-from mountains.views.detail_map import river_features
+from mountains.views.detail_map import river_downstream, river_features, river_map_summits
 from mountains.views.tree import TreeView
 from mountains.views.tree.tree import FlatGeoJsonView
 
@@ -34,10 +34,20 @@ class DetailView(DjangoDetailView):
         return (River.objects.with_displacement().with_tributaries().with_branches().with_cols()
                 .with_direct_length().with_source().with_mouth().with_parent()
                 .with_source_summit().with_watershed_high_point()
-                .select_related('source_summit__key_col__point'))
+                .select_related('source_summit__key_col__point',
+                                'watershed_high_point__summit__key_col__point',
+                                'watershed_high_point__altitude_datum'))
 
     def get_context_data(self, **kwargs):
-        return super().get_context_data(**kwargs) | {'map_data': river_features(self.object)}
+        downstream = river_downstream(self.object)
+        rivers_below = [river for river, _, _ in downstream]
+        return super().get_context_data(**kwargs) | {
+            'map_data': river_features(self.object, river_map_summits(self.object), downstream),
+            # Each river below with the one above it that joins it, whose bank mark joins
+            # them in the list, as in a col's drainage.
+            'downstream': [{'river': river, 'joined_by': above}
+                           for river, above in zip(rivers_below, [self.object, *rivers_below])],
+        }
 
 
 class RiverForestView(ListView):

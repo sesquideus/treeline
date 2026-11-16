@@ -15,6 +15,7 @@ from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col, NamedPoint
 from mountains.views.cache import CachedPageMixin
 from mountains.views.detail_map import collection, summit_features, summit_map_queryset
+from mountains.views.drainage import drainage_context
 from mountains.views.tree.tree import CachedJsonMixin
 from mountains.views.viewport import ViewportDetailView
 
@@ -274,9 +275,13 @@ class MountainDetailView(DetailView):
                                        self.object.horizon_parent_id),
             # In the page rather than fetched after it, as on the col and river pages: the
             # map then opens with the page, already framed.
-            'map_data': collection(summit_features(
-                summit_map_queryset().get(pk=self.object.pk))),
+            'map_data': self.map_data(),
         }
+
+    def map_data(self):
+        summit = summit_map_queryset().get(pk=self.object.pk)
+        runs = drainage_context(summit.key_col)['runs'] if summit.key_col else ()
+        return collection(summit_features(summit, runs))
 
 
 class SlopeToView(DetailView):

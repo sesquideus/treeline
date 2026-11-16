@@ -142,7 +142,8 @@ def distance(dist_m):
 
 @register.filter
 def altitude(alt_m: Optional[float]):
-    if not alt_m:
+    # `is None`, not falsiness: 0 m is sea level, where every river to the sea ends.
+    if alt_m is None or alt_m == '':
         return "?"
     return f"{alt_m:.1f}"
 

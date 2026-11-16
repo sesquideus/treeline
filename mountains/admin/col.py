@@ -15,7 +15,7 @@ class ColAdmin(ModelAdmin):
                     'flags',
                     'point_latitude', 'point_longitude', 'point_altitude',
                     'key_for:link',
-                    'confluence_river:link']
+                    'confluence_river:link', 'river_a:link', 'river_b:link', 'is_complete']
     fieldsets = (
         ('Identity', {
             'fields': (
@@ -60,6 +60,13 @@ class ColAdmin(ModelAdmin):
         if extra:
             results = results | queryset.filter(extra)
         return results, may_have_duplicates
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).with_db_status()
+
+    @admin.display(boolean=True, description='complete')
+    def is_complete(self, obj):
+        return obj.complete
 
     def flags(self, obj):
         return obj.point.flags()

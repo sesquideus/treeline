@@ -112,7 +112,8 @@ class RiverQuerySet(models.QuerySet):
         return self.prefetch_related(
             Prefetch(
                 'cols',
-                queryset=Col.objects.with_minor().order_by('-depth'),
+                # The point too: the river page's table prints each col's name and altitude.
+                queryset=Col.objects.with_minor().select_related('point').order_by('-depth'),
             )
         )
 

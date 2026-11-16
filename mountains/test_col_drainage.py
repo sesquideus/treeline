@@ -187,7 +187,7 @@ class PageTests(DrainageTestCase):
         right = html.index('<div class="meet right">')
         self.assertIn('>X', html[left:arrow])
         self.assertIn('>P', html[right:])
-        self.assertIn('500.0', html[arrow:right])          # the junction's altitude
+        self.assertIn('500.0', html[left:arrow])           # the junction's altitude, under the others
         self.assertNotIn('The waters meet', html)
         self.assertNotIn('class="error"', html)
 
@@ -283,3 +283,64 @@ class DownMarkTests(DrainageTestCase):
         html = self.client.get(col.get_absolute_url()).content.decode()
         # B1 joins X from the left bank; X is shown with that mark, flowing down.
         self.assertRegex(html, r'#mouth-side-left-down"></use></svg></abbr>\s*<a [^>]*>X<')
+
+
+class SummitMapTests(DrainageTestCase):
+    """A summit's map shows its key col's drainage as the col's own map does, unframed."""
+
+    def features(self, **fields):
+        from mountains.test_factories import make_summit
+        col = make_col(None, 1200.0, 49.0, 20.0)
+        Col.objects.filter(pk=col.pk).update(**fields)
+        summit = make_summit('Peak', 1500.0, 49.0, 20.01, key_col=col)
+        response = self.client.get(summit.get_absolute_url())
+        return response.context['map_data']['features']
+
+    def test_the_runs_and_the_two_rivers_are_drawn_but_not_framed(self):
+        features = self.features(confluence_river=self.x, river_a=self.y, river_b=self.b1)
+        runs = [f['properties'] for f in features if f['properties']['type'] == 'drainage_run']
+        self.assertEqual([run['name'] for run in runs], ['B1', 'X', 'Y', 'P'])
+        self.assertTrue(all(run['frame'] is False for run in runs))
+        roles = sorted(f['properties'].get('role') for f in features
+                       if f['properties']['type'] == 'river')
+        self.assertEqual(roles, ['major', 'minor'])
+
+    def test_a_coarse_key_col_still_shows_its_two_rivers(self):
+        features = self.features(confluence_river=self.x)
+        self.assertFalse(any(f['properties']['type'] == 'drainage_run' for f in features))
+        self.assertEqual(sum(f['properties']['type'] == 'river' for f in features), 2)
+
+    def test_the_col_page_still_frames_its_runs(self):
+        col = make_col(None, 1200.0, 49.0, 20.0)
+        Col.objects.filter(pk=col.pk).update(confluence_river=self.x, river_a=self.y, river_b=self.b1)
+        features = self.client.get(col.get_absolute_url()).context['map_data']['features']
+        runs = [f for f in features if f['properties']['type'] == 'drainage_run']
+        self.assertTrue(runs and all(f['properties']['frame'] is True for f in runs))
+
+
+class CompletenessTests(DrainageTestCase):
+    def complete(self, **fields):
+        col = make_col(None, 1200.0, 49.0, 20.0)
+        Col.objects.filter(pk=col.pk).update(**fields)
+        return Col.objects.with_db_status().get(pk=col.pk).complete
+
+    def test_both_sides_and_the_confluence(self):
+        self.assertTrue(self.complete(confluence_river=self.x, river_a=self.y, river_b=self.b1))
+
+    def test_a_missing_side_is_incomplete(self):
+        self.assertFalse(self.complete(confluence_river=self.x, river_a=self.b1))
+        self.assertFalse(self.complete(confluence_river=self.x, river_b=self.y))
+        self.assertFalse(self.complete(confluence_river=self.x))
+
+    def test_both_sides_without_a_confluence_are_incomplete_unless_a_spur(self):
+        self.assertFalse(self.complete(river_a=self.b1, river_b=self.y))
+        self.assertTrue(self.complete(river_a=self.x, river_b=self.x))
+
+    def test_the_admin_lists_it(self):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'pw')
+        self.client.force_login(user)
+        make_col('Somewhere', 1200.0, 49.0, 20.0)
+        response = self.client.get('/admin/mountains/col/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'column-is_complete')

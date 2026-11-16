@@ -814,7 +814,6 @@ div.drainage-side.right, div.meet.right { grid-column: 3; }
 div.drainage-side { grid-row: 1; }
 div.meet { grid-row: 2; padding: 0.15em 0; }
 div.meet.arrow { grid-column: 2; color: steelblue; white-space: nowrap; text-align: center; }
-div.meet.arrow span.altitude { color: grey; font-size: 85%; }
 div.meet.common { grid-column: 1 / 4; text-align: center; }
 
 div.drainage-side h4 {
@@ -836,7 +835,7 @@ div.drainage-side li {
 /* Downstream: each river after the first is joined by the one above it, through the
    confluence mark of that junction with the water flowing down. A step with no mark — the
    first — keeps the mark's room, so the names stand in one column. */
-div.drainage-side svg.mouth-side, div.meet svg.mouth-side {
+div.drainage-side svg.mouth-side, div.meet svg.mouth-side, ol.flow svg.mouth-side {
     color: steelblue;
     margin-right: 0.15em;
 }
@@ -846,7 +845,16 @@ span.mark-space {
     width: 1.65em;
 }
 
-div.drainage-side span.mouth {
+/* Name on the left, mouth altitude flush right, so the altitudes form a column — the
+   confluence river's in the junction row included. */
+div.drainage-side li, div.meet.left, ol.flow li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+}
+
+div.drainage-side span.mouth, div.meet span.mouth, ol.flow span.mouth {
+    margin-left: auto;
     color: grey;
     font-size: 85%;
     white-space: nowrap;
@@ -873,3 +881,23 @@ ul.findings li {
 ul.findings li.error { border-color: orangered; color: orangered; }
 ul.findings li.unverifiable { border-color: goldenrod; }
 ul.findings li.hint { border-color: steelblue; }
+
+/* A river's way down past its own mouth (mountains/river/detail.html): a col's drainage
+   list, faded as the map fades it, since these are no longer the river the page is about. */
+ol.flow {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+ol.flow li {
+    padding: 0.15em 0;
+}
+
+div.section.downstream {
+    opacity: 0.6;
+}
+
+div.section.downstream:hover {
+    opacity: 1;
+}

@@ -90,6 +90,12 @@ class LineTests(SimpleTestCase):
                                                'ISOLATION_NHP_TO_PARENT_B'))),
         ])
 
+    def test_a_key_col_line_is_the_first_half_of_a_climb(self):
+        self.assertEqual(drawn({'type': 'key_col_line'}, ((0, 0), (1, 1))), [
+            dict(zip(('from', 'to'), self.ends('PROMINENCE_PEAK_TO_COL_A',
+                                               'PROMINENCE_PEAK_TO_COL_B'))),
+        ])
+
     def test_the_global_map_reads_the_same_constants(self):
         """One definition: map.js no longer declares a copy that could drift."""
         with open('static/js/map.js', encoding='utf-8') as handle:
@@ -99,3 +105,29 @@ class LineTests(SimpleTestCase):
             with self.subTest(name=name):
                 self.assertNotIn(f'const {name}', source)
                 self.assertIn(name, source)
+
+
+class WatershedHighPointTests(SimpleTestCase):
+    def marks(self, properties):
+        """ Which primitive draws it: `summitMarker()` or `dot()`, swapped for recorders. """
+        return evaluate('''(function () {
+            const record = [];
+            const marker = summitMarker, point = dot;
+            summitMarker = colour => { record.push(['summit', colour]); return {}; };
+            dot = colour => { record.push(['dot', colour]); return {}; };
+            try {
+                styleFor({ get: key => (%s)[key], getGeometry: () => null });
+                return record;
+            } finally {
+                summitMarker = marker;
+                dot = point;
+            }
+        })()''' % json.dumps(properties), source=STYLES_JS)
+
+    def test_a_catalogued_summit_is_drawn_as_a_summit(self):
+        self.assertEqual(self.marks({'type': 'watershed_high_point', 'pk': 5, 'prom': 300}),
+                         [['summit', '#d35400']])
+
+    def test_a_bare_named_point_is_a_purple_dot(self):
+        self.assertEqual(self.marks({'type': 'watershed_high_point', 'label': '⩓ x'}),
+                         [['dot', '#8e44ad']])

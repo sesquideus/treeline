@@ -257,7 +257,7 @@ const Z_SUBJECT = Z_COL + 1;
 function colMarker(colour, size) {
     return new ol.style.Style({
         image: new ol.style.Circle({
-            radius: 5,
+            radius: size || 5,
             fill: new ol.style.Fill({ color: '#0040FF' }),
             stroke: new ol.style.Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
@@ -316,6 +316,11 @@ const riverLine = new ol.style.Style({
 // that flows into it thinner, so the confluence reads as a tributary joining a river.
 const minorRiverLine = new ol.style.Style({
     stroke: new ol.style.Stroke({ color: '#1a40f9', width: 2 }),
+});
+// On a river's page, the rest of the water's way to the root: the same blue, faded, since
+// it is no longer the river the page is about.
+const downstreamLine = new ol.style.Style({
+    stroke: new ol.style.Stroke({ color: 'rgba(26, 64, 249, 0.35)', width: 3 }),
 });
 
 // On a col's page, the way a drop from either side runs down to where the two waters meet:
@@ -491,20 +496,31 @@ function styleFor(feature) {
         case 'key_for_summit':          return bandSummit(prom);
         case 'lit_parent':              return litParent(prom);
         case 'prominence_child':        return bandSummit(prom);
+        // On a river's page, a summit whose key col has the river as its confluence.
+        case 'confluence_summit':       return bandSummit(prom);
+        // ...and the way down from it to that key col: the first half of a climb.
+        case 'key_col_line':            return gradientLine(feature, PROMINENCE_PEAK_TO_COL_A,
+                                                            PROMINENCE_PEAK_TO_COL_B);
         // A child's climb up to the page's summit: the same line as any climb.
         case 'child_line':              return prominenceClimb(feature);
         case 'river':                   return [feature.get('role') === 'minor'
                                                     ? minorRiverLine : riverLine];
         case 'drainage_run':            return drainageRun;
+        case 'downstream':              return downstreamLine;
         case 'river_source':            return dot('#1a40f9');
         case 'source_summit':           return summitMarker('#16a085');
-        case 'watershed_high_point':    return summitMarker('#d35400');
+        // A summit as a summit; a named point nobody has catalogued as one, as a point.
+        case 'watershed_high_point':    return feature.get('pk') != null
+                                                    ? summitMarker('#d35400')
+                                                    : dot('#8e44ad');
         // Where two chains meet on the comparison map. The chain's own blue, drawn larger
         // and forked, rather than a prominence-coloured triangle: on that map it is a
         // waypoint on the walk from one peak to the other, not one of the peaks compared.
         case 'common_ancestor':         return [summitMarker('#2980b9', 9),
                                                 glyphAbove('\u22d4', -13)];
-        case 'col':                     return colMarker();
+        // A summit's own key col is drawn larger than its children's, which share its map.
+        case 'col':                     return feature.get('key') ? colMarker(null, 8)
+                                                                  : colMarker();
         // The col keeps a ring — it is a fixed 5px circle, so a ring at 10 clears it — while the
         // parent is redrawn as its own triangle, grown and lit, rather than annotated.
         case 'highlight_summit':        return highlightSummit(prom);

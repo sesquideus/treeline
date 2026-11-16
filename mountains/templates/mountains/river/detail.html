@@ -22,108 +22,167 @@
         </p>
     {% endfor %}
 
-    <h3>Source</h3>
-    At
-    <span class="angle">{{ river.source.location.y }}</span>
-    <span class="angle">{{ river.source.location.x }}</span>
-    (<span class="altitude">{{ river.source.altitude|altitude }}</span>).
+    <div class="section">
+        <h3>Source</h3>
+        At
+        <span class="angle">{{ river.source.location.y }}</span>
+        <span class="angle">{{ river.source.location.x }}</span>
+        (<span class="altitude">{{ river.source.altitude|altitude }}</span>).
+    </div>
 
+    {% with point=river.watershed_high_point %}
+        {% if point %}
+            <div class="section">
+                <h3>
+                    <abbr title="the highest point within the river's watershed">Watershed high point</abbr>
+                </h3>
+                <p>
+                    {% if point.summit %}
+                        {% object_link point.summit 'mountain' %}
+                    {% else %}
+                        {% object_link point 'point' attr='display_name' %}
+                    {% endif %}
+                    {{ point|flags }}
+                </p>
+                <p>
+                    <span class="altitude">{{ point.altitude|altitude }}</span> {{ point|datum }}
+                    {% if point.coordinates %}at {{ point.coordinates }}{% endif %}
+                </p>
+                {% if point.summit %}
+                    {% with key_col=point.summit.key_col %}
+                        <p>
+                            Prominence <span class="altitude">{{ point.summit.compute_prominence|altitude }}</span>
+                            {% if key_col %}through {% object_link key_col 'col' attr='name' %}{% endif %}
+                        </p>
+                    {% endwith %}
+                {% else %}
+                    <p class="empty">Not catalogued as a summit.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
-    <h3>Mouth</h3>
-    Flows into {{ river.mouth_side_abbr }} {% object_link river.parent 'river' %} at
-    <span class="angle">{{ river.mouth.location.y }}</span>
-    <span class="angle">{{ river.mouth.location.x }}</span>
-    (<span class="altitude">{{ river.mouth.altitude|altitude }}</span>)
-    {% if river.mouth %}&mdash; {% object_link river.mouth 'range' attr='display_name' %}
-        {{ river.mouth|flags }}{% endif %}.
+    <div class="section">
+        <h3>Mouth</h3>
+        <p>
+            Flows into {{ river.mouth_side_abbr }} {% object_link river.parent 'river' %}
+        </p>
+        <p>
+            At
+            <span class="angle">{{ river.mouth.location.y }}</span>
+            <span class="angle">{{ river.mouth.location.x }}</span>
+            (<span class="altitude">{{ river.mouth.altitude|altitude }}</span>)
+        </p>
+        {% if river.mouth %}
+            <p>
+                {% object_link river.mouth 'range' attr='display_name' %}
+                {{ river.mouth|flags }}
+            </p>
+        {% endif %}
+        <p>
+            Direct length <span class="distance">{{ river.direct_length.km|floatformat:3 }}</span>
+        </p>
+    </div>
 
-    Direct length <span class="distance">{{ river.direct_length.km|floatformat:3 }}</span>.
-
-    <h3>
-        Cols
-    </h3>
-    <p>
-        List of all cols for which runoffs merge at the mouth of this river.
-    </p>
-    <table class="lineage">
-        <thead>
-            <tr>
-                <th>col</th>
-                <th>key for</th>
-                <th>
-                    <abbr title="altitude difference between minor and major peak">
-                        depth
-                    </abbr>
-                </th>
-                <th></th>
-                <th>parent</th>
-            </tr>
-        </thead>
-        {% for col in river.cols.all %}
-            <tr>
-                <td>
-                    {% object_link col 'col' attr='name' %}
-                </td>
-                <td class="altitude">
-                    {{ col.point.altitude|altitude }}
-                </td>
-                <td>
-                    {% object_link col.key_for 'mountain' %}
-                </td>
-                <td class="altitude">
-                    {{ col.key_for.prominence|altitude }}
-                </td>
-                <td>&rightarrow;</td>
-                <td>
-                    {% object_link col.key_for.prominence_parent 'mountain' %}
-                </td>
-            </tr>
-        {% endfor %}
-    </table>
-
-
-    <h3>
-        Tributaries
-    </h3>
-    <table>
-        <thead>
-            <tr>
-                <th>
-                    tributary
-                </th>
-                <th>
-                    <abbr title="which bank of this river the tributary joins">bank</abbr>
-                </th>
-                <th>
-                    mouth altitude
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for tributary in river.tributaries.all %}
+    <div class="section">
+        <h3>
+            Cols
+        </h3>
+        <p>
+            List of all cols for which runoffs merge at the mouth of this river.
+        </p>
+        <table class="lineage">
+            <thead>
+                <tr>
+                    <th>col</th>
+                    <th>key for</th>
+                    <th>
+                        <abbr title="altitude difference between minor and major peak">
+                            depth
+                        </abbr>
+                    </th>
+                    <th></th>
+                    <th>parent</th>
+                </tr>
+            </thead>
+            {% for col in river.cols.all %}
                 <tr>
                     <td>
-                        {% object_link tributary 'river' %}
-                    </td>
-                    <td class="mouth-side">
-                        {{ tributary.mouth_side_abbr }}
+                        {% object_link col 'col' attr='name' %}
                     </td>
                     <td class="altitude">
-                        {{ tributary.mouth.altitude|altitude }}
+                        {{ col.point.altitude|altitude }}
+                    </td>
+                    <td>
+                        {% object_link col.key_for 'mountain' %}
+                    </td>
+                    <td class="altitude">
+                        {{ col.key_for.prominence|altitude }}
+                    </td>
+                    <td>&rightarrow;</td>
+                    <td>
+                        {% object_link col.key_for.prominence_parent 'mountain' %}
                     </td>
                 </tr>
-            {% empty %}
-                {% empty_tr "No tributaries in the database" %}
             {% endfor %}
-        </tbody>
-    </table>
+        </table>
+    </div>
 
+    <div class="section">
+        <h3>
+            Tributaries
+        </h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>
+                        tributary
+                    </th>
+                    <th>
+                        <abbr title="which bank of this river the tributary joins">bank</abbr>
+                    </th>
+                    <th>
+                        mouth altitude
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tributary in river.tributaries.all %}
+                    <tr>
+                        <td>
+                            {% object_link tributary 'river' %}
+                        </td>
+                        <td class="mouth-side">
+                            {{ tributary.mouth_side_abbr }}
+                        </td>
+                        <td class="altitude">
+                            {{ tributary.mouth.altitude|altitude }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    {% empty_tr "No tributaries in the database" %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <h3>
-        Mouth
-    </h3>
-    <p>
-        Flows into {{ river.mouth_side_abbr }} {% object_link river.parent 'river' %}
-    </p>
+    {% if downstream %}
+        {# The rest of the water's way down, faded as on the map: no longer this river. #}
+        <div class="section downstream">
+            <h3>
+                Downstream
+            </h3>
+            <ol class="flow">
+                {% for step in downstream %}
+                    <li>
+                        <span class="name">{{ step.joined_by.mouth_side_abbr_down }}{% object_link step.river 'river' attr='name' %}</span>
+                        {% if step.river.mouth %}
+                            <span class="mouth altitude" title="its mouth: where it joins the river below">{{ step.river.mouth.altitude|altitude }}</span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+        </div>
+    {% endif %}
 
 {% endblock page_content %}
