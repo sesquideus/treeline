@@ -314,7 +314,10 @@ def drainage_run(river, enter, leave, frame=True):
     return {
         'type': 'Feature',
         'geometry': {'type': 'LineString', 'coordinates': path},
-        'properties': {'type': 'drainage_run', 'name': str(river), 'frame': frame},
+        # A label and a link, as on the other related marks: hovering names the river, a
+        # click goes to it.
+        'properties': {'type': 'drainage_run', 'pk': river.pk, 'label': f'≋ {river}',
+                       'url': river.get_absolute_url(), 'frame': frame},
     }
 
 

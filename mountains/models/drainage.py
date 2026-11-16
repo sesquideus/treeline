@@ -184,7 +184,9 @@ def _check_joins_above(result, index, side, x, p, field_name):
         result.findings.append(Finding(UNVERIFIABLE,
             f'Cannot check that {n[child]} joins {n[p]} above the mouth of {n[x]}: '
             f'a mouth altitude is missing', field_name))
-    elif here <= there:
+    elif here < there:
+        # Strictly below: two junctions at one altitude (every sea meets the ocean at 0 m)
+        # are not a contradiction, and pass.
         result.findings.append(Finding(ERROR,
             f'{n[child]} joins {n[p]} at {here:.1f} m, not above the mouth of {n[x]} '
             f'({there:.1f} m), so the waters meet at its mouth instead', field_name))

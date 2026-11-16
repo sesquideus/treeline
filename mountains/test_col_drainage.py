@@ -87,6 +87,12 @@ class WithConfluenceTests(DrainageTestCase):
         self.assertIn('not above the mouth of X', d.findings[0].message)
         self.assertEqual(d.findings[0].field, 'river_b')
 
+    def test_junctions_at_one_altitude_pass(self):
+        # As on the main European divide: Black Sea → Mediterranean and Baltic → North Sea,
+        # both meeting the Atlantic at 0 m.
+        River.objects.filter(pk=self.y.pk).update(mouth=make_point('Y level', 500, 49.0, 20.2))
+        self.assertEqual(self.drain(self.x, a=self.b1, b=self.y).findings, [])
+
     def test_both_sides_through_the_confluence_river_is_an_error(self):
         d = self.drain(self.x, a=self.b1, b=self.x)
         self.assertEqual(self.levels(d), [ERROR])
@@ -299,7 +305,8 @@ class SummitMapTests(DrainageTestCase):
     def test_the_runs_and_the_two_rivers_are_drawn_but_not_framed(self):
         features = self.features(confluence_river=self.x, river_a=self.y, river_b=self.b1)
         runs = [f['properties'] for f in features if f['properties']['type'] == 'drainage_run']
-        self.assertEqual([run['name'] for run in runs], ['B1', 'X', 'Y', 'P'])
+        self.assertEqual([run['label'] for run in runs], ['≋ B1', '≋ X', '≋ Y', '≋ P'])
+        self.assertEqual(runs[0]['url'], f'/river/{self.b1.pk}/')
         self.assertTrue(all(run['frame'] is False for run in runs))
         roles = sorted(f['properties'].get('role') for f in features
                        if f['properties']['type'] == 'river')

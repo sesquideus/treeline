@@ -585,3 +585,18 @@ class SummitLikePopupTests(SimpleTestCase):
         self.assertIn('⩓ Somewhere', html)
         self.assertEqual(self.url(type='watershed_high_point', label='x', url='/point/3/'),
                          '/point/3/')
+
+
+class RiverLinePopupTests(SimpleTestCase):
+    """The highlighted drainage runs and the faded way down name their river on hover."""
+
+    def test_each_names_its_river_and_links_to_it(self):
+        for kind in ('drainage_run', 'downstream'):
+            with self.subTest(kind=kind):
+                props = {'type': kind, 'pk': 4, 'label': '≋ Laborec', 'url': '/river/4/'}
+                html = evaluate('popupHtml({ get: key => (%s)[key], getGeometry: () => null })'
+                                % json.dumps(props))
+                self.assertIn('≋ Laborec', html)
+                self.assertIn('/river/4/', html)
+                self.assertEqual(evaluate('detailUrl({ get: key => (%s)[key] })'
+                                          % json.dumps(props)), '/river/4/')
