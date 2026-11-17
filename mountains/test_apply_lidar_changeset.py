@@ -334,3 +334,35 @@ class IsolationTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 isolations', ApplyTests.run_it(self, self.data()))
+
+
+class PromoteTests(TestCase):
+    """Devínska Kobyla's name to the higher of its two tops, with what referred to it."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        sk = make_language('sk', 1)
+        cls.higher = make_summit(None, 515.28, 48.189662, 16.995148, key_col=make_col('Lamač', 204.0, 48.19, 17.05))
+        cls.lower = make_summit('Devínska Kobyla', 514.1, 48.189389, 16.995842,
+                                key_col=make_col(None, 512.8, 48.1895, 16.9955), prominence_parent=cls.higher)
+        PointName.objects.create(point=cls.lower.point, language=sk, name='Devínska Kobyla', local=True)
+        cls.neighbour = make_summit('Sandberg', 300.0, 48.20, 16.98, isolation_parent=cls.lower)
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), promotions=[dict(
+            lower=dict(pk=self.lower.pk, name='Devínska Kobyla'), higher=dict(at=[48.189662, 16.995148]))])
+
+    def test_the_name_and_its_links_go_to_the_higher_top(self):
+        ApplyTests.run_it(self, self.data())
+        self.higher.point.refresh_from_db(), self.lower.point.refresh_from_db(), self.neighbour.refresh_from_db()
+        self.lower.refresh_from_db()
+        self.assertEqual(self.higher.point.name, 'Devínska Kobyla')
+        self.assertIsNone(self.lower.point.name)
+        self.assertEqual(self.lower.prominence_parent, self.higher)          # still hangs off it
+        self.assertEqual(self.neighbour.isolation_parent, self.higher)
+        self.assertTrue(PointName.objects.filter(point=self.higher.point, name='Devínska Kobyla').exists())
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 promoted', ApplyTests.run_it(self, self.data()))

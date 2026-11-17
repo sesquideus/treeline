@@ -53,7 +53,7 @@ class Command(BaseCommand):
         if self.author is None:
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
-                           removed=0, merged=0, isolations=0, skipped=0)
+                           removed=0, merged=0, isolations=0, promoted=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -78,6 +78,8 @@ class Command(BaseCommand):
                     self.merge(m)
                 for iso in data.get('isolations', []):
                     self.isolation(iso)
+                for pr in data.get('promotions', []):
+                    self.promote(pr)
                 if dry_run:
                     raise DryRun
         except DryRun:
@@ -86,7 +88,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
-            f'{c["removed"]} cols removed, {c["merged"]} merged, {c["isolations"]} isolations; '
+            f'{c["removed"]} cols removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted; '
             f'{c["skipped"]} skipped'))
 
     # ------------------------------------------------------------------ summits
@@ -458,7 +460,9 @@ class Command(BaseCommand):
             return
         if s.isolation_parent_id != parent.pk:
             s.isolation_name = None
-        s.nearest_higher_point, s.isolation_parent, s.isolation_source = nhp, parent, self.lidar
+        # A measurement carried over from elsewhere keeps its own source.
+        source = Source.objects.get_or_create(name=iso['source'])[0] if iso.get('source') else self.lidar
+        s.nearest_higher_point, s.isolation_parent, s.isolation_source = nhp, parent, source
         try:
             s.full_clean()
         except ValidationError as e:
@@ -468,3 +472,46 @@ class Command(BaseCommand):
         s.save()
         self.counts['isolations'] += 1
         self.stdout.write(f'  + {s.point}: isolation {iso["metres"]:.0f} m, parent {parent.point}')
+
+    # ------------------------------------------------------------------ names
+
+    def promote(self, pr):
+        """
+        A name to the higher of two tops: the summit the name stood on was the lower one.
+        The higher (`higher`, by position: a split's twin) takes the name, its names in other
+        languages and notes, and whatever referred to the named summit or its point — other
+        summits' parents, ranges, rivers — except the lower top's own link to it.
+        """
+        lower = Summit.objects.filter(pk=pr['lower']['pk'], point__name=pr['lower']['name']).select_related('point').first()
+        at = Point(pr['higher']['at'][1], pr['higher']['at'][0], srid=4326)
+        higher = Summit.objects.filter(point__location__dwithin=(at, SAME_PLACE)).select_related('point').first()
+        if lower is None:
+            if higher is not None and higher.point.name == pr['lower']['name']:
+                self.counts['skipped'] += 1         # done already
+            else:
+                self.stdout.write(f'  ! {pr["lower"]["name"]} not found as such: skipped')
+                self.counts['skipped'] += 1
+            return
+        if higher is None or higher.point.name is not None:
+            self.stdout.write(f'  ! the higher top of {lower.point} not found unnamed: skipped')
+            self.counts['skipped'] += 1
+            return
+        if higher.point.altitude <= lower.point.altitude:
+            self.stdout.write(f'  ! {higher.point} is not higher than {lower.point}: skipped')
+            self.counts['skipped'] += 1
+            return
+        for old, new in ((lower, higher), (lower.point, higher.point)):
+            for rel in old._meta.related_objects:
+                if rel.one_to_many and not rel.related_model._meta.auto_created:
+                    qs = rel.related_model._default_manager.filter(**{rel.field.name: old})
+                    if rel.related_model is Summit:
+                        qs = qs.exclude(pk=lower.pk).exclude(pk=higher.pk)
+                    qs.update(**{rel.field.name: new})
+        name = lower.point.name
+        lower.point.name = None
+        lower.point.save(update_fields=['name'])
+        higher.point.name = name
+        higher.point.full_clean()
+        higher.point.save(update_fields=['name'])
+        self.counts['promoted'] += 1
+        self.stdout.write(f'  + {name} is now the higher top, {higher.point}; the lower one is {lower.point}')
