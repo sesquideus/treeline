@@ -53,7 +53,7 @@ class Command(BaseCommand):
         if self.author is None:
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
-                           removed=0, skipped=0)
+                           removed=0, merged=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -74,6 +74,8 @@ class Command(BaseCommand):
                     self.col_name(c)
                 for at in data.get('remove_cols', []):
                     self.remove_col(at)
+                for m in data.get('merges', []):
+                    self.merge(m)
                 if dry_run:
                     raise DryRun
         except DryRun:
@@ -82,7 +84,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
-            f'{c["removed"]} cols removed; '
+            f'{c["removed"]} cols removed, {c["merged"]} merged; '
             f'{c["skipped"]} skipped'))
 
     # ------------------------------------------------------------------ summits
@@ -340,7 +342,14 @@ class Command(BaseCommand):
                 parent.refresh_from_db()
             summit.key_col, summit.prominence_parent = col, parent
             summit.prominence_source = self.lidar if parent else None
-            summit.full_clean()
+            try:
+                summit.full_clean()
+            except ValidationError as e:
+                # Left as it was, for a person: the change would break an invariant here.
+                self.stdout.write(f'  ! {summit.point}: {"; ".join(e.messages)} Not relinked.')
+                summit.refresh_from_db()
+                self.counts['skipped'] += 1
+                continue
             summit.save()
             self.counts['relinked'] += 1
             self.stdout.write(f'  + {summit.point}: key col {col.point}, parent {parent.point}, '
@@ -359,3 +368,64 @@ class Command(BaseCommand):
         col.delete()
         point.delete()
         self.counts['removed'] += 1
+
+    # ------------------------------------------------------------------ duplicates
+
+    def merge(self, m):
+        """
+        Two points for one place: `drop` goes, `keep` stays and takes over whatever referred to
+        the other — parents, children, rivers, notes — and the names it did not have. With
+        `take_position`, also the dropped point's position, height and source: the duplicate
+        was the one corrected from the lidar. A col still some summit's key col is not dropped.
+        """
+        drop = NamedPoint.objects.filter(pk=m['drop']['point'], name=m['drop']['name']).first()
+        keep = NamedPoint.objects.filter(pk=m['keep']['point'], name=m['keep']['name']).first()
+        if drop is None:
+            self.counts['skipped'] += 1           # gone already
+            return
+        if keep is None:
+            self.stdout.write(f'  ! keep #{m["keep"]["point"]} "{m["keep"]["name"]}" not found as such: skipped')
+            self.counts['skipped'] += 1
+            return
+        col = Col.objects.filter(point=drop).first()
+        if col is not None and Summit.objects.filter(key_col=col).exists():
+            self.stdout.write(f'  ! {drop} is still a key col: not dropped')
+            self.counts['skipped'] += 1
+            return
+        # Whatever points at the duplicate, its summit or its col, now points at the keeper's.
+        pairs = [(drop, keep)]
+        dropped_summit = Summit.objects.filter(point=drop).first()
+        if dropped_summit is not None:
+            kept_summit = Summit.objects.filter(point=keep).first()
+            if kept_summit is None:
+                self.stdout.write(f'  ! {drop} is a summit and {keep} is not: skipped')
+                self.counts['skipped'] += 1
+                return
+            pairs.append((dropped_summit, kept_summit))
+        if col is not None:
+            kept_col = Col.objects.filter(point=keep).first()
+            if kept_col is not None:
+                pairs.append((col, kept_col))
+        # Names first: the same name in the same language would otherwise be there twice.
+        for n in PointName.objects.filter(point=drop):
+            if PointName.objects.filter(point=keep, language=n.language, name=n.name).exists():
+                n.delete()
+        for old, new in pairs:
+            for rel in old._meta.related_objects:
+                if rel.one_to_many and not rel.related_model._meta.auto_created:     # every FK to it
+                    rel.related_model._default_manager.filter(**{rel.field.name: old}).update(**{rel.field.name: new})
+        if m.get('take_position'):
+            keep.location, keep.altitude = drop.location, drop.altitude
+            keep.altitude_datum, keep.source = drop.altitude_datum, drop.source
+        keep.full_clean()
+        keep.save()
+        key_col = dropped_summit.key_col if dropped_summit else None
+        if dropped_summit is not None:
+            dropped_summit.delete()
+        if col is not None:
+            col.delete()
+        drop.delete()
+        self.counts['merged'] += 1
+        self.stdout.write(f'  - {m["drop"]["name"] or "unnamed"} #{m["drop"]["point"]} merged into '
+                          f'{keep.name or "unnamed"} #{keep.pk}'
+                          + (f' (its key col {key_col.point} left free)' if key_col else ''))

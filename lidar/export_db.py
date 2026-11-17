@@ -22,12 +22,14 @@ def pt(p):
     langs = names.get(p.pk, [])
     return dict(pk=p.pk, name=p.name, lat=p.location.y, lon=p.location.x, alt=p.altitude,
                 egm=p.altitude_egm2008, datum=p.altitude_datum.code if p.altitude_datum_id else None,
-                countries=[c.code for c in p.countries.all()], langs=langs, names=[n['name'] for n in langs])
+                countries=[c.code for c in p.countries.all()], langs=langs, names=[n['name'] for n in langs],
+                source=p.source.name if p.source_id else None)
 
 
 summits = []
 for s in (Summit.objects.with_prominence()
-          .select_related('point__altitude_datum', 'key_col__point__altitude_datum', 'prominence_parent__point')
+          .select_related('point__altitude_datum', 'point__source', 'key_col__point__altitude_datum',
+                          'key_col__point__source', 'prominence_parent__point')
           .prefetch_related('point__countries', 'key_col__point__countries')):
     point = pt(s.point)
     if point is None:

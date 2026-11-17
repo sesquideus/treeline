@@ -265,3 +265,44 @@ class TwinSwapTests(TestCase):
         self.assertEqual((self.twin.key_col, self.twin.prominence_parent), (self.col, self.grand))
         self.assertEqual(self.named.prominence_parent, self.twin)
         self.assertAlmostEqual(self.named.compute_prominence(), 805.96 - 802.16)
+
+
+class MergeTests(TestCase):
+    """Two copies of Malý Minčol: the one with the links stays and takes the other's lidar values."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        sk = make_language('sk', 1)
+        cls.parent = make_summit('Minčol', 1152.6, 49.2, 21.0, key_col=make_col('Low', 300.0, 49.0, 21.0))
+        cls.keep = make_summit('Malý Minčol', 1054.4, 49.255005, 21.004153,
+                               key_col=make_col('Uhlisko', 955.0, 49.240438, 21.002705), prominence_parent=cls.parent)
+        cls.drop = make_summit('Malý Minčol Čergovský', 1054.37, 49.254981, 21.004143,
+                               key_col=make_col('Uhlisko (Malý Minčol)', 953.68, 49.240571, 21.002796),
+                               prominence_parent=cls.parent)
+        cls.child = make_summit('Kid', 1000.0, 49.26, 21.01, key_col=make_col(None, 990.0, 49.26, 21.0),
+                                prominence_parent=cls.drop)
+        PointName.objects.create(point=cls.keep.point, language=sk, name='Malý Minčol')
+        PointName.objects.create(point=cls.drop.point, language=sk, name='Malý Minčol')
+        PointName.objects.create(point=cls.drop.point, language=sk, name='Malý Minčol Čergovský')
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), merges=[
+            dict(keep=dict(point=self.keep.point.pk, name='Malý Minčol'),
+                 drop=dict(point=self.drop.point.pk, name='Malý Minčol Čergovský'), take_position=True),
+            dict(keep=dict(point=self.keep.key_col.point.pk, name='Uhlisko'),
+                 drop=dict(point=self.drop.key_col.point.pk, name='Uhlisko (Malý Minčol)'), take_position=True)])
+
+    def test_one_copy_is_left_with_everything(self):
+        ApplyTests.run_it(self, self.data())
+        self.keep.refresh_from_db(), self.child.refresh_from_db()
+        self.assertFalse(NamedPoint.objects.filter(name__in=['Malý Minčol Čergovský', 'Uhlisko (Malý Minčol)']).exists())
+        self.assertEqual(self.child.prominence_parent, self.keep)
+        self.assertEqual(self.keep.point.altitude, 1054.37)
+        self.assertEqual(self.keep.key_col.point.altitude, 953.68)
+        self.assertEqual(sorted(self.keep.point.names.values_list('name', flat=True)),
+                         ['Malý Minčol', 'Malý Minčol Čergovský'])
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 merged', ApplyTests.run_it(self, self.data()))
