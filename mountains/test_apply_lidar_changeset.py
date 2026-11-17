@@ -306,3 +306,31 @@ class MergeTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 merged', ApplyTests.run_it(self, self.data()))
+
+
+class IsolationTests(TestCase):
+    """The nearest higher point and isolation parent, the parent found by position."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.twin = make_summit(None, 2422.1, 49.163667, 20.052188, key_col=make_col(None, 2235.0, 49.17, 20.03))
+        cls.satan = make_summit('Satan', 2421.5, 49.163132, 20.052843, key_col=make_col(None, 2411.1, 49.1634, 20.0527),
+                                prominence_parent=cls.twin, isolation_name='western ridge of Hrubý vrch')
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), isolations=[dict(
+            summit=dict(pk=self.satan.pk, name='Satan'), parent=dict(at=[49.163667, 20.052188]),
+            nhp=[49.163622, 20.05223], metres=70.4)])
+
+    def test_the_twin_becomes_the_isolation_parent(self):
+        ApplyTests.run_it(self, self.data())
+        self.satan.refresh_from_db()
+        self.assertEqual(self.satan.isolation_parent, self.twin)
+        self.assertAlmostEqual(self.satan.nearest_higher_point.y, 49.163622)
+        self.assertIsNone(self.satan.isolation_name)          # it described another parent's ground
+        self.assertEqual(self.satan.isolation_source.name, 'DMR 5.0')
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 isolations', ApplyTests.run_it(self, self.data()))

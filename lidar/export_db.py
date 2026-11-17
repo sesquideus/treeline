@@ -35,7 +35,10 @@ for s in (Summit.objects.with_prominence()
     if point is None:
         continue
     parent = s.prominence_parent
+    nhp = s.nearest_higher_point
     summits.append(dict(
+        nhp=(nhp.y, nhp.x) if nhp else None, isolation_parent_pk=s.isolation_parent_id,
+        isolation_name=s.isolation_name,
         pk=s.pk, point=point, prominence=s.prominence, island=s.island_high_point,
         key_col=pt(s.key_col.point) if s.key_col else None, key_col_pk=s.key_col_id,
         parent=dict(pk=parent.pk, name=parent.point.name, lat=parent.point.location.y,

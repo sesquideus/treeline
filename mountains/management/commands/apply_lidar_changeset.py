@@ -53,7 +53,7 @@ class Command(BaseCommand):
         if self.author is None:
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
-                           removed=0, merged=0, skipped=0)
+                           removed=0, merged=0, isolations=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -76,6 +76,8 @@ class Command(BaseCommand):
                     self.remove_col(at)
                 for m in data.get('merges', []):
                     self.merge(m)
+                for iso in data.get('isolations', []):
+                    self.isolation(iso)
                 if dry_run:
                     raise DryRun
         except DryRun:
@@ -84,7 +86,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
-            f'{c["removed"]} cols removed, {c["merged"]} merged; '
+            f'{c["removed"]} cols removed, {c["merged"]} merged, {c["isolations"]} isolations; '
             f'{c["skipped"]} skipped'))
 
     # ------------------------------------------------------------------ summits
@@ -429,3 +431,40 @@ class Command(BaseCommand):
         self.stdout.write(f'  - {m["drop"]["name"] or "unnamed"} #{m["drop"]["point"]} merged into '
                           f'{keep.name or "unnamed"} #{keep.pk}'
                           + (f' (its key col {key_col.point} left free)' if key_col else ''))
+
+    # ------------------------------------------------------------------ isolation
+
+    def isolation(self, iso):
+        """
+        A summit's nearest higher point and isolation parent, from the lidar. Both summits may
+        be ones this tooling made (a split's twin top), so either can be given by position.
+        The description of the ground (`isolation_name`) is cleared when the parent changes:
+        "northern ridge of X" no longer says anything once it is not X's.
+        """
+        def summit(spec):
+            if 'at' in spec:
+                return Summit.objects.filter(point__location__dwithin=(
+                    Point(spec['at'][1], spec['at'][0], srid=4326), SAME_PLACE)).first()
+            return Summit.objects.filter(pk=spec['pk'], point__name=spec['name']).first()
+        s, parent = summit(iso['summit']), summit(iso['parent'])
+        if s is None or parent is None:
+            self.stdout.write(f'  ! isolation of {iso["summit"]}: summit or parent not found as such: skipped')
+            self.counts['skipped'] += 1
+            return
+        nhp = Point(iso['nhp'][1], iso['nhp'][0], srid=4326)
+        if (s.isolation_parent_id == parent.pk and s.nearest_higher_point is not None
+                and s.nearest_higher_point.distance(nhp) < 1e-7):
+            self.counts['skipped'] += 1
+            return
+        if s.isolation_parent_id != parent.pk:
+            s.isolation_name = None
+        s.nearest_higher_point, s.isolation_parent, s.isolation_source = nhp, parent, self.lidar
+        try:
+            s.full_clean()
+        except ValidationError as e:
+            self.stdout.write(f'  ! {s.point}: {"; ".join(e.messages)} Isolation not set.')
+            self.counts['skipped'] += 1
+            return
+        s.save()
+        self.counts['isolations'] += 1
+        self.stdout.write(f'  + {s.point}: isolation {iso["metres"]:.0f} m, parent {parent.point}')
