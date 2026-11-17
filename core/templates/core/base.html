@@ -28,7 +28,7 @@
             {% include 'core/header.html' %}
             {% block submenu %}{% endblock submenu %}
             {% block page %}Nothing here{% endblock page %}
-            {% include 'core/footer.html' %}
+            {% block footer %}{% include 'core/footer.html' %}{% endblock footer %}
         </div>
     </body>
 </html>

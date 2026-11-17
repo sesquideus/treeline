@@ -8,6 +8,13 @@ SQL=treeline.sql
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# A fresh dump first, taken on amos by its own db_export.sh (pg_dump -Fc into
+# ~/treeline/$SQL); --no-export re-imports whatever dump is there already.
+if [ "$1" != "--no-export" ]; then
+    echo "Exporting the database on amos..."
+    ssh amos '~/treeline/db_export.sh'
+fi
+
 echo "Fetching $SQL from amos..."
 scp amos:~/treeline/$SQL ./$SQL
 

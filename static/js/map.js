@@ -527,6 +527,15 @@ function fitToFramed(map, source) {
 // wired up here; anything else that should react to hovering — the key col and parent
 // highlight, for one — goes through the callback rather than adding a second pointermove
 // listener, so the hit test still runs once per mouse position.
+// Where the positions, heights and some names on TreeLine's maps come from: the same credits
+// as core/footer.html, which map pages leave out — under a full-screen map it is never seen.
+const DATA_CREDITS =
+    'Terrain: <a href="https://www.geoportal.sk/en/zbgis/als/">DMR 5.0</a> © ÚGKK SR, ' +
+    '<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; ' +
+    'Copernicus WorldDEM-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, ' +
+    'provided under COPERNICUS by the European Union and ESA; all rights reserved. ' +
+    'Some names © OpenStreetMap contributors, ODbL';
+
 function makeMap(geojson, styleFor, coords, zoom, onHover, onOpen) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
@@ -542,6 +551,7 @@ function makeMap(geojson, styleFor, coords, zoom, onHover, onOpen) {
 
     const vectorLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
+            attributions: DATA_CREDITS,
             features: new ol.format.GeoJSON().readFeatures(geojson, {
                 featureProjection: 'EPSG:3857',
             }),

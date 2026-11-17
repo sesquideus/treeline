@@ -14,6 +14,18 @@ div.entire {
     min-height: 100vh;
 }
 
+footer.credits {
+    padding: 0.6em 1em;
+    border-top: 1px solid #ddd;
+    color: #777;
+    font-size: 8.5pt;
+    line-height: 140%;
+}
+
+footer.credits a, footer.credits a:visited {
+    color: #557;
+}
+
 div.header {
     background-color: black;
     width: 100%;
@@ -588,9 +600,13 @@ div.page {
     padding: 1em;
 }
 
-/* Page without any map */
+/* Page without any map: as tall as its content, so that what follows it (the credits) follows
+   it rather than sitting one screen down in the middle of a long table. */
 div.text-page {
     display: block;
+    height: auto;
+    min-height: calc(100vh - 60px);
+    box-sizing: border-box;
 }
 
 div.detail-page {

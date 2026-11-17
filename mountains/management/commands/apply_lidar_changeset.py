@@ -314,10 +314,15 @@ class Command(BaseCommand):
                 col = near(Col, k['at'])
             else:
                 col = Col.objects.filter(point__pk=k['point'], point__name=k['name']).first()
-            parent = (summit.prominence_parent if summit and 'parent' not in link
-                      else link['parent'] and Summit.objects.filter(pk=link['parent']['pk'],
-                                                                    point__name=link['parent']['name']).first())
-            if summit is None or col is None or ('parent' in link and link['parent'] and parent is None):
+            if 'parent_at' in link:
+                parent = near(Summit, link['parent_at'])
+            elif 'parent' in link:
+                parent = link['parent'] and Summit.objects.filter(pk=link['parent']['pk'],
+                                                                  point__name=link['parent']['name']).first()
+            else:
+                parent = summit.prominence_parent if summit else None
+            wanted = 'parent_at' in link or ('parent' in link and link['parent'])
+            if summit is None or col is None or (wanted and parent is None):
                 self.stdout.write(f'  ! {link.get("summit_name")}: summit, key col or parent not found as such: skipped')
                 self.counts['skipped'] += 1
                 continue
@@ -330,6 +335,9 @@ class Command(BaseCommand):
         Summit.objects.filter(pk__in=[s.pk for s, _, _ in todo]).update(key_col=None)
         for summit, col, parent in todo:
             summit.refresh_from_db()
+            if parent is not None:
+                # It may itself have been relinked a moment ago: check cycles against that.
+                parent.refresh_from_db()
             summit.key_col, summit.prominence_parent = col, parent
             summit.prominence_source = self.lidar if parent else None
             summit.full_clean()

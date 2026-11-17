@@ -239,3 +239,29 @@ class KeyColTests(TestCase):
         before = (Summit.objects.count(), NamedPoint.objects.count())
         ApplyTests.run_it(self, self.data())
         self.assertEqual((Summit.objects.count(), NamedPoint.objects.count()), before)
+
+
+class TwinSwapTests(TestCase):
+    """Two tops a centimetre apart: the higher one, found by position, takes over the key col."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.grand = make_summit('Turíkov Žiar', 851.4, 49.3, 19.4, key_col=make_col('Low', 300.0, 49.0, 19.0))
+        cls.col = make_col(None, 697.2, 49.2467, 19.3681)
+        cls.named = make_summit('Kýčera', 806.0, 49.249813, 19.362251, key_col=cls.col, prominence_parent=cls.grand)
+        cls.twin = make_summit(None, 805.97, 49.250385, 19.364540, key_col=make_col(None, 802.16, 49.250024, 19.363206),
+                               prominence_parent=cls.named)
+
+    def test_the_higher_twin_becomes_the_summit(self):
+        ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'),
+            points=[dict(point=self.named.point.pk, name='Kýčera', lat=49.249813, lon=19.362251,
+                         altitude=805.96, datum='Bpv')],
+            relinks=[dict(summit_at=dict(lat=49.250385, lon=19.364540), summit_name='twin',
+                          key_col=dict(point=self.col.point.pk, name=None), parent=dict(pk=self.grand.pk, name='Turíkov Žiar')),
+                     dict(summit=self.named.pk, summit_name='Kýčera', key_col=dict(at=dict(lat=49.250024, lon=19.363206)),
+                          parent_at=dict(lat=49.250385, lon=19.364540))]))
+        self.twin.refresh_from_db(), self.named.refresh_from_db()
+        self.assertEqual((self.twin.key_col, self.twin.prominence_parent), (self.col, self.grand))
+        self.assertEqual(self.named.prominence_parent, self.twin)
+        self.assertAlmostEqual(self.named.compute_prominence(), 805.96 - 802.16)

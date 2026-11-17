@@ -22,7 +22,7 @@ uv run python manage.py makemigrations
 uv run python manage.py test                       # all tests
 uv run python manage.py test mountains             # one app
 uv run python manage.py test mountains.tests.Foo   # one test case/method
-./db_import.sh                       # DROP + recreate `treeline` DB from a pg_restore dump
+./db_import.sh                       # dump on amos (via ssh), then DROP + recreate `treeline` here from it
 ```
 
 Running the tests builds a throwaway `test_treeline` database, which needs two one-time
