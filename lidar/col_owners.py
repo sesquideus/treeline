@@ -19,81 +19,8 @@ import rasterio
 from numba import njit
 from pyproj import Transformer
 
-from parents import ascend
+from parents import DivideTree
 from prominence import SOURCE, Grid, find, pool, refine_col
-
-
-@njit(cache=True)
-def flood_deaths(z, order, w, h):
-    """Every death: col, peak, a cell beside the col on either side; and `up`/`prom` per peak."""
-    n = w * h
-    parent = np.full(n, -1, np.int32)
-    peak = np.full(n, -1, np.int32)
-    owner = np.full(n, -1, np.int32)
-    up = np.full(n, -1, np.int32)
-    prom = np.full(n, np.inf, np.float32)
-    cap = n // 8
-    d_col = np.empty(cap, np.int32)
-    d_peak = np.empty(cap, np.int32)
-    d_sd = np.empty(cap, np.int32)
-    d_sb = np.empty(cap, np.int32)
-    c = 0
-    roots = np.empty(8, np.int64)
-    via = np.empty(8, np.int64)
-    for k in range(n):
-        p = order[k]
-        if z[p] == -np.inf:
-            break
-        y = p // w
-        x = p - y * w
-        m = 0
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                if dy == 0 and dx == 0:
-                    continue
-                yy = y + dy
-                xx = x + dx
-                if yy < 0 or yy >= h or xx < 0 or xx >= w:
-                    continue
-                q = yy * w + xx
-                if parent[q] < 0:
-                    continue
-                r = find(parent, q)
-                dup = False
-                for j in range(m):
-                    if roots[j] == r:
-                        dup = True
-                if not dup:
-                    roots[m] = r
-                    via[m] = q
-                    m += 1
-        if m == 0:
-            parent[p] = p
-            peak[p] = p
-            owner[p] = p
-            continue
-        best = 0
-        for j in range(1, m):
-            if z[peak[roots[j]]] > z[peak[roots[best]]]:
-                best = j
-        b = roots[best]
-        for j in range(m):
-            r = roots[j]
-            if r == b:
-                continue
-            dpk = peak[r]
-            prom[dpk] = z[dpk] - z[p]
-            up[dpk] = owner[ascend(z, w, h, via[best])]
-            if c < cap:
-                d_col[c] = p
-                d_peak[c] = dpk
-                d_sd[c] = via[j]
-                d_sb[c] = via[best]
-                c += 1
-            parent[r] = b
-        parent[p] = b
-        owner[p] = peak[b]
-    return up, prom, d_col[:c], d_peak[:c], d_sd[:c], d_sb[:c]
 
 
 def main():
@@ -110,9 +37,8 @@ def main():
     h, w = top.shape
     flat = np.ascontiguousarray(top).ravel()
     t = time.time()
-    order = np.argsort(-flat, kind='stable').astype(np.int32)
-    up, prom, d_col, d_peak, d_sd, d_sb = flood_deaths(flat, order, w, h)
-    del order
+    tree = DivideTree(flat, w, h)
+    prom, d_col, d_peak, d_sd, d_sb = tree.prom, tree.col, tree.peak, tree.sd, tree.sb
     print(f'flooded in {time.time() - t:.0f}s, {len(d_col)} deaths', flush=True)
 
     with rasterio.open(SOURCE) as d:
@@ -148,11 +74,7 @@ def main():
             s = int(d_peak[i])
             refined = refine_col(d, grid, int(d_col[i]), int(d_sd[i]), int(d_sb[i]), 150)
             col_h, col_rc = (refined[0], refined[1]) if refined else (float(flat[d_col[i]]), grid.pixel(d_col[i]))
-            p = int(up[s])
-            for _ in range(100000):                       # the walk, as in parents.py
-                if p < 0 or prom[p] > prom[s]:
-                    break
-                p = int(up[p])
+            p = tree.parent(s)
             summit = place(grid.pixel(s), flat[s])
             out.append(dict(q, summit=summit, col=place(col_rc, col_h),
                             prominence=round(summit['h'] - col_h, 2),

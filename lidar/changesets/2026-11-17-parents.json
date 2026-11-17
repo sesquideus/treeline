@@ -1,0 +1,140 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "relinks": [
+  {
+   "summit": 2398,
+   "summit_name": "Vrbovica",
+   "key_col": {
+    "point": 5429,
+    "name": null
+   },
+   "parent": {
+    "pk": 163,
+    "name": "Homôľka (Nízke Tatry)"
+   }
+  },
+  {
+   "summit": 467,
+   "summit_name": "Kopec",
+   "key_col": {
+    "point": 293,
+    "name": "Nižné Hutianske sedlo"
+   },
+   "parent": {
+    "pk": 30,
+    "name": "Baranec"
+   }
+  },
+  {
+   "summit": 41,
+   "summit_name": "Kojšovská hoľa",
+   "key_col": {
+    "point": 130,
+    "name": "Štóske sedlo"
+   },
+   "parent": {
+    "pk": 44,
+    "name": "Stolica"
+   }
+  },
+  {
+   "summit": 313,
+   "summit_name": "Lúčanská Magura",
+   "key_col": {
+    "point": 747,
+    "name": "Staré Lazy"
+   },
+   "parent": {
+    "pk": 124,
+    "name": "Prosečné"
+   }
+  },
+  {
+   "summit": 553,
+   "summit_name": "Mravečník",
+   "key_col": {
+    "point": 1384,
+    "name": "Káčerovci"
+   },
+   "parent": {
+    "pk": 22,
+    "name": "Minčol Oravský"
+   }
+  },
+  {
+   "summit": 2126,
+   "summit_name": "Bôrik (Svit)",
+   "key_col": {
+    "point": 4775,
+    "name": null
+   },
+   "parent": {
+    "pk": 303,
+    "name": "Hrubý vrch (Vysoké Tatry)"
+   }
+  },
+  {
+   "summit": 2041,
+   "summit_name": "Vysoká (Levočské vrchy)",
+   "key_col": {
+    "point": 4560,
+    "name": null
+   },
+   "parent": {
+    "pk": 1985,
+    "name": "Kýčery"
+   }
+  },
+  {
+   "summit": 570,
+   "summit_name": "Jedlina",
+   "key_col": {
+    "point": 1476,
+    "name": null
+   },
+   "parent": {
+    "pk": 546,
+    "name": "Kačalová"
+   }
+  },
+  {
+   "summit": 569,
+   "summit_name": "Kunova hora",
+   "key_col": {
+    "point": 1473,
+    "name": null
+   },
+   "parent": {
+    "pk": 547,
+    "name": "Čierna hora (Ondavská vrchovina)"
+   }
+  },
+  {
+   "summit": 2228,
+   "summit_name": "Bukovina (Politavie)",
+   "key_col": {
+    "point": 5005,
+    "name": "Krížne cesty"
+   },
+   "parent": {
+    "pk": 2230,
+    "name": "Španí laz"
+   }
+  },
+  {
+   "summit": 2469,
+   "summit_name": "Drina",
+   "key_col": {
+    "point": 5600,
+    "name": null
+   },
+   "parent": {
+    "pk": 24,
+    "name": "Šimonka"
+   }
+  }
+ ]
+}

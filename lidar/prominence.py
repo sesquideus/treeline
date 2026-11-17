@@ -33,7 +33,7 @@ from numba import njit
 from pyproj import Transformer
 from rasterio.windows import Window
 
-SOURCE = os.path.expanduser('~/outdoors/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
+SOURCE = os.environ.get('TREELINE_DMR5', '/mnt/media/treeline/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
 NODATA = np.float32(-np.inf)
 
 

@@ -52,6 +52,11 @@ def main():
     ap.add_argument('--summit-move', type=float, default=30)
     ap.add_argument('--col-move', type=float, default=100)
     ap.add_argument('--rock', type=float, default=50, help='degrees')
+    ap.add_argument('--rock-share', type=float, default=0,
+                    help='rock is more than this share of the ground within 10 m steeper than --rock-slope '
+                         '(instead of any one cell steeper than --rock)')
+    ap.add_argument('--rock-slope', type=float, default=40)
+    ap.add_argument('--cols-only', action='store_true', help='correct key cols only, not summits')
     ap.add_argument('--loose', action='store_true',
                     help='the second pass: summits move up to 150 m and key cols up to 500 m; rock only '
                          'blocks the suspicious direction (a summit lowered, a col raised); parents follow '
@@ -69,7 +74,7 @@ def main():
 
     def inland(ll):
         here = Point(*tm.transform(ll[1], ll[0]))
-        return slovakia.contains(here) and line.distance(here) > args.border
+        return slovakia.contains(here) and (args.border <= 0 or line.distance(here) > args.border)
 
     d = rasterio.open(SOURCE)
 
@@ -80,6 +85,10 @@ def main():
             return True
         gy, gx = np.gradient(z)
         steep = np.degrees(np.arctan(np.hypot(gx, gy)))[1:-1, 1:-1]
+        if args.rock_share:
+            # Rock is ground that is steep all round, not one steep cell: a road cut's edge
+            # (Dobšinský kopec) is not a crag.
+            return (steep > args.rock_slope).mean() > args.rock_share
         return steep.max() > args.rock
 
     why = {}
@@ -100,7 +109,9 @@ def main():
                 no(f'within {args.border:g} m of the border'); continue
             # the summit
             moved = dist((p['lat'], p['lon']), x['ll'])
-            if p['datum'] not in ('Bpv', None) or p.get('source') in PROTECTED:
+            if args.cols_only:
+                pass
+            elif p['datum'] not in ('Bpv', None) or p.get('source') in PROTECTED:
                 no('summit: protected source or not Bpv')
             elif moved > args.summit_move:
                 no(f'summit moves more than {args.summit_move:g} m')

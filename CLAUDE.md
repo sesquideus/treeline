@@ -61,7 +61,7 @@ the user that uwsgi runs as.
 ### Lidar (`lidar/`)
 
 Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m, one 156 GB
-GeoTIFF in `~/outdoors/DTM5`) against the database. The server needs none of it — only the
+GeoTIFF in `/mnt/media/treeline/DTM5`, or wherever `TREELINE_DMR5` points) against the database. The server needs none of it — only the
 changesets it writes.
 
 ```bash
