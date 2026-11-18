@@ -1,0 +1,7 @@
+{
+ "sources": {"lidar": "DMR 5.0", "names": "OpenStreetMap"},
+ "relinks": [
+  {"summit": 1989, "summit_name": "Prokopec", "key_col": {"point": 4432, "name": null},
+   "parent": {"pk": 2690, "name": "Zimny Wierch"}}
+ ]
+}
