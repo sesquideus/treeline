@@ -1,0 +1,184 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "relinks": [
+  {
+   "summit": 2449,
+   "summit_name": "Kasprowy Wierch",
+   "key_col": {
+    "new": {
+     "lat": 49.230985,
+     "lon": 19.983045,
+     "altitude": 1947.87,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 8386,
+    "name": "Beskid / Beskyd"
+   }
+  },
+  {
+   "summit": 330,
+   "summit_name": "Šarkanica IV",
+   "key_col": {
+    "new": {
+     "lat": 48.720258,
+     "lon": 19.972227,
+     "altitude": 1150.24,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 329,
+    "name": "Ostrica"
+   }
+  },
+  {
+   "summit": 2212,
+   "summit_name": "Hričovec",
+   "key_col": {
+    "new": {
+     "lat": 49.323314,
+     "lon": 18.387055,
+     "altitude": 982.1,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 405,
+    "name": "Veľký Javorník (Javorníky)"
+   }
+  },
+  {
+   "summit": 2213,
+   "summit_name": "Čemerka",
+   "key_col": {
+    "new": {
+     "lat": 49.331888,
+     "lon": 18.416692,
+     "altitude": 960.02,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 405,
+    "name": "Veľký Javorník (Javorníky)"
+   }
+  },
+  {
+   "summit": 650,
+   "summit_name": "Vysoká (Kremnické vrchy)",
+   "key_col": {
+    "new": {
+     "lat": 48.721461,
+     "lon": 18.811916,
+     "altitude": 885.9,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 653,
+    "name": "(Veľké Triesky)"
+   }
+  },
+  {
+   "summit": 2044,
+   "summit_name": "Strela",
+   "key_col": {
+    "new": {
+     "lat": 48.480772,
+     "lon": 19.001319,
+     "altitude": 794.93,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 2045,
+    "name": "Tri kamene"
+   }
+  },
+  {
+   "summit": 2665,
+   "summit_name": "Repisko (Revúcka vrchovina)",
+   "key_col": {
+    "new": {
+     "lat": 48.690372,
+     "lon": 20.415793,
+     "altitude": 723.85,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 2666,
+    "name": "(Veľké Repisko)"
+   }
+  },
+  {
+   "summit": 2637,
+   "summit_name": "Vaškova hora",
+   "key_col": {
+    "new": {
+     "lat": 49.188981,
+     "lon": 21.868764,
+     "altitude": 440.51,
+     "datum": "Bpv",
+     "name": null,
+     "names": [],
+     "notes": [],
+     "countries": [
+      "sk"
+     ]
+    }
+   },
+   "parent": {
+    "pk": 8747,
+    "name": "Zadný vrch (2)"
+   }
+  }
+ ]
+}

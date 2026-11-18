@@ -124,10 +124,38 @@ def main():
                summits=[], point_names=[], col_names=[])
 
     # Missing P100s, most prominent first, so a new parent exists before its children.
-    missed = sorted(report['missed'], key=lambda e: -(e['lidar']['prom'] or 0))
+    def certain(x):
+        # Inside Slovakia, and its key col not possibly beyond the data — unless the summit
+        # clears the threshold whatever lies there. The rest waits for Poland's and Czechia's lidar.
+        f = ' '.join(x['flags'])
+        if 'outside Slovakia' in f or 'summit on the edge of the data' in f or 'beyond all the data' in f:
+            return False
+        return 'may be outside the data' not in f or 'regardless' in f
+    missed = sorted((e for e in report['missed'] if certain(e['lidar'])), key=lambda e: -(e['lidar']['prom'] or 0))
+    held = [e for e in report['missed'] if not certain(e['lidar'])]
+    print(f'{len(held)} missing summits held back: outside Slovakia, or a key col perhaps beyond the data')
+    # Kept for when the Polish and Czech lidar are stitched in: they may then be settled.
+    held_path = os.path.splitext(sys.argv[3])[0] + '-held.json'
+    json.dump([dict(lat=e['lidar']['ll'][0], lon=e['lidar']['ll'][1], altitude=e['lidar']['bpv'] or e['lidar']['egm'],
+                    prominence=e['lidar']['prom'], prominence_at_least=e['lidar'].get('at_least'),
+                    col=e['lidar']['col'], col_altitude=e['lidar']['col_bpv'] or e['lidar']['col_egm'],
+                    name=(e['lidar'].get('osm') or {}).get('name'), why=[f for f in e['lidar']['flags']])
+               for e in held], open(held_path, 'w'), ensure_ascii=False, indent=1)
+    print(f'  -> {held_path}')
     places = [e['lidar']['ll'] for e in missed] + [e['lidar']['col'] for e in missed]
     inside = [not any(f.startswith('outside Slovakia') for f in e['lidar']['flags']) for e in missed]
     countries = countries_of(places, inside + [True] * len(missed))
+    # An OSM peak names only the lidar summit nearest to it: two neighbouring tops can both have
+    # it within reach (Štôlska veža, Veľký Kostol, Zadný Oštep).
+    owner = {}
+    for e in missed:
+        o = e['lidar'].get('osm')
+        if o and o.get('name') and (o['id'] not in owner or o['dist'] < owner[o['id']]['lidar']['osm']['dist']):
+            owner[o['id']] = e
+    for e in missed:
+        o = e['lidar'].get('osm')
+        if o and o.get('name') and owner[o['id']] is not e:
+            e['lidar']['osm'] = None
     keys = {}
     for i, e in enumerate(missed):
         x = e['lidar']
@@ -138,9 +166,15 @@ def main():
         copernicus_col = any('key col outside the lidar' in f for f in x['flags'])
         names = []
         if osm and osm['name']:
-            names.append(dict(lang=language_of(osm, c_summit), name=osm['name'], local=True))
+            local = language_of(osm, c_summit)
+            names.append(dict(lang=local, name=osm['name'], local=True))
             names += [dict(lang=lang, name=n, local=False) for lang, ns in (osm.get('langs') or {}).items()
                       for n in ns if n != osm['name']]
+            # alt_name and loc_name are other local names; old_name a former one
+            for tag, extra in (('alt_name', {}), ('loc_name', {}), ('official_name', {}),
+                               ('old_name', dict(historical=True))):
+                names += [dict(lang=local, name=n, local=True, **extra)
+                          for n in (osm.get('other') or {}).get(tag, []) if n != osm['name']]
         col_names = []
         if osm_col and osm_col['name'] and not osm_col['name'].isdigit():
             col_names.append(dict(lang=language_of(osm_col, c_col), name=osm_col['name'], local=True))

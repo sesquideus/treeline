@@ -1,0 +1,14 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "renames": [
+  {
+   "at": [48.244014, 19.106256],
+   "old": "Geotop, pieskovce a konglomeráty pobrežnej zóny bádenského mora",
+   "name": "Čabradský hradný vrch",
+   "lang": "sk"
+  }
+ ]
+}

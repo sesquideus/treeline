@@ -1,0 +1,1249 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "relinks": [
+  {
+   "summit_at": {
+    "lat": 49.412643,
+    "lon": 21.639343
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.41861,
+     "lon": 21.638704
+    }
+   },
+   "parent": {
+    "pk": 2690,
+    "name": "Zimny Wierch"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.6203,
+    "lon": 18.001717
+   },
+   "summit_name": "Žihľavník",
+   "key_col": {
+    "at": {
+     "lat": 48.624849,
+     "lon": 17.992259
+    }
+   },
+   "parent": {
+    "pk": 694,
+    "name": "Bezovec"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.295687,
+    "lon": 19.212114
+   },
+   "summit_name": "Hoľa (3)",
+   "key_col": {
+    "at": {
+     "lat": 49.297422,
+     "lon": 19.221391
+    }
+   },
+   "parent": {
+    "pk": 22,
+    "name": "Minčol Oravský"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.1458,
+    "lon": 22.347915
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.144626,
+     "lon": 22.355932
+    }
+   },
+   "parent": {
+    "pk": 276,
+    "name": "Duże Jasło"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.161099,
+    "lon": 20.114043
+   },
+   "summit_name": "Štôlska veža",
+   "key_col": {
+    "at": {
+     "lat": 49.160398,
+     "lon": 20.114042
+    }
+   },
+   "parent": {
+    "pk": 155,
+    "name": "Končistá"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.176852,
+    "lon": 20.010115
+   },
+   "summit_name": "Zadná Garajova veža",
+   "key_col": {
+    "at": {
+     "lat": 49.176029,
+     "lon": 20.010611
+    }
+   },
+   "parent": {
+    "pk": 303,
+    "name": "Hrubý vrch (Vysoké Tatry)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.169854,
+    "lon": 20.048722
+   },
+   "summit_name": "Veľká Capia veža",
+   "key_col": {
+    "at": {
+     "lat": 49.168214,
+     "lon": 20.049412
+    }
+   },
+   "parent_at": {
+    "lat": 49.163667,
+    "lon": 20.052188
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.173948,
+    "lon": 20.134586
+   },
+   "summit_name": "Velický štít",
+   "key_col": {
+    "at": {
+     "lat": 49.173288,
+     "lon": 20.132965
+    }
+   },
+   "parent": {
+    "pk": 1,
+    "name": "Gerlachovský štít"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.178557,
+    "lon": 20.079222
+   },
+   "summit_name": "Żabi Koń",
+   "key_col": {
+    "at": {
+     "lat": 49.178516,
+     "lon": 20.07862
+    }
+   },
+   "parent": {
+    "pk": 2611,
+    "name": "Východný Mengusovský štít"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.186401,
+    "lon": 20.159441
+   },
+   "summit_name": "Rovienková veža",
+   "key_col": {
+    "at": {
+     "lat": 49.186627,
+     "lon": 20.15963
+    }
+   },
+   "parent_at": {
+    "lat": 49.188208,
+    "lon": 20.162938
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.187848,
+    "lon": 20.089247
+   },
+   "summit_name": "Veľký Žabí štít / Żabi Szczyt Wyżni",
+   "key_col": {
+    "at": {
+     "lat": 49.186623,
+     "lon": 20.087897
+    }
+   },
+   "parent": {
+    "pk": 91,
+    "name": "Rysy"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.189179,
+    "lon": 20.085846
+   },
+   "summit_name": "Żabi Mnich",
+   "key_col": {
+    "at": {
+     "lat": 49.189104,
+     "lon": 20.08652
+    }
+   },
+   "parent": {
+    "pk": 91,
+    "name": "Rysy"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.180949,
+    "lon": 20.199863
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.182263,
+     "lon": 20.198565
+    }
+   },
+   "parent": {
+    "pk": 643,
+    "name": "Prostredný hrot"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.181933,
+    "lon": 20.19901
+   },
+   "summit_name": "Veľký Kostol",
+   "key_col": {
+    "at": {
+     "lat": 49.181415,
+     "lon": 20.199635
+    }
+   },
+   "parent": {
+    "pk": 643,
+    "name": "Prostredný hrot"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.155035,
+    "lon": 20.021371
+   },
+   "summit_name": "Ostrá veža",
+   "key_col": {
+    "at": {
+     "lat": 49.155185,
+     "lon": 20.021038
+    }
+   },
+   "parent_at": {
+    "lat": 49.163854,
+    "lon": 20.021787
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.173578,
+    "lon": 20.617008
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.170631,
+     "lon": 20.618224
+    }
+   },
+   "parent_at": {
+    "lat": 49.160605,
+    "lon": 20.630276
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.795347,
+    "lon": 20.07279
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.796228,
+     "lon": 20.071494
+    }
+   },
+   "parent_at": {
+    "lat": 48.799161,
+    "lon": 20.062725
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.245461,
+    "lon": 20.299093
+   },
+   "summit_name": "Čierny vrch (2)",
+   "key_col": {
+    "at": {
+     "lat": 49.244924,
+     "lon": 20.29355
+    }
+   },
+   "parent": {
+    "pk": 256,
+    "name": "Zadné Jatky"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.969383,
+    "lon": 20.101185
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.962927,
+     "lon": 20.100372
+    }
+   },
+   "parent_at": {
+    "lat": 48.920451,
+    "lon": 20.045837
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.349376,
+    "lon": 20.253407
+   },
+   "summit_name": "Malorovka",
+   "key_col": {
+    "at": {
+     "lat": 49.343675,
+     "lon": 20.227721
+    }
+   },
+   "parent": {
+    "pk": 566,
+    "name": "Repisko (Spišská Magura)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.356472,
+    "lon": 18.395296
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.382924,
+     "lon": 18.410612
+    }
+   },
+   "parent": {
+    "pk": 405,
+    "name": "Veľký Javorník (Javorníky)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.372857,
+    "lon": 20.60334
+   },
+   "summit_name": "Fakľovka",
+   "key_col": {
+    "at": {
+     "lat": 49.38007,
+     "lon": 20.59784
+    }
+   },
+   "parent_at": {
+    "lat": 49.377134,
+    "lon": 20.571827
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.33253,
+    "lon": 20.212989
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.335966,
+     "lon": 20.206382
+    }
+   },
+   "parent": {
+    "pk": 566,
+    "name": "Repisko (Spišská Magura)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.352082,
+    "lon": 21.021859
+   },
+   "summit_name": "Kamenný hrb / Kamienny Horb",
+   "key_col": {
+    "at": {
+     "lat": 49.35657,
+     "lon": 21.026474
+    }
+   },
+   "parent": {
+    "pk": 242,
+    "name": "Minčol Čergovský"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.60575,
+    "lon": 19.417846
+   },
+   "summit_name": "Kalamárka",
+   "key_col": {
+    "at": {
+     "lat": 48.605481,
+     "lon": 19.420567
+    }
+   },
+   "parent": {
+    "pk": 96,
+    "name": "Poľana"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.593851,
+    "lon": 19.450537
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.594222,
+     "lon": 19.450716
+    }
+   },
+   "parent": {
+    "pk": 96,
+    "name": "Poľana"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.315609,
+    "lon": 20.993912
+   },
+   "summit_name": "Nad dolinkou",
+   "key_col": {
+    "at": {
+     "lat": 49.317866,
+     "lon": 20.991476
+    }
+   },
+   "parent": {
+    "pk": 242,
+    "name": "Minčol Čergovský"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.424639,
+    "lon": 21.257279
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.427325,
+     "lon": 21.255128
+    }
+   },
+   "parent": {
+    "pk": 545,
+    "name": "Javorina Busovská"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.604069,
+    "lon": 19.40493
+   },
+   "summit_name": "Podhájno",
+   "key_col": {
+    "at": {
+     "lat": 48.60345,
+     "lon": 19.408978
+    }
+   },
+   "parent": {
+    "pk": 96,
+    "name": "Poľana"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.011789,
+    "lon": 18.037441
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.013889,
+     "lon": 18.033062
+    }
+   },
+   "parent_at": {
+    "lat": 49.022576,
+    "lon": 18.011628
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.824687,
+    "lon": 17.578991
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.826922,
+     "lon": 17.59184
+    }
+   },
+   "parent": {
+    "pk": 166,
+    "name": "Veľká Javorina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.484747,
+    "lon": 18.763749
+   },
+   "summit_name": "Pod Valmi",
+   "key_col": {
+    "at": {
+     "lat": 49.487079,
+     "lon": 18.759224
+    }
+   },
+   "parent": {
+    "pk": 414,
+    "name": "Veľký Polom"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.809859,
+    "lon": 17.54706
+   },
+   "summit_name": "Kobylí vŕšok",
+   "key_col": {
+    "at": {
+     "lat": 48.817791,
+     "lon": 17.549335
+    }
+   },
+   "parent": {
+    "pk": 166,
+    "name": "Veľká Javorina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.389568,
+    "lon": 20.369913
+   },
+   "summit_name": "Šibeničná hora",
+   "key_col": {
+    "at": {
+     "lat": 49.375082,
+     "lon": 20.374272
+    }
+   },
+   "parent_at": {
+    "lat": 49.302713,
+    "lon": 20.399152
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.495827,
+    "lon": 18.792661
+   },
+   "summit_name": "Košariská (2)",
+   "key_col": {
+    "at": {
+     "lat": 49.519372,
+     "lon": 18.820315
+    }
+   },
+   "parent": {
+    "pk": 393,
+    "name": "Veľká Rača"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.358051,
+    "lon": 21.83793
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.35978,
+     "lon": 21.838965
+    }
+   },
+   "parent": {
+    "pk": 379,
+    "name": "Vysoký grúň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.351775,
+    "lon": 21.879999
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.352546,
+     "lon": 21.882629
+    }
+   },
+   "parent": {
+    "pk": 379,
+    "name": "Vysoký grúň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.354338,
+    "lon": 21.847617
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.356986,
+     "lon": 21.848268
+    }
+   },
+   "parent": {
+    "pk": 379,
+    "name": "Vysoký grúň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.206772,
+    "lon": 18.335508
+   },
+   "summit_name": "Michalová (3)",
+   "key_col": {
+    "at": {
+     "lat": 49.202415,
+     "lon": 18.336181
+    }
+   },
+   "parent_at": {
+    "lat": 49.188037,
+    "lon": 18.309736
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.559652,
+    "lon": 21.412841
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.560384,
+     "lon": 21.421738
+    }
+   },
+   "parent": {
+    "pk": 71,
+    "name": "Veľký Milič"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.395748,
+    "lon": 21.726541
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.405968,
+     "lon": 21.724872
+    }
+   },
+   "parent": {
+    "pk": 443,
+    "name": "Klin (Laborecká vrchovina)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.434191,
+    "lon": 21.3288
+   },
+   "summit_name": "Pleskanka",
+   "key_col": {
+    "at": {
+     "lat": 49.439391,
+     "lon": 21.32849
+    }
+   },
+   "parent": {
+    "pk": 545,
+    "name": "Javorina Busovská"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.344339,
+    "lon": 21.858059
+   },
+   "summit_name": "Kýčera (14)",
+   "key_col": {
+    "at": {
+     "lat": 49.34589,
+     "lon": 21.861184
+    }
+   },
+   "parent": {
+    "pk": 379,
+    "name": "Vysoký grúň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.164288,
+    "lon": 18.573661
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.162729,
+     "lon": 18.573532
+    }
+   },
+   "parent_at": {
+    "lat": 49.157174,
+    "lon": 18.568632
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.530532,
+    "lon": 20.529043
+   },
+   "summit_name": "Bubeník",
+   "key_col": {
+    "at": {
+     "lat": 48.530785,
+     "lon": 20.53366
+    }
+   },
+   "parent_at": {
+    "lat": 48.545521,
+    "lon": 20.542548
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.327385,
+    "lon": 21.076347
+   },
+   "summit_name": "Ježovec",
+   "key_col": {
+    "at": {
+     "lat": 49.331746,
+     "lon": 21.078638
+    }
+   },
+   "parent": {
+    "pk": 3097,
+    "name": "Javor / Bukowina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.310215,
+    "lon": 21.058215
+   },
+   "summit_name": "Stoličná hora",
+   "key_col": {
+    "at": {
+     "lat": 49.315104,
+     "lon": 21.048342
+    }
+   },
+   "parent": {
+    "pk": 242,
+    "name": "Minčol Čergovský"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.333834,
+    "lon": 21.078174
+   },
+   "summit_name": "Hôrka (13)",
+   "key_col": {
+    "at": {
+     "lat": 49.337626,
+     "lon": 21.082598
+    }
+   },
+   "parent": {
+    "pk": 3097,
+    "name": "Javor / Bukowina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.50534,
+    "lon": 20.502823
+   },
+   "summit_name": "Mušinka",
+   "key_col": {
+    "at": {
+     "lat": 48.517027,
+     "lon": 20.509208
+    }
+   },
+   "parent_at": {
+    "lat": 48.545521,
+    "lon": 20.542548
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.403534,
+    "lon": 21.601912
+   },
+   "summit_name": "Vrch (4)",
+   "key_col": {
+    "at": {
+     "lat": 49.410474,
+     "lon": 21.59396
+    }
+   },
+   "parent": {
+    "pk": 611,
+    "name": "Stávok"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.543412,
+    "lon": 19.445642
+   },
+   "summit_name": "Nad priekopou",
+   "key_col": {
+    "at": {
+     "lat": 48.55193,
+     "lon": 19.449528
+    }
+   },
+   "parent": {
+    "pk": 96,
+    "name": "Poľana"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.556478,
+    "lon": 19.470043
+   },
+   "summit_name": "Kopec (6)",
+   "key_col": {
+    "at": {
+     "lat": 48.55862,
+     "lon": 19.468718
+    }
+   },
+   "parent": {
+    "pk": 96,
+    "name": "Poľana"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.570292,
+    "lon": 21.387646
+   },
+   "summit_name": "Domaška",
+   "key_col": {
+    "at": {
+     "lat": 48.567126,
+     "lon": 21.395484
+    }
+   },
+   "parent": {
+    "pk": 71,
+    "name": "Veľký Milič"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.37818,
+    "lon": 18.641467
+   },
+   "summit_name": "Putikov vŕšok",
+   "key_col": {
+    "at": {
+     "lat": 48.378204,
+     "lon": 18.645261
+    }
+   },
+   "parent_at": {
+    "lat": 48.372341,
+    "lon": 18.662196
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.745154,
+    "lon": 19.122618
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.74639,
+     "lon": 19.116219
+    }
+   },
+   "parent_at": {
+    "lat": 48.767742,
+    "lon": 19.086962
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.393075,
+    "lon": 21.578591
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.396878,
+     "lon": 21.584356
+    }
+   },
+   "parent": {
+    "pk": 611,
+    "name": "Stávok"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.14519,
+    "lon": 19.927889
+   },
+   "summit_name": "Teplý vrch",
+   "key_col": {
+    "at": {
+     "lat": 48.143328,
+     "lon": 19.927874
+    }
+   },
+   "parent": {
+    "pk": 623,
+    "name": "Medvedia výšina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.343857,
+    "lon": 17.222026
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.345451,
+     "lon": 17.220693
+    }
+   },
+   "parent": {
+    "pk": 198,
+    "name": "Čertov kopec"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.776708,
+    "lon": 17.683819
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.774502,
+     "lon": 17.675034
+    }
+   },
+   "parent": {
+    "pk": 167,
+    "name": "Čupec"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.50003,
+    "lon": 19.943832
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.500567,
+     "lon": 19.946447
+    }
+   },
+   "parent": {
+    "pk": 2815,
+    "name": null
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.53496,
+    "lon": 18.308959
+   },
+   "summit_name": "Predný Brloh",
+   "key_col": {
+    "at": {
+     "lat": 48.530947,
+     "lon": 18.310134
+    }
+   },
+   "parent": {
+    "pk": 2920,
+    "name": "Kozlica"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.233598,
+    "lon": 19.690144
+   },
+   "summit_name": "Bôbovec",
+   "key_col": {
+    "at": {
+     "lat": 48.211787,
+     "lon": 19.682112
+    }
+   },
+   "parent": {
+    "pk": 2848,
+    "name": "Lazy (Cerová vrchovina)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.512551,
+    "lon": 21.560739
+   },
+   "summit_name": "Veľká hora (3)",
+   "key_col": {
+    "at": {
+     "lat": 48.509236,
+     "lon": 21.556153
+    }
+   },
+   "parent": {
+    "pk": 1966,
+    "name": "Lipovec"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.191755,
+    "lon": 20.041481
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.189116,
+     "lon": 20.032528
+    }
+   },
+   "parent": {
+    "pk": 2334,
+    "name": "Biríň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.156784,
+    "lon": 19.945007
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.15879,
+     "lon": 19.936145
+    }
+   },
+   "parent": {
+    "pk": 623,
+    "name": "Medvedia výšina"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.18941,
+    "lon": 20.054926
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.186406,
+     "lon": 20.058277
+    }
+   },
+   "parent": {
+    "pk": 2334,
+    "name": "Biríň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.227282,
+    "lon": 19.767488
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.22725,
+     "lon": 19.763624
+    }
+   },
+   "parent": {
+    "pk": 2848,
+    "name": "Lazy (Cerová vrchovina)"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.51986,
+    "lon": 20.386988
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.519272,
+     "lon": 20.39504
+    }
+   },
+   "parent": {
+    "pk": 2747,
+    "name": "Poroňa"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 49.101196,
+    "lon": 21.517953
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 49.113231,
+     "lon": 21.516078
+    }
+   },
+   "parent": {
+    "pk": 2035,
+    "name": "Búčie"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.350598,
+    "lon": 20.111257
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.380024,
+     "lon": 20.109786
+    }
+   },
+   "parent": {
+    "pk": 2809,
+    "name": "Martinov vrch"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.201238,
+    "lon": 20.062204
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.199312,
+     "lon": 20.065537
+    }
+   },
+   "parent": {
+    "pk": 2334,
+    "name": "Biríň"
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.259493,
+    "lon": 20.209483
+   },
+   "summit_name": "Močiarne",
+   "key_col": {
+    "at": {
+     "lat": 48.262901,
+     "lon": 20.221045
+    }
+   },
+   "parent_at": {
+    "lat": 48.250853,
+    "lon": 20.165767
+   }
+  },
+  {
+   "summit_at": {
+    "lat": 48.279889,
+    "lon": 20.237447
+   },
+   "summit_name": "unnamed",
+   "key_col": {
+    "at": {
+     "lat": 48.267514,
+     "lon": 20.231432
+    }
+   },
+   "parent_at": {
+    "lat": 48.250853,
+    "lon": 20.165767
+   }
+  }
+ ]
+}

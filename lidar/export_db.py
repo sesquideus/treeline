@@ -28,7 +28,7 @@ def pt(p):
 
 summits = []
 for s in (Summit.objects.with_prominence()
-          .select_related('point__altitude_datum', 'point__source', 'key_col__point__altitude_datum',
+          .select_related('point__altitude_datum', 'point__source', 'isolation_source', 'key_col__point__altitude_datum',
                           'key_col__point__source', 'prominence_parent__point')
           .prefetch_related('point__countries', 'key_col__point__countries')):
     point = pt(s.point)
@@ -38,6 +38,7 @@ for s in (Summit.objects.with_prominence()
     nhp = s.nearest_higher_point
     summits.append(dict(
         nhp=(nhp.y, nhp.x) if nhp else None, isolation_parent_pk=s.isolation_parent_id,
+        isolation_source=s.isolation_source.name if s.isolation_source_id else None,
         isolation_name=s.isolation_name,
         pk=s.pk, point=point, prominence=s.prominence, island=s.island_high_point,
         key_col=pt(s.key_col.point) if s.key_col else None, key_col_pk=s.key_col_id,

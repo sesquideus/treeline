@@ -78,8 +78,19 @@ class Osm:
                 langs = {k[5:]: split(v) for k, v in other.items() if k.startswith('name:')}
                 names = ([o['name']] if o['name'] else []) + [n for v in other.values() for n in split(v)]
                 return dict(lat=o['lat'], lon=o['lon'], name=o['name'], names=list(dict.fromkeys(names)),
-                            langs=langs, ele=o['ele'], dist=round(float(dd[i])), kind=o['kind'], id=o['id'])
+                            langs=langs, other={k: split(v) for k, v in other.items() if not k.startswith('name:')},
+                            ele=o['ele'], dist=round(float(dd[i])), kind=o['kind'], id=o['id'])
         return None
+
+
+def rock_name(o):
+    """
+    An OSM rock or stone, if its name can be a summit's: a crag's (Marková skala, Sokol), not a
+    sign's description of it ("Geotop, pieskovce a konglomeráty pobrežnej zóny bádenského mora").
+    """
+    if o and o['name'] and (',' in o['name'] or len(o['name'].split()) > 4):
+        return None
+    return o
 
 
 def name_check(db_names, osm, col=False):
@@ -138,9 +149,17 @@ def num(x):
 def main():
     db = json.load(open(sys.argv[1]))
     out = sys.argv[2]
-    lidar = list(csv.DictReader(open(os.path.join(out, 'p100.csv'))))
-    rejected = list(csv.DictReader(open(os.path.join(out, 'p100-rejected.csv'))))
-    parents = {(r['lat'], r['lon']): r for r in csv.DictReader(open(os.path.join(out, 'p100-parents.csv')))}
+    # LIDAR_STEM picks the run (p100, p30, …); LIDAR_STRICT=1 matches a lidar summit to a
+    # database summit only within MATCH_RADIUS and each database summit only once, most
+    # prominent first: at P30 summits stand close, and 500 m would take a new one for an old one.
+    stem = os.environ.get('LIDAR_STEM', 'p100')
+    strict = os.environ.get('LIDAR_STRICT') == '1'
+    threshold = float(stem.lstrip('p'))
+    lidar = list(csv.DictReader(open(os.path.join(out, f'{stem}.csv'))))
+    rejected = list(csv.DictReader(open(os.path.join(out, f'{stem}-rejected.csv'))))
+    parents_file = os.path.join(out, f'{stem}-parents.csv')
+    parents = ({(r['lat'], r['lon']): r for r in csv.DictReader(open(parents_file))}
+               if os.path.exists(parents_file) else {})
 
     # What the lidar covers: a DB summit outside it is not this comparison's business.
     top = np.load(os.path.expanduser('~/.cache/treeline/lidar/pooled10.npy'), mmap_mode='r')
@@ -167,12 +186,12 @@ def main():
         # P100 only with Copernicus lowered 25 m: that lowers the peaks across the border as
         # well as its cols, so a higher neighbour there (Paportna over Jarabá skala) drops
         # out. Not to be trusted as a P100.
-        doubtful = r['prominence'] != '' and (prom is None or prom < 100)    # '' is the top
+        doubtful = r['prominence'] != '' and (prom is None or prom < threshold)    # '' is the top
         L.append(dict(
             ll=ll, egm=num(r['alt_egm2008']), bpv=num(r['alt_bpv']), doubtful=doubtful,
             prom_raw=r['prominence'],
             prom=num(r['prominence_canopy_discounted']) if doubtful else prom,
-            prom_alone=num(r['prominence_lidar_alone']),
+            prom_alone=num(r['prominence_lidar_alone']), at_least=num(r.get('prominence_at_least')),
             col=(num(r['col_lat']), num(r['col_lon'])) if r['col_lat'] else None,
             col_egm=num(r['col_egm2008']), col_bpv=num(r['col_bpv']),
             parent=(num(par['parent_lat']), num(par['parent_lon'])) if par and par['parent_lat'] else None,
@@ -204,8 +223,11 @@ def main():
     pts = db['points']
     report = dict(missed=[], wrong=[], amiss=[], good=[], db_only=[], doubtful=[], abroad=[])
     matched_db = set()
+    if strict:
+        L.sort(key=lambda x: -(x['prom'] if x['prom'] is not None else 1e9))
     for x in L:
-        s, dd = nearest(x['ll'], summits, lambda s: s['ll'])
+        pool = [t for t in summits if t['pk'] not in matched_db] if strict else summits
+        s, dd = nearest(x['ll'], pool, lambda s: s['ll'])
         # OSM's border is good to a few tens of metres: Babia hora's top lands 27 m into Poland.
         if 'inside' in x and x['border_m'] <= 30:
             x['flags'] = x['flags'] + [f'on the border ({x["border_m"]} m from it)']
@@ -221,7 +243,7 @@ def main():
                                          parent=hit['parent']['name'] if hit['parent'] else None),
                 dist=dd))
             continue
-        if s is None or dd > NEAR_RADIUS:
+        if s is None or dd > (MATCH_RADIUS if strict else NEAR_RADIUS):
             hint, hd = nearest(x['ll'], pts, lambda p: (p['lat'], p['lon']))
             near, nd = (s, dd)
             report['missed'].append(dict(lidar=x, point=hint if hd < 300 else None, point_dist=hd,
@@ -246,7 +268,7 @@ def main():
         dp = (s['prominence'] - x['prom']) if s['prominence'] is not None and x['prom'] is not None else None
         if s['prominence'] is None:
             wrong.append('no prominence in the DB')
-        elif s['prominence'] < 100 <= x['prom']:
+        elif s['prominence'] < threshold <= x['prom']:
             wrong.append(f'DB prominence {s["prominence"]:.1f} m, lidar {x["prom"]:.1f} m: a P100 the DB does not count')
         elif dp is not None and abs(dp) > PROM_TOL:
             (wrong if abs(dp) > 20 else issues).append(f'prominence {dp:+.1f} m against the lidar')
@@ -295,7 +317,7 @@ def main():
     # DB summits the DB counts as P100 that the lidar list does not have
     rej = {(r['lat'], r['lon']): r for r in rejected}
     for s in summits:
-        if s['pk'] in matched_db or s['prominence'] is None or s['prominence'] < 100:
+        if s['pk'] in matched_db or s['prominence'] is None or s['prominence'] < threshold:
             continue
         r, rd = nearest(s['ll'], [dict(ll=(float(k[0]), float(k[1])), row=v) for k, v in rej.items()],
                         lambda t: t['ll'])
@@ -336,7 +358,7 @@ def main():
             for e in report[key]:
                 x = e['lidar']
                 x['osm'] = (osm.nearest(x['ll'], ['peak', 'volcano', 'hill'], 150)
-                            or osm.nearest(x['ll'], ['rock', 'stone'], 50))
+                            or rock_name(osm.nearest(x['ll'], ['rock', 'stone'], 50)))
                 x['osm_col'] = osm.nearest(x['col'], ['saddle'], 150) if x['col'] and x['col'][0] else None
                 d = e.get('db')
                 if d:

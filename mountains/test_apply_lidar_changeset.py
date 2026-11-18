@@ -11,8 +11,8 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 
-from mountains.models import NamedPoint, PointName, Summit
-from mountains.test_factories import make_col, make_country, make_summit
+from mountains.models import Col, NamedPoint, PointName, Source, Summit
+from mountains.test_factories import make_col, make_country, make_point, make_summit
 from mountains.test_point_names import make_language
 
 
@@ -366,3 +366,86 @@ class PromoteTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 promoted', ApplyTests.run_it(self, self.data()))
+
+
+class MergeTakeNameTests(TestCase):
+    """A plain point and a new summit on it: the summit stays, under the plain name."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.plain = make_point('Králikov vrch', 918.48, 48.467017, 19.253111)
+        cls.new = make_summit('Králikov vrch (2)', 918.5, 48.467011, 19.253107,
+                              key_col=make_col(None, 877.0, 48.46, 19.25))
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), merges=[dict(
+            keep=dict(point=None, name='Králikov vrch (2)'), drop=dict(point=self.plain.pk, name='Králikov vrch'),
+            take_name=True)])
+
+    def test_the_summit_takes_the_plain_name(self):
+        ApplyTests.run_it(self, self.data())
+        self.new.point.refresh_from_db()
+        self.assertEqual(self.new.point.name, 'Králikov vrch')
+        self.assertFalse(NamedPoint.objects.filter(pk=self.plain.pk).exists())
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 merged', ApplyTests.run_it(self, self.data()))
+
+
+class MergeTwinTests(TestCase):
+    """The name on the lower of two tops of one hill: the higher, unnamed, takes it; the dip goes."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.higher = make_summit(None, 950.98, 48.978764, 21.376892, key_col=make_col(None, 832.86, 48.97, 21.37))
+        cls.dip = make_col(None, 947.92, 48.978783, 21.376578)
+        cls.dip.point.source = Source.objects.create(name='DMR 5.0')
+        cls.dip.point.save()
+        cls.lower = make_summit('Nad Remetovou', 950.97, 48.978558, 21.376535, key_col=cls.dip)
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), merges=[dict(
+            keep=dict(at=[48.978764, 21.376892], name=None), drop=dict(at=[48.978558, 21.376535], name='Nad Remetovou'),
+            take_name=True, drop_key_col=True)])
+
+    def test_the_higher_top_takes_the_name_and_the_dip_goes(self):
+        ApplyTests.run_it(self, self.data())
+        self.higher.point.refresh_from_db()
+        self.assertEqual(self.higher.point.name, 'Nad Remetovou')
+        self.assertAlmostEqual(self.higher.point.altitude, 950.98)
+        self.assertFalse(Summit.objects.filter(pk=self.lower.pk).exists())
+        self.assertFalse(Col.objects.filter(pk=self.dip.pk).exists())
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 merged', ApplyTests.run_it(self, self.data()))
+
+
+class RenameTests(TestCase):
+    """A summit named after a sign beside it gets its own name; the sign's goes."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.sk = make_language('sk', 1)
+        cls.s = make_summit('Geotop, pieskovce', 344.07, 48.244014, 19.106256)
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), renames=[dict(
+            at=[48.244014, 19.106256], old='Geotop, pieskovce', name='Čabradský hradný vrch', lang='sk')])
+
+    def test_renamed(self):
+        PointName.objects.create(point=self.s.point, language=self.sk,
+                                 name='Geotop, pieskovce', local=True)
+        ApplyTests.run_it(self, self.data())
+        self.s.point.refresh_from_db()
+        self.assertEqual(self.s.point.name, 'Čabradský hradný vrch')
+        self.assertEqual(list(PointName.objects.filter(point=self.s.point).values_list('name', flat=True)),
+                         ['Čabradský hradný vrch'])
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 renamed', ApplyTests.run_it(self, self.data()))

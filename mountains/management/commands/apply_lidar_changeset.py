@@ -16,6 +16,7 @@ The dry run is a real one, rolled back at the end, as in `import_peaks`.
 """
 import json
 
+from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.core.exceptions import ValidationError
@@ -60,7 +61,7 @@ class Command(BaseCommand):
             with transaction.atomic():
                 # Splits and moves first, then relinks (which may free a col), then new summits
                 # (which may take one), names, and last the cols nothing needs any more.
-                new = {}
+                new = self.new = {}
                 for split in data.get('splits', []):
                     self.split(split)
                 for fix in data.get('points', []):
@@ -72,6 +73,8 @@ class Command(BaseCommand):
                     self.point_name(n)
                 for c in data.get('col_names', []):
                     self.col_name(c)
+                for r in data.get('renames', []):
+                    self.replace_name(r)
                 for at in data.get('remove_cols', []):
                     self.remove_col(at)
                 for m in data.get('merges', []):
@@ -124,7 +127,8 @@ class Command(BaseCommand):
         point.save()
         point.countries.set([self.countries[c] for c in d['countries'] if c in self.countries])
         for n in d['names']:
-            self.add_name(point, n['lang'], n['name'], local=n.get('local', False))
+            self.add_name(point, n['lang'], n['name'], local=n.get('local', False),
+                          historical=n.get('historical', False))
         for text in d.get('notes', []):
             Note.objects.create(point=point, text=text, author=self.author)
         return point
@@ -154,11 +158,14 @@ class Command(BaseCommand):
                                       key_for__isnull=True).first()
                    or Col.objects.create(point=self.point(c, 'its key col')))
         parent = None
-        if s['parent'] and 'pk' in s['parent']:
+        if s['parent'] and 'at' in s['parent']:
+            parent = Summit.objects.filter(point__location__dwithin=(
+                Point(s['parent']['at'][1], s['parent']['at'][0], srid=4326), SAME_PLACE)).first()
+        elif s['parent'] and 'pk' in s['parent']:
             parent = Summit.objects.filter(pk=s['parent']['pk'], point__name=s['parent']['name']).first()
             if parent is None:
                 self.stdout.write(f'  ! parent {s["parent"]["name"]} (#{s["parent"]["pk"]}) not found: left out')
-        elif s['parent']:
+        elif s['parent'] and 'new' in s['parent']:
             parent = new.get(s['parent']['new'])
         # The prominence source goes with the parent: the database will not have one alone.
         summit = Summit(point=self.point(s, 'the summit'), key_col=col, prominence_parent=parent,
@@ -179,7 +186,7 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ names
 
-    def add_name(self, point, lang, name, local=False):
+    def add_name(self, point, lang, name, local=False, historical=False):
         language = self.languages.get(lang)
         if language is None:
             self.stdout.write(f'  ! no language "{lang}" in the database: "{name}" for {point} left out')
@@ -188,7 +195,8 @@ class Command(BaseCommand):
         if PointName.objects.filter(point=point, language=language, name=name).exists():
             self.counts['skipped'] += 1
             return False
-        PointName.objects.create(point=point, language=language, name=name, local=local, source=self.osm)
+        PointName.objects.create(point=point, language=language, name=name, local=local,
+                                 historical=historical, source=self.osm)
         self.counts['names'] += 1
         return True
 
@@ -208,6 +216,26 @@ class Command(BaseCommand):
         point = self.found(n['point'], n['point_name'])
         if point and self.add_name(point, n['lang'], n['name']):
             self.stdout.write(f'  + {point}: {n["lang"]} {n["name"]}')
+
+    def replace_name(self, r):
+        """
+        A wrong name off a summit (one OSM gave a rock or a sign, say) and the right one on: the
+        summit standing at `at` ([lat, lon]) named `old` becomes `name`; `old` goes from its names.
+        """
+        point = self.summit_point_at(r['at'])
+        if point is None or point.name != r['old']:
+            done = point is not None and point.name is not None and \
+                (point.name == r['name'] or point.name.startswith(f'{r["name"]} ('))
+            if not done:
+                self.stdout.write(f'  ! no summit "{r["old"]}" at {r["at"]}: skipped')
+            self.counts['skipped'] += 1
+            return
+        PointName.objects.filter(point=point, name=r['old']).delete()
+        point.name = None
+        point.save(update_fields=['name'])
+        self.rename(point, r['name'], f'the summit at {r["at"]}')
+        self.add_name(point, r['lang'], r['name'], local=True)
+        self.stdout.write(f'  ~ "{r["old"]}" renamed {point.name}')
 
     def col_name(self, c):
         point = self.found(c['point'], None, quiet=True)
@@ -381,9 +409,23 @@ class Command(BaseCommand):
         the other — parents, children, rivers, notes — and the names it did not have. With
         `take_position`, also the dropped point's position, height and source: the duplicate
         was the one corrected from the lidar. A col still some summit's key col is not dropped.
+        Either side can be given by position (`at`, [lat, lon]): a summit standing there. With
+        `drop_key_col`, the dropped summit's key col goes too, if the lidar made it and nothing
+        else needs it (the dip between two tops of one hill).
         """
-        drop = NamedPoint.objects.filter(pk=m['drop']['point'], name=m['drop']['name']).first()
-        keep = NamedPoint.objects.filter(pk=m['keep']['point'], name=m['keep']['name']).first()
+        drop = (self.summit_point_at(m['drop']['at']) if 'at' in m['drop']
+                else NamedPoint.objects.filter(pk=m['drop']['point'], name=m['drop']['name']).first())
+        # A point this tooling made has no pk in common with the server: by its name alone, or
+        # by position (an unnamed top).
+        if 'at' in m['keep']:
+            keep = self.summit_point_at(m['keep']['at'])
+        elif m['keep']['point'] is None:
+            keep = NamedPoint.objects.filter(name=m['keep']['name']).first()
+        else:
+            keep = NamedPoint.objects.filter(pk=m['keep']['point'], name=m['keep']['name']).first()
+        if keep is None and m.get('take_name') and drop is None:
+            self.counts['skipped'] += 1          # done already: the name has moved
+            return
         if drop is None:
             self.counts['skipped'] += 1           # gone already
             return
@@ -424,15 +466,35 @@ class Command(BaseCommand):
         keep.full_clean()
         keep.save()
         key_col = dropped_summit.key_col if dropped_summit else None
+        name, drop_pk = drop.name, drop.pk
         if dropped_summit is not None:
             dropped_summit.delete()
         if col is not None:
             col.delete()
         drop.delete()
+        if m.get('drop_key_col') and key_col is not None and key_col.point.source == self.lidar \
+                and not Summit.objects.filter(key_col=key_col).exists():
+            # The dip between two tops of one summit: nothing else needs it.
+            point = key_col.point
+            key_col.delete()
+            point.delete()
+            key_col = None
+        if m.get('take_name') and name:
+            # The kept point had a numbered name only because the dropped one held the plain one.
+            keep.name = name
+            keep.full_clean()
+            keep.save(update_fields=['name'])
         self.counts['merged'] += 1
-        self.stdout.write(f'  - {m["drop"]["name"] or "unnamed"} #{m["drop"]["point"]} merged into '
+        self.stdout.write(f'  - {m["drop"]["name"] or "unnamed"} #{drop_pk} merged into '
                           f'{keep.name or "unnamed"} #{keep.pk}'
                           + (f' (its key col {key_col.point} left free)' if key_col else ''))
+
+    def summit_point_at(self, at):
+        """The point of the summit standing exactly at `at` ([lat, lon]), or None."""
+        here = Point(at[1], at[0], srid=4326)
+        s = (Summit.objects.filter(point__location__dwithin=(here, D(m=2))).select_related('point')
+             .annotate(d=Distance('point__location', here)).order_by('d').first())
+        return s.point if s else None
 
     # ------------------------------------------------------------------ isolation
 
@@ -444,6 +506,8 @@ class Command(BaseCommand):
         "northern ridge of X" no longer says anything once it is not X's.
         """
         def summit(spec):
+            if 'new' in spec:
+                return self.new.get(spec['new'])
             if 'at' in spec:
                 return Summit.objects.filter(point__location__dwithin=(
                     Point(spec['at'][1], spec['at'][0], srid=4326), SAME_PLACE)).first()

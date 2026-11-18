@@ -1,0 +1,56 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "points": [
+  {
+   "point": 157,
+   "name": "Ľadový štít",
+   "lat": 49.198541,
+   "lon": 20.18275,
+   "altitude": 2627.78,
+   "datum": "Bpv"
+  },
+  {
+   "point": 158,
+   "name": "Ľadové sedlo",
+   "lat": 49.20274,
+   "lon": 20.190039,
+   "altitude": 2353.58,
+   "datum": "Bpv"
+  },
+  {
+   "point": 354,
+   "name": "Kežmarský štít",
+   "lat": 49.199263,
+   "lon": 20.219458,
+   "altitude": 2556.44,
+   "datum": "Bpv"
+  },
+  {
+   "point": 356,
+   "name": "Vidlové sedlo",
+   "lat": 49.198172,
+   "lon": 20.215096,
+   "altitude": 2432.04,
+   "datum": "Bpv"
+  },
+  {
+   "point": 6756,
+   "name": "Drienovica",
+   "lat": 49.159147,
+   "lon": 18.695037,
+   "altitude": 614.52,
+   "datum": "Bpv"
+  },
+  {
+   "point": 6760,
+   "name": null,
+   "lat": 49.159805,
+   "lon": 18.688779,
+   "altitude": 514.47,
+   "datum": "Bpv"
+  }
+ ]
+}

@@ -1,0 +1,80 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "merges": [
+  {
+   "keep": {
+    "at": [
+     48.978764,
+     21.376892
+    ],
+    "name": null
+   },
+   "drop": {
+    "at": [
+     48.978558,
+     21.376535
+    ],
+    "name": "Nad Remetovou"
+   },
+   "take_name": true,
+   "drop_key_col": true
+  },
+  {
+   "keep": {
+    "at": [
+     48.87592,
+     18.699737
+    ],
+    "name": null
+   },
+   "drop": {
+    "at": [
+     48.875787,
+     18.700289
+    ],
+    "name": "Vyšehrad"
+   },
+   "take_name": true,
+   "drop_key_col": true
+  },
+  {
+   "keep": {
+    "at": [
+     48.189662,
+     16.995148
+    ],
+    "name": null
+   },
+   "drop": {
+    "at": [
+     48.189389,
+     16.995842
+    ],
+    "name": "Devínska Kobyla"
+   },
+   "take_name": true,
+   "drop_key_col": true
+  },
+  {
+   "keep": {
+    "at": [
+     49.051659,
+     21.17627
+    ],
+    "name": null
+   },
+   "drop": {
+    "at": [
+     49.052145,
+     21.176422
+    ],
+    "name": "Šarišský hradný vrch"
+   },
+   "take_name": true,
+   "drop_key_col": true
+  }
+ ]
+}

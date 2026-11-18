@@ -78,6 +78,28 @@ def box_dist(r, c, i, j, size):
     return math.hypot(dr, dc)
 
 
+def nearest_higher(d, levels, tr, tc, h):
+    """
+    The nearest 1 m pixel higher than `h` from source pixel (tr, tc): (metres, (row, col)), and
+    whether the data's edge is nearer (then the real one may lie beyond it). (inf, None) if
+    nothing in the data is higher.
+    """
+    TR, TC = tr // CELL, tc // CELL
+    best, best_at = math.inf, None
+    for dist, a, b in nearest(levels, TR, TC, lambda lvl, z, hole: z > h):
+        if (dist - 1.5) * CELL > best:
+            break
+        zz = d.read(1, window=Window(b * CELL, a * CELL, CELL, CELL)).astype(np.float64)
+        ys, xs = np.nonzero((zz > h) & (zz < 1e30))
+        if len(ys):
+            dd = np.hypot(a * CELL + ys - tr, b * CELL + xs - tc)
+            j = int(np.argmin(dd))
+            if dd[j] < best:
+                best, best_at = float(dd[j]), (a * CELL + int(ys[j]), b * CELL + int(xs[j]))
+    edge = next((dist for dist, _, _ in nearest(levels, TR, TC, lambda lvl, z, hole: hole)), math.inf)
+    return best, best_at, edge * CELL < best
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('db')
@@ -113,6 +135,7 @@ def main():
     # has whatever its prominence (Vrchdetva has under 30 m, and is Javorie's).
     lid = np.load(os.path.join(args.work, f'summits-p{args.candidates:g}.npz'))
     db_h = np.array([to_ell.transform(x['point']['lon'], x['point']['lat'], x['point']['alt'])[2] for x in summits])
+    cand_pk = np.concatenate([np.full(len(lid['lat']), -1), [x['pk'] for x in summits]])
     cand = dict(lat=np.concatenate([lid['lat'], [x['point']['lat'] for x in summits]]),
                 lon=np.concatenate([lid['lon'], [x['point']['lon'] for x in summits]]),
                 h=np.concatenate([lid['h'], db_h]),
@@ -133,24 +156,11 @@ def main():
         TR, TC = tr // CELL, tc // CELL
 
         # the nearest higher 1 m pixel: candidate 10 m cells nearest first, read at 1 m
-        best, best_at = math.inf, None
-        for dist, a, b in nearest(levels, TR, TC, lambda lvl, z, hole: z > h):
-            if (dist - 1.5) * CELL > best:
-                break
-            zz = d.read(1, window=Window(b * CELL, a * CELL, CELL, CELL)).astype(np.float64)
-            ys, xs = np.nonzero((zz > h) & (zz < 1e30))
-            if len(ys):
-                dd = np.hypot(a * CELL + ys - tr, b * CELL + xs - tc)
-                j = int(np.argmin(dd))
-                if dd[j] < best:
-                    best, best_at = float(dd[j]), (a * CELL + int(ys[j]), b * CELL + int(xs[j]))
+        best, best_at, beyond = nearest_higher(d, levels, tr, tc, h)
         if best_at is None:
             out.append(dict(pk=s['pk'], name=s['point']['name'], nhp=None, note='nothing higher in the data'))
             continue
         nhp_ll = lonlat(*best_at)
-        # is the data's edge nearer? then the real one may be beyond it
-        edge = next((dist for dist, _, _ in nearest(levels, TR, TC, lambda lvl, z, hole: hole)), math.inf)
-        beyond = edge * CELL < best
 
         # The nearest summit higher than this one, from the NHP in a straight line — any summit
         # on the ground (P >= 30 in the lidar), catalogued or not; named after the database's
@@ -158,14 +168,20 @@ def main():
         # 98 % of its isolation parents. (Walking uphill from the NHP, or through the higher
         # ground, does worse: from Javorie's NHP both lead past Vrchdetva, the nearest.)
         k_lat = math.cos(math.radians(nhp_ll[0]))
-        higher = np.flatnonzero(cand['h'] > h)
+        # Not the summit itself: its own entry in the database can stand higher than its lidar
+        # top (a crag the ground model shaved), and would then be its own nearest higher one.
+        top_ll = lonlat(tr, tc)
+        own = np.hypot((cand['lat'] - top_ll[0]) * 110574,
+                       (cand['lon'] - top_ll[1]) * 111320 * math.cos(math.radians(top_ll[0]))) < 20
+        own |= cand_pk == s['pk']
+        higher = np.flatnonzero((cand['h'] > h) & ~own)
         nhn = None
         if len(higher):
             dd = (cand['lat'][higher] - nhp_ll[0]) ** 2 + ((cand['lon'][higher] - nhp_ll[1]) * k_lat) ** 2
             j = int(higher[np.argmin(dd)])
             at_ = (float(cand['lat'][j]), float(cand['lon'][j]))
-            named = min(summits, key=lambda x: (x['point']['lat'] - at_[0]) ** 2
-                        + ((x['point']['lon'] - at_[1]) * k_lat) ** 2)
+            named = min((x for x in summits if x['pk'] != s['pk']),
+                        key=lambda x: (x['point']['lat'] - at_[0]) ** 2 + ((x['point']['lon'] - at_[1]) * k_lat) ** 2)
             close = math.hypot((named['point']['lat'] - at_[0]) * 110574,
                                (named['point']['lon'] - at_[1]) * 111320 * k_lat) < 60
             nhn = dict(pk=named['pk'] if close else None, name=named['point']['name'] if close else None,
@@ -173,7 +189,8 @@ def main():
                        prominence=round(float(cand['prominence'][j]), 1))
         db_nhp = s.get('nhp')
         nhp = nhp_ll
-        out.append(dict(pk=s['pk'], name=s['point']['name'], top=lonlat(tr, tc), nhp=nhp,
+        out.append(dict(pk=s['pk'], name=s['point']['name'], top=lonlat(tr, tc), top_px=(int(tr), int(tc)),
+                        top_h=h, nhp_px=(int(best_at[0]), int(best_at[1])), nhp=nhp,
                         isolation_m=round(best, 1), beyond_data=beyond,
                         db_nhp=db_nhp, db_nhp_off_m=round(math.hypot(
                             (db_nhp[1] - nhp[1]) * 111320 * math.cos(math.radians(nhp[0])),
