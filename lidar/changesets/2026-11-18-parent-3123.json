@@ -1,0 +1,7 @@
+{
+ "sources": {"lidar": "DMR 5.0", "names": "OpenStreetMap"},
+ "relinks": [
+  {"summit": 3123, "summit_name": null, "key_col": {"point": 8619, "name": "Makovský průsmyk"},
+   "parent": {"pk": 2312, "name": "Vysoká (Západní Beskydy)"}}
+ ]
+}

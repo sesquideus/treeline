@@ -75,6 +75,24 @@
    },
    "take_name": true,
    "drop_key_col": true
+  },
+  {
+   "keep": {
+    "at": [
+     48.368142,
+     18.152412
+    ],
+    "name": null
+   },
+   "drop": {
+    "at": [
+     48.367401,
+     18.151576
+    ],
+    "name": "Žibrica"
+   },
+   "take_name": true,
+   "drop_key_col": true
   }
  ]
 }

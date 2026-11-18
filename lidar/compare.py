@@ -178,10 +178,29 @@ def main():
         p = s['point']
         s['ll'] = (p['lat'], p['lon'])
 
+    # The walk compared prominences on the pooled 10 m grid, where a col in a cut narrower than
+    # a cell reads metres too high (Lamač: 210.6 for 204.5): a summit's pooled prominence can
+    # fall below a neighbour's that is lower at 1 m, and the walk stop there (Devínska Kobyla
+    # at Vysoká). With the 1 m prominences, it goes on up the chain past such a one.
+    fine = {(r['lat'], r['lon']): num(r['prominence']) for r in lidar}
+
+    def walk_parent(key):
+        own = fine.get(key)
+        par = parents.get(key)
+        for _ in range(100):
+            if not par or not par['parent_lat']:
+                return None
+            up = (par['parent_lat'], par['parent_lon'])
+            theirs = fine.get(up)
+            if own is None or theirs is None or theirs > own or up not in parents:
+                return par
+            par = parents.get(up)
+        return par
+
     L = []
     for r in lidar:
         ll = (float(r['lat']), float(r['lon']))
-        par = parents.get((r['lat'], r['lon']))
+        par = walk_parent((r['lat'], r['lon']))
         prom = num(r['prominence'])
         # P100 only with Copernicus lowered 25 m: that lowers the peaks across the border as
         # well as its cols, so a higher neighbour there (Paportna over Jarabá skala) drops
