@@ -18,7 +18,11 @@
    "prominence": 29.86,
    "parent": {
     "pk": 137,
-    "name": "Tŕstie"
+    "name": "Tŕstie",
+    "was": [
+     48.896246,
+     22.157482
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 29.9 m."
@@ -50,7 +54,11 @@
    "prominence": 29.47,
    "parent": {
     "pk": 16,
-    "name": "Diel"
+    "name": "Diel",
+    "was": [
+     48.86497,
+     22.258201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -81,8 +89,12 @@
    ],
    "prominence": 27.58,
    "parent": {
-    "pk": 8302,
-    "name": "Trislák"
+    "pk": 4023,
+    "name": "Trislák",
+    "was": [
+     48.931327,
+     22.094878
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -120,7 +132,11 @@
    "prominence": 27.07,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 27.1 m."
@@ -158,7 +174,11 @@
    "prominence": 27.0,
    "parent": {
     "pk": 368,
-    "name": "Hirjač"
+    "name": "Hirjač",
+    "was": [
+     48.850188,
+     21.942063
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 27.0 m."
@@ -190,7 +210,11 @@
    "prominence": 26.56,
    "parent": {
     "pk": 372,
-    "name": "Krivoštianka"
+    "name": "Krivoštianka",
+    "was": [
+     48.892446,
+     21.868758
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 26.6 m."
@@ -228,7 +252,11 @@
    "prominence": 26.39,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 26.4 m."
@@ -266,7 +294,11 @@
    "prominence": 26.35,
    "parent": {
     "pk": 134,
-    "name": "Dlhá"
+    "name": "Dlhá",
+    "was": [
+     48.836518,
+     21.969931
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 26.4 m."
@@ -304,7 +336,11 @@
    "prominence": 24.4,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 24.4 m."
@@ -336,7 +372,11 @@
    "prominence": 24.19,
    "parent": {
     "pk": 9,
-    "name": "Nežabec"
+    "name": "Nežabec",
+    "was": [
+     48.927709,
+     22.229003
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 24.2 m."
@@ -368,7 +408,11 @@
    "prominence": 23.49,
    "parent": {
     "pk": 72,
-    "name": "Rozdielňa"
+    "name": "Rozdielňa",
+    "was": [
+     48.869033,
+     22.070456
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 23.5 m."
@@ -399,8 +443,12 @@
    ],
    "prominence": 23.13,
    "parent": {
-    "pk": 11652,
-    "name": null
+    "pk": 7365,
+    "name": null,
+    "was": [
+     48.884076,
+     21.894107
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 23.1 m."
@@ -437,8 +485,12 @@
    ],
    "prominence": 21.75,
    "parent": {
-    "pk": 9516,
-    "name": null
+    "pk": 5235,
+    "name": null,
+    "was": [
+     48.894768,
+     21.926564
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.8 m."
@@ -470,7 +522,11 @@
    "prominence": 21.57,
    "parent": {
     "pk": 2718,
-    "name": "Uhliská (Vihorlatské vrchy)"
+    "name": "Uhliská (Vihorlatské vrchy)",
+    "was": [
+     48.879391,
+     21.920129
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.6 m."
@@ -508,7 +564,11 @@
    "prominence": 21.34,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.3 m."
@@ -540,7 +600,11 @@
    "prominence": 21.2,
    "parent": {
     "pk": 15,
-    "name": "Sninský kameň"
+    "name": "Sninský kameň",
+    "was": [
+     48.929358,
+     22.1893
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.2 m."
@@ -572,7 +636,11 @@
    "prominence": 21.17,
    "parent": {
     "pk": 671,
-    "name": "Humenská"
+    "name": "Humenská",
+    "was": [
+     48.91127,
+     21.948201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.2 m."
@@ -609,8 +677,12 @@
    ],
    "prominence": 21.16,
    "parent": {
-    "pk": 11990,
-    "name": "Martinovo"
+    "pk": 7703,
+    "name": "Martinovo",
+    "was": [
+     48.917077,
+     21.957442
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 21.2 m."
@@ -648,7 +720,11 @@
    "prominence": 20.91,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 20.9 m."
@@ -678,10 +754,7 @@
     "sk"
    ],
    "prominence": 20.68,
-   "parent": {
-    "pk": 10,
-    "name": "Vetrová skala"
-   },
+   "parent": null,
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 20.7 m."
    ],
@@ -710,10 +783,7 @@
     "sk"
    ],
    "prominence": 20.15,
-   "parent": {
-    "pk": 5,
-    "name": "Vihorlat"
-   },
+   "parent": null,
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
    ],
@@ -744,7 +814,11 @@
    "prominence": 20.1,
    "parent": {
     "pk": 372,
-    "name": "Krivoštianka"
+    "name": "Krivoštianka",
+    "was": [
+     48.892446,
+     21.868758
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -807,7 +881,11 @@
    "prominence": 19.93,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 19.9 m."
@@ -845,7 +923,11 @@
    "prominence": 19.39,
    "parent": {
     "pk": 671,
-    "name": "Humenská"
+    "name": "Humenská",
+    "was": [
+     48.91127,
+     21.948201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 19.4 m."
@@ -913,8 +995,12 @@
    ],
    "prominence": 18.75,
    "parent": {
-    "pk": 10310,
-    "name": "Čubok"
+    "pk": 6028,
+    "name": "Čubok",
+    "was": [
+     48.906001,
+     21.814884
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 18.8 m."
@@ -946,7 +1032,11 @@
    "prominence": 18.52,
    "parent": {
     "pk": 372,
-    "name": "Krivoštianka"
+    "name": "Krivoštianka",
+    "was": [
+     48.892446,
+     21.868758
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 18.5 m."
@@ -984,7 +1074,11 @@
    "prominence": 18.08,
    "parent": {
     "pk": 2718,
-    "name": "Uhliská (Vihorlatské vrchy)"
+    "name": "Uhliská (Vihorlatské vrchy)",
+    "was": [
+     48.879391,
+     21.920129
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 18.1 m."
@@ -1022,7 +1116,11 @@
    "prominence": 18.02,
    "parent": {
     "pk": 223,
-    "name": "Veľký Peňažník"
+    "name": "Veľký Peňažník",
+    "was": [
+     48.870502,
+     22.084795
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 18.0 m."
@@ -1054,7 +1152,11 @@
    "prominence": 17.52,
    "parent": {
     "pk": 2683,
-    "name": "Šutová"
+    "name": "Šutová",
+    "was": [
+     48.817904,
+     21.977616
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 17.5 m."
@@ -1085,8 +1187,12 @@
    ],
    "prominence": 17.36,
    "parent": {
-    "pk": 8196,
-    "name": "Pľuštie"
+    "pk": 3917,
+    "name": "Pľuštie",
+    "was": [
+     48.887311,
+     21.899143
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1124,7 +1230,11 @@
    "prominence": 17.01,
    "parent": {
     "pk": 137,
-    "name": "Tŕstie"
+    "name": "Tŕstie",
+    "was": [
+     48.896246,
+     22.157482
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 17.0 m."
@@ -1155,8 +1265,12 @@
    ],
    "prominence": 16.96,
    "parent": {
-    "pk": 12621,
-    "name": null
+    "pk": 8334,
+    "name": null,
+    "was": [
+     48.900634,
+     21.811822
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 17.0 m."
@@ -1188,7 +1302,11 @@
    "prominence": 16.79,
    "parent": {
     "pk": 72,
-    "name": "Rozdielňa"
+    "name": "Rozdielňa",
+    "was": [
+     48.869033,
+     22.070456
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 16.8 m."
@@ -1220,7 +1338,11 @@
    "prominence": 16.65,
    "parent": {
     "pk": 16,
-    "name": "Diel"
+    "name": "Diel",
+    "was": [
+     48.86497,
+     22.258201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1283,7 +1405,11 @@
    "prominence": 16.48,
    "parent": {
     "pk": 2718,
-    "name": "Uhliská (Vihorlatské vrchy)"
+    "name": "Uhliská (Vihorlatské vrchy)",
+    "was": [
+     48.879391,
+     21.920129
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 16.5 m."
@@ -1314,8 +1440,12 @@
    ],
    "prominence": 16.47,
    "parent": {
-    "pk": 8302,
-    "name": "Trislák"
+    "pk": 4023,
+    "name": "Trislák",
+    "was": [
+     48.931327,
+     22.094878
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1378,7 +1508,11 @@
    "prominence": 16.05,
    "parent": {
     "pk": 2752,
-    "name": "Strupáňová"
+    "name": "Strupáňová",
+    "was": [
+     48.914113,
+     22.046915
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 16.1 m."
@@ -1410,7 +1544,11 @@
    "prominence": 15.96,
    "parent": {
     "pk": 2752,
-    "name": "Strupáňová"
+    "name": "Strupáňová",
+    "was": [
+     48.914113,
+     22.046915
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 16.0 m."
@@ -1504,7 +1642,11 @@
    "prominence": 15.68,
    "parent": {
     "pk": 72,
-    "name": "Rozdielňa"
+    "name": "Rozdielňa",
+    "was": [
+     48.869033,
+     22.070456
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 15.7 m."
@@ -1535,8 +1677,12 @@
    ],
    "prominence": 15.57,
    "parent": {
-    "pk": 11789,
-    "name": null
+    "pk": 7502,
+    "name": null,
+    "was": [
+     48.900516,
+     21.919807
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 15.6 m."
@@ -1636,7 +1782,11 @@
    "prominence": 14.87,
    "parent": {
     "pk": 671,
-    "name": "Humenská"
+    "name": "Humenská",
+    "was": [
+     48.91127,
+     21.948201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 14.9 m."
@@ -1674,7 +1824,11 @@
    "prominence": 14.74,
    "parent": {
     "pk": 671,
-    "name": "Humenská"
+    "name": "Humenská",
+    "was": [
+     48.91127,
+     21.948201
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 14.7 m."
@@ -1737,7 +1891,11 @@
    "prominence": 14.54,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 14.5 m."
@@ -1769,7 +1927,11 @@
    "prominence": 14.3,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 14.3 m."
@@ -1800,8 +1962,12 @@
    ],
    "prominence": 14.15,
    "parent": {
-    "pk": 10592,
-    "name": "Bogdanka"
+    "pk": 6310,
+    "name": "Bogdanka",
+    "was": [
+     48.817895,
+     21.99484
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 14.2 m."
@@ -1833,7 +1999,11 @@
    "prominence": 13.89,
    "parent": {
     "pk": 101,
-    "name": "Motrogon"
+    "name": "Motrogon",
+    "was": [
+     48.909757,
+     22.161798
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1865,7 +2035,11 @@
    "prominence": 13.67,
    "parent": {
     "pk": 630,
-    "name": "Klokočiny"
+    "name": "Klokočiny",
+    "was": [
+     48.898295,
+     21.828176
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.7 m."
@@ -1902,8 +2076,12 @@
    ],
    "prominence": 13.46,
    "parent": {
-    "pk": 8631,
-    "name": null
+    "pk": 4351,
+    "name": null,
+    "was": [
+     48.74072,
+     22.355315
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.5 m."
@@ -1935,7 +2113,11 @@
    "prominence": 13.35,
    "parent": {
     "pk": 2794,
-    "name": "Čierťaž (Vihorlatské vrchy)"
+    "name": "Čierťaž (Vihorlatské vrchy)",
+    "was": [
+     48.750864,
+     22.339627
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.3 m."
@@ -1967,7 +2149,11 @@
    "prominence": 13.29,
    "parent": {
     "pk": 368,
-    "name": "Hirjač"
+    "name": "Hirjač",
+    "was": [
+     48.850188,
+     21.942063
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.3 m."
@@ -1998,8 +2184,12 @@
    ],
    "prominence": 13.19,
    "parent": {
-    "pk": 10592,
-    "name": "Bogdanka"
+    "pk": 6310,
+    "name": "Bogdanka",
+    "was": [
+     48.817895,
+     21.99484
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.2 m."
@@ -2031,7 +2221,11 @@
    "prominence": 13.14,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 13.1 m."
@@ -2100,7 +2294,11 @@
    "prominence": 12.58,
    "parent": {
     "pk": 136,
-    "name": "Zaňovec"
+    "name": "Zaňovec",
+    "was": [
+     48.832118,
+     22.005497
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 12.6 m."
@@ -2131,8 +2329,12 @@
    ],
    "prominence": 12.32,
    "parent": {
-    "pk": 11652,
-    "name": null
+    "pk": 7365,
+    "name": null,
+    "was": [
+     48.884076,
+     21.894107
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 12.3 m."
@@ -2170,7 +2372,11 @@
    "prominence": 12.25,
    "parent": {
     "pk": 427,
-    "name": "Diel (južný vrchol)"
+    "name": "Diel (južný vrchol)",
+    "was": [
+     48.849828,
+     22.261755
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 12.2 m."
@@ -2208,7 +2414,11 @@
    "prominence": 12.23,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 12.2 m."
@@ -2246,7 +2456,11 @@
    "prominence": 12.02,
    "parent": {
     "pk": 2684,
-    "name": "Malý Senderov"
+    "name": "Malý Senderov",
+    "was": [
+     48.80441,
+     21.982414
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 12.0 m."
@@ -2277,8 +2491,12 @@
    ],
    "prominence": 11.86,
    "parent": {
-    "pk": 10047,
-    "name": "Drieňová (6)"
+    "pk": 5765,
+    "name": "Drieňová (6)",
+    "was": [
+     48.919144,
+     21.981315
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.9 m."
@@ -2310,7 +2528,11 @@
    "prominence": 11.71,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.7 m."
@@ -2346,10 +2568,7 @@
     "sk"
    ],
    "prominence": 11.7,
-   "parent": {
-    "pk": 10,
-    "name": "Vetrová skala"
-   },
+   "parent": null,
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.7 m."
    ],
@@ -2379,8 +2598,12 @@
    ],
    "prominence": 11.54,
    "parent": {
-    "pk": 8631,
-    "name": null
+    "pk": 4351,
+    "name": null,
+    "was": [
+     48.74072,
+     22.355315
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.5 m."
@@ -2473,8 +2696,12 @@
    ],
    "prominence": 11.33,
    "parent": {
-    "pk": 13505,
-    "name": null
+    "pk": 9218,
+    "name": null,
+    "was": [
+     48.890683,
+     21.876026
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.3 m."
@@ -2537,7 +2764,11 @@
    "prominence": 11.04,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.0 m."
@@ -2568,8 +2799,12 @@
    ],
    "prominence": 10.96,
    "parent": {
-    "pk": 8302,
-    "name": "Trislák"
+    "pk": 4023,
+    "name": "Trislák",
+    "was": [
+     48.931327,
+     22.094878
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 11.0 m."
@@ -2631,8 +2866,12 @@
    ],
    "prominence": 10.93,
    "parent": {
-    "pk": 9516,
-    "name": null
+    "pk": 5235,
+    "name": null,
+    "was": [
+     48.894768,
+     21.926564
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.9 m."
@@ -2695,7 +2934,11 @@
    "prominence": 10.8,
    "parent": {
     "pk": 431,
-    "name": "Veža"
+    "name": "Veža",
+    "was": [
+     48.919609,
+     22.214468
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.8 m."
@@ -2796,7 +3039,11 @@
    "prominence": 10.63,
    "parent": {
     "pk": 370,
-    "name": "Čierna"
+    "name": "Čierna",
+    "was": [
+     48.889157,
+     21.985703
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.6 m."
@@ -2828,7 +3075,11 @@
    "prominence": 10.38,
    "parent": {
     "pk": 17,
-    "name": "Kyjov"
+    "name": "Kyjov",
+    "was": [
+     48.855621,
+     22.014837
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.4 m."
@@ -2896,8 +3147,12 @@
    ],
    "prominence": 10.34,
    "parent": {
-    "pk": 13505,
-    "name": null
+    "pk": 9218,
+    "name": null,
+    "was": [
+     48.890683,
+     21.876026
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.3 m."
@@ -2960,7 +3215,11 @@
    "prominence": 10.28,
    "parent": {
     "pk": 368,
-    "name": "Hirjač"
+    "name": "Hirjač",
+    "was": [
+     48.850188,
+     21.942063
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.3 m."
@@ -3022,8 +3281,12 @@
    ],
    "prominence": 10.2,
    "parent": {
-    "pk": 10047,
-    "name": "Drieňová (6)"
+    "pk": 5765,
+    "name": "Drieňová (6)",
+    "was": [
+     48.919144,
+     21.981315
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.2 m."
@@ -3085,8 +3348,12 @@
    ],
    "prominence": 10.01,
    "parent": {
-    "pk": 10173,
-    "name": null
+    "pk": 5891,
+    "name": null,
+    "was": [
+     48.8715,
+     21.933812
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 10.0 m."

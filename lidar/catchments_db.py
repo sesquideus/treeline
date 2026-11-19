@@ -2,7 +2,7 @@
 The catchment engine's tops (`catchments.py dmr5`) against the database: changesets for what
 only improves, and a review list for what needs a person.
 
-    CATCHMENTS=P10.json OUT=DIR [SCOPE=AREA.wkt] [P_MIN=30] uv run python manage.py shell < lidar/catchments_db.py
+    CATCHMENTS=P10.json OUT=DIR [SCOPE=AREA.wkt] [P_MIN=30] [BIG=5] [NEAR_NAMED=300] uv run python manage.py shell < lidar/catchments_db.py
 
 Writes DIR/changeset-summits.json (new summits: apply first), DIR/changeset-fixes.json (heights,
 positions, key cols, parents) and DIR/review.json. The database's Slovak summits are checked (only
@@ -19,8 +19,8 @@ Never degrade:
 - Key cols and parents change only where the top's ground stays inside the data (no border, no
   hole), and only where they came from the lidar, Freemap measurements (the same data read by
   hand), a guess, Wikipedia or nowhere. Others are for review. A walk that ends on a top whose
-  ground reaches the edge of the data keeps the database's parent: that top's prominence is only
-  an upper bound.
+  ground reaches the edge of the data keeps the database's parent (that top's prominence is only
+  an upper bound), unless the database knows that top as more prominent anyway.
 - Nothing is removed or merged. A key col moves with its summit's saddle (it keeps its name)
   unless it is a named col more than 100 m off, which stays where it is for review.
 - New summits: not reaching the edge of the data, no needles (key col within 10 m: a cone of bad
@@ -45,7 +45,7 @@ SCOPE = os.environ.get('SCOPE')
 SAME = 30
 P_MIN = float(os.environ.get('P_MIN', 30))
 NEEDLE = 10
-BIG = 5.0
+BIG = float(os.environ.get("BIG", 5))     # m: a height change beyond this is for review
 PROTECTED = {'Państwowy zasób geodezyjny i kartograficzny', 'Výskum a ochrana Malej Fatry 2017'}
 AUTO = {'DMR 5.0', 'manual measurement from Freemap Slovakia', 'guess', None, 'Wikipedia'}
 LIDAR = 'DMR 5.0'
@@ -140,12 +140,13 @@ def parent_ref(t):
     if 'parent' not in t:
         return None
     pt = by_pos[tuple(t['parent'])]
-    if pt['border']:
-        # its prominence is only an upper bound: the walk may have stopped there wrongly
-        return None
     s = db_near(tuple(t['parent']), SAME)
     if s is None and tuple(t['parent']) in claimed:
         s = claimed[tuple(t['parent'])][0]
+    if pt['border']:
+        # Its prominence here is only an upper bound, so the walk may have stopped there
+        # wrongly — unless the database knows it as more prominent all the same.
+        return dict(pk=s.pk, name=s.point.name) if s and (s.prominence or 0) > t['p'] else None
     if s:
         return dict(pk=s.pk, name=s.point.name)
     if named_near(tuple(t['parent'])):
@@ -159,10 +160,10 @@ named_db = Near([s for s in summits if s.point.name], pos)
 
 
 def named_near(at):
-    return named_db(at, FAR_NAMED)
+    return named_db(at, FAR_NAMED) if FAR_NAMED > 0 else None
 
 
-FAR_NAMED = 300
+FAR_NAMED = float(os.environ.get('NEAR_NAMED', 300))   # 0: a reviewed area, nothing held
 
 
 def label(s):
@@ -213,7 +214,8 @@ for s, t in sorted(pairs, key=lambda st: -st[0].point.altitude):
     pr = parent_ref(t)
     if pr is None and s.prominence_parent_id:
         pr = dict(pk=s.prominence_parent_id, name=s.prominence_parent.point.name)
-    same_parent = pr is not None and 'pk' in pr and pr['pk'] == s.prominence_parent_id
+    same_parent = (pr is None and not s.prominence_parent_id) or (
+        pr is not None and 'pk' in pr and pr['pk'] == s.prominence_parent_id)
     same_col = col_d is not None and col_d <= SAME
     col_update = kc is not None and src(kc) not in PROTECTED and abs(kc.altitude - t['col_alt']) >= 0.05
     if col_update and abs(kc.altitude - t['col_alt']) > BIG:
@@ -239,14 +241,15 @@ for s, t in sorted(pairs, key=lambda st: -st[0].point.altitude):
     if taken:
         review['the 1 m key col is another summit\'s'].append(dict(what, other=label(taken.key_for)))
         continue
-    move_old = kc is not None and src(kc) not in PROTECTED and (col_d <= 100 or (col_d <= 300 and not kc.name))
+    named_col = bool(kc and kc.name and not kc.name.startswith('unnamed'))    # 'unnamed (X)' is no name
+    move_old = kc is not None and src(kc) not in PROTECTED and (col_d <= 100 or (col_d <= 300 and not named_col))
     if same_col or move_old:
         key_col = dict(point=kc.pk, name=kc.name)
         if col_update or not same_col:
             points.append(dict(point=kc.pk, name=kc.name, lat=t['col'][0], lon=t['col'][1],
                                altitude=t['col_alt'], datum='Bpv'))
     else:
-        if kc is not None and kc.name:
+        if named_col:
             review['named key col replaced, left in place'].append(dict(what, col=kc.name))
         key_col = dict(new=dict(lat=t['col'][0], lon=t['col'][1], altitude=t['col_alt'], datum='Bpv',
                                 name=None, names=[], countries=['sk']))
@@ -296,6 +299,31 @@ for e in new.values():
     if ('row', rc[0]) in suspect or ('col', rc[1]) in suspect:
         review['new summit on a suspect DMR 5.0 grid line'].append(dict(at=[e['lat'], e['lon']], alt=e['altitude'], p=e['prominence']))
 review['suspect grid lines'] = [dict(kind=k, mod=m, tops=lines[k, m]) for k, m in sorted(suspect)]
+
+# Every reference by number carries where the object will stand when it is applied (`was`):
+# numbers are not shared with another database once either has made something the other has
+# not, and the apply command takes an unnamed point by its number only where it stands.
+from mountains.models import NamedPoint  # noqa: E402
+summit_point = {s.pk: s.point_id for s in summits}
+refs = set(p['point'] for p in points)
+refs |= {summit_point[l['summit']] for l in relinks}
+refs |= {l['key_col']['point'] for l in relinks if 'point' in l['key_col']}
+refs |= {summit_point[l['parent']['pk']] for l in relinks if l.get('parent')}
+refs |= {summit_point[e['parent']['pk']] for e in new.values() if e['parent'] and 'pk' in e['parent']}
+where = {p.pk: [round(p.location.y, 7), round(p.location.x, 7)] for p in NamedPoint.objects.filter(pk__in=refs)}
+moved_to = {p['point']: [p['lat'], p['lon']] for p in points}
+final = lambda pk: moved_to.get(pk, where[pk])       # points are moved before the relinks run
+for p in points:
+    p['was'] = where[p['point']]
+for l in relinks:
+    l['summit_was'] = final(summit_point[l['summit']])
+    if 'point' in l['key_col']:
+        l['key_col']['was'] = final(l['key_col']['point'])
+    if l.get('parent'):
+        l['parent']['was'] = final(summit_point[l['parent']['pk']])
+for e in new.values():                               # new summits go in before anything moves
+    if e['parent'] and 'pk' in e['parent']:
+        e['parent']['was'] = where[summit_point[e['parent']['pk']]]
 
 ordered = sorted(new.values(), key=lambda e: -e['prominence'])
 meta = dict(sources=dict(lidar=LIDAR, names='OpenStreetMap'))

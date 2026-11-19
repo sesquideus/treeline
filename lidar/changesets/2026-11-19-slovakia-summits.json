@@ -18,7 +18,11 @@
    "prominence": 96.31,
    "parent": {
     "pk": 96,
-    "name": "Poľana"
+    "name": "Poľana",
+    "was": [
+     48.636659,
+     19.48384
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -50,7 +54,11 @@
    "prominence": 49.85,
    "parent": {
     "pk": 2809,
-    "name": "Martinov vrch"
+    "name": "Martinov vrch",
+    "was": [
+     48.368447,
+     20.065502
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -88,7 +96,11 @@
    "prominence": 49.61,
    "parent": {
     "pk": 3168,
-    "name": null
+    "name": null,
+    "was": [
+     49.163667,
+     20.052188
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 49.6 m."
@@ -119,8 +131,12 @@
    ],
    "prominence": 48.68,
    "parent": {
-    "pk": 8829,
-    "name": "Cajlianska Veľká homoľa"
+    "pk": 4549,
+    "name": "Cajlianska Veľká homoľa",
+    "was": [
+     48.33913,
+     17.234024
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 48.7 m."
@@ -187,7 +203,11 @@
    "prominence": 41.88,
    "parent": {
     "pk": 195,
-    "name": "Zadný Gerlach"
+    "name": "Zadný Gerlach",
+    "was": [
+     49.166227,
+     20.131465
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -218,8 +238,12 @@
    ],
    "prominence": 35.4,
    "parent": {
-    "pk": 8026,
-    "name": null
+    "pk": 3748,
+    "name": null,
+    "was": [
+     49.23277,
+     19.620832
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 35.4 m."
@@ -251,7 +275,11 @@
    "prominence": 34.4,
    "parent": {
     "pk": 2074,
-    "name": "Roháč"
+    "name": "Roháč",
+    "was": [
+     49.185691,
+     18.611819
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 34.4 m."
@@ -289,7 +317,11 @@
    "prominence": 31.14,
    "parent": {
     "pk": 246,
-    "name": "Pyšný štít"
+    "name": "Pyšný štít",
+    "was": [
+     49.197611,
+     20.207981
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 31.1 m."
@@ -320,8 +352,12 @@
    ],
    "prominence": 31.0,
    "parent": {
-    "pk": 9875,
-    "name": null
+    "pk": 5593,
+    "name": null,
+    "was": [
+     49.183454,
+     18.605717
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 31.0 m."
@@ -352,8 +388,12 @@
    ],
    "prominence": 30.93,
    "parent": {
-    "pk": 10539,
-    "name": null
+    "pk": 6257,
+    "name": null,
+    "was": [
+     49.07985,
+     18.165849
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 30.9 m."
@@ -390,8 +430,12 @@
    ],
    "prominence": 30.57,
    "parent": {
-    "pk": 9004,
-    "name": null
+    "pk": 4724,
+    "name": null,
+    "was": [
+     48.979738,
+     19.727542
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 30.6 m."
@@ -429,7 +473,11 @@
    "prominence": 30.48,
    "parent": {
     "pk": 154,
-    "name": "Vysoká [SE summit]"
+    "name": "Vysoká [SE summit]",
+    "was": [
+     49.172691,
+     20.094182
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 30.5 m."
@@ -489,8 +537,12 @@
    ],
    "prominence": 30.27,
    "parent": {
-    "pk": 8026,
-    "name": null
+    "pk": 3748,
+    "name": null,
+    "was": [
+     49.23277,
+     19.620832
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 30.3 m."
@@ -521,8 +573,12 @@
    ],
    "prominence": 30.23,
    "parent": {
-    "pk": 11397,
-    "name": null
+    "pk": 7110,
+    "name": null,
+    "was": [
+     48.16901,
+     18.807633
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), P 30.2 m."
@@ -559,8 +615,12 @@
    ],
    "prominence": 29.97,
    "parent": {
-    "pk": 8696,
-    "name": null
+    "pk": 4416,
+    "name": null,
+    "was": [
+     48.567794,
+     20.382221
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -590,7 +650,14 @@
     "sk"
    ],
    "prominence": 29.59,
-   "parent": null,
+   "parent": {
+    "pk": 71,
+    "name": "Veľký Milič",
+    "was": [
+     48.576756,
+     21.458105
+    ]
+   },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
    ],
@@ -620,8 +687,12 @@
    ],
    "prominence": 29.3,
    "parent": {
-    "pk": 8809,
-    "name": null
+    "pk": 4529,
+    "name": null,
+    "was": [
+     49.089757,
+     21.725996
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -653,7 +724,11 @@
    "prominence": 29.22,
    "parent": {
     "pk": 2894,
-    "name": "Vysoké bralo"
+    "name": "Vysoké bralo",
+    "was": [
+     48.588393,
+     20.493544
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -685,7 +760,11 @@
    "prominence": 28.68,
    "parent": {
     "pk": 2961,
-    "name": "Zalaz"
+    "name": "Zalaz",
+    "was": [
+     48.399284,
+     19.124071
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -723,7 +802,11 @@
    "prominence": 28.65,
    "parent": {
     "pk": 2083,
-    "name": "Kamzík"
+    "name": "Kamzík",
+    "was": [
+     48.181852,
+     17.093367
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -754,8 +837,12 @@
    ],
    "prominence": 28.26,
    "parent": {
-    "pk": 9556,
-    "name": "Cigán"
+    "pk": 5275,
+    "name": "Cigán",
+    "was": [
+     48.551911,
+     19.986631
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -792,8 +879,12 @@
    ],
    "prominence": 27.83,
    "parent": {
-    "pk": 9644,
-    "name": "Jaseňový vrch (4)"
+    "pk": 5363,
+    "name": "Jaseňový vrch (4)",
+    "was": [
+     48.38437,
+     19.249333
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -825,7 +916,11 @@
    "prominence": 27.26,
    "parent": {
     "pk": 190,
-    "name": "Smrekov"
+    "name": "Smrekov",
+    "was": [
+     48.885397,
+     19.023557
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -863,7 +958,11 @@
    "prominence": 27.14,
    "parent": {
     "pk": 2046,
-    "name": null
+    "name": null,
+    "was": [
+     48.485829,
+     18.973592
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -895,7 +994,11 @@
    "prominence": 25.93,
    "parent": {
     "pk": 3069,
-    "name": "Muráň (Slovenský Raj)"
+    "name": "Muráň (Slovenský Raj)",
+    "was": [
+     48.874948,
+     20.474936
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -926,8 +1029,12 @@
    ],
    "prominence": 25.81,
    "parent": {
-    "pk": 9173,
-    "name": null
+    "pk": 4893,
+    "name": null,
+    "was": [
+     48.49017,
+     17.370331
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -958,8 +1065,12 @@
    ],
    "prominence": 25.59,
    "parent": {
-    "pk": 11792,
-    "name": "Šibeničná tabla"
+    "pk": 7505,
+    "name": "Šibeničná tabla",
+    "was": [
+     48.20296,
+     19.094364
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -990,8 +1101,12 @@
    ],
    "prominence": 23.43,
    "parent": {
-    "pk": 9230,
-    "name": "Bukovina (7)"
+    "pk": 4950,
+    "name": "Bukovina (7)",
+    "was": [
+     49.008975,
+     18.337374
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1022,8 +1137,12 @@
    ],
    "prominence": 23.16,
    "parent": {
-    "pk": 11554,
-    "name": "Korenný vrch"
+    "pk": 7267,
+    "name": "Korenný vrch",
+    "was": [
+     48.341553,
+     17.194228
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1053,7 +1172,14 @@
     "sk"
    ],
    "prominence": 23.05,
-   "parent": null,
+   "parent": {
+    "pk": 2565,
+    "name": "Čupy",
+    "was": [
+     48.808992,
+     17.345937
+    ]
+   },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
    ],
@@ -1082,7 +1208,14 @@
     "sk"
    ],
    "prominence": 22.37,
-   "parent": null,
+   "parent": {
+    "pk": 3834,
+    "name": "Bôbovec",
+    "was": [
+     48.233598,
+     19.690144
+    ]
+   },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
    ],
@@ -1141,8 +1274,12 @@
    ],
    "prominence": 22.06,
    "parent": {
-    "pk": 12209,
-    "name": "Ščob (5)"
+    "pk": 7922,
+    "name": "Ščob (5)",
+    "was": [
+     49.316274,
+     21.691605
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1173,8 +1310,12 @@
    ],
    "prominence": 21.88,
    "parent": {
-    "pk": 8519,
-    "name": "Benc"
+    "pk": 4240,
+    "name": "Benc",
+    "was": [
+     48.257588,
+     20.019394
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1277,8 +1418,12 @@
    ],
    "prominence": 19.76,
    "parent": {
-    "pk": 8834,
-    "name": "Bučková"
+    "pk": 4554,
+    "name": "Bučková",
+    "was": [
+     48.424518,
+     17.201955
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1309,8 +1454,12 @@
    ],
    "prominence": 19.18,
    "parent": {
-    "pk": 9595,
-    "name": null
+    "pk": 5314,
+    "name": null,
+    "was": [
+     49.057622,
+     20.550994
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1415,8 +1564,12 @@
    ],
    "prominence": 18.55,
    "parent": {
-    "pk": 11403,
-    "name": "Javorinka (5)"
+    "pk": 7116,
+    "name": "Javorinka (5)",
+    "was": [
+     48.490767,
+     17.313876
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1448,7 +1601,11 @@
    "prominence": 18.29,
    "parent": {
     "pk": 2624,
-    "name": "Rakšáňova hora"
+    "name": "Rakšáňova hora",
+    "was": [
+     48.288207,
+     18.824228
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1479,8 +1636,12 @@
    ],
    "prominence": 18.24,
    "parent": {
-    "pk": 7765,
-    "name": null
+    "pk": 3488,
+    "name": null,
+    "was": [
+     48.867017,
+     18.214706
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1541,7 +1702,14 @@
     "sk"
    ],
    "prominence": 16.91,
-   "parent": null,
+   "parent": {
+    "pk": 3186,
+    "name": null,
+    "was": [
+     48.250853,
+     20.165767
+    ]
+   },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
    ],
@@ -1571,8 +1739,12 @@
    ],
    "prominence": 16.75,
    "parent": {
-    "pk": 7817,
-    "name": "Lopušná (2)"
+    "pk": 3540,
+    "name": "Lopušná (2)",
+    "was": [
+     48.80442,
+     20.082374
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1603,8 +1775,12 @@
    ],
    "prominence": 16.68,
    "parent": {
-    "pk": 8883,
-    "name": "Biely vrch (3)"
+    "pk": 4603,
+    "name": "Biely vrch (3)",
+    "was": [
+     48.96743,
+     22.021039
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1703,8 +1879,12 @@
    ],
    "prominence": 14.82,
    "parent": {
-    "pk": 9045,
-    "name": "Chmelinec"
+    "pk": 4765,
+    "name": "Chmelinec",
+    "was": [
+     48.962952,
+     19.904567
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1735,8 +1915,12 @@
    ],
    "prominence": 13.16,
    "parent": {
-    "pk": 12997,
-    "name": null
+    "pk": 8710,
+    "name": null,
+    "was": [
+     48.632618,
+     17.570996
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."
@@ -1805,7 +1989,11 @@
    "prominence": 11.39,
    "parent": {
     "pk": 651,
-    "name": "Biela skala"
+    "name": "Biela skala",
+    "was": [
+     48.68582,
+     18.686943
+    ]
    },
    "notes": [
     "Found in DMR 5.0 at 1 m (catchment flood), the parent of a summit there."

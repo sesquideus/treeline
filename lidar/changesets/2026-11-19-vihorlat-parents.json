@@ -1,0 +1,81 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "points": [],
+ "relinks": [
+  {
+   "summit": 13585,
+   "summit_name": null,
+   "key_col": {
+    "point": 29370,
+    "name": null,
+    "was": [
+     48.8904996,
+     22.1177919
+    ]
+   },
+   "parent": {
+    "pk": 5,
+    "name": "Vihorlat",
+    "was": [
+     48.890035,
+     22.118368
+    ]
+   },
+   "summit_was": [
+    48.8912657,
+    22.1157899
+   ]
+  },
+  {
+   "summit": 13584,
+   "summit_name": null,
+   "key_col": {
+    "point": 29368,
+    "name": null,
+    "was": [
+     48.7860171,
+     22.3749955
+    ]
+   },
+   "parent": {
+    "pk": 10,
+    "name": "Vetrová skala",
+    "was": [
+     48.7793123,
+     22.3638544
+    ]
+   },
+   "summit_was": [
+    48.7884673,
+    22.3769822
+   ]
+  },
+  {
+   "summit": 13634,
+   "summit_name": "Horniansky les",
+   "key_col": {
+    "point": 29468,
+    "name": null,
+    "was": [
+     48.7935165,
+     22.3088486
+    ]
+   },
+   "parent": {
+    "pk": 10,
+    "name": "Vetrová skala",
+    "was": [
+     48.7793123,
+     22.3638544
+    ]
+   },
+   "summit_was": [
+    48.7941276,
+    22.3057327
+   ]
+  }
+ ]
+}

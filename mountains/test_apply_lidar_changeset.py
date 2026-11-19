@@ -28,7 +28,7 @@ def changeset(parent, col_point):
                      countries=['sk'], notes=[]))],
         point_names=[dict(point=parent.point.pk, point_name=parent.point.name, lang='hu',
                           name='Nagy-Milics', what='summit')],
-        col_names=[dict(point=col_point.pk, summit='Gánok', name='Rumanove sedlo', lang='sk',
+        col_names=[dict(point=col_point.pk, was=[49.1744, 20.1002], summit='Gánok', name='Rumanove sedlo', lang='sk',
                         names=[dict(lang='pl', name='Rumanowa Przełęcz')])])
 
 
@@ -253,6 +253,40 @@ class KeyColTests(TestCase):
         self.assertEqual((Summit.objects.count(), NamedPoint.objects.count()), before)
 
 
+class NumbersAreNotSharedTests(TestCase):
+    """
+    An unnamed point is taken by its number only where it stands where the changeset saw it:
+    another database may have a different unnamed point under the same number.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_country('sk')
+        cls.col = make_col(None, 697.2, 49.2467, 19.3681)
+
+    def move(self, **extra):
+        return ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), points=[dict(
+            point=self.col.point.pk, name=None, lat=49.24672, lon=19.36812, altitude=695.0, datum='Bpv', **extra)]))
+
+    def test_by_number_alone_it_is_left_alone(self):
+        out = self.move()
+        self.assertIn('no position to tell it by', out)
+        self.col.point.refresh_from_db()
+        self.assertEqual(self.col.point.altitude, 697.2)
+
+    def test_somewhere_else_it_is_left_alone(self):
+        out = self.move(was=[48.0, 21.0])            # the same number, another point
+        self.assertIn('not where the changeset saw it', out)
+        self.col.point.refresh_from_db()
+        self.assertEqual(self.col.point.altitude, 697.2)
+
+    def test_where_it_was_seen_it_moves(self):
+        self.move(was=[49.2467, 19.3681])
+        self.col.point.refresh_from_db()
+        self.assertEqual(self.col.point.altitude, 695.0)
+
+
 class RefusedRelinkTests(TestCase):
     """A relink the invariants refuse leaves the summit exactly as it was: its own key col too."""
 
@@ -296,7 +330,7 @@ class TwinSwapTests(TestCase):
             points=[dict(point=self.named.point.pk, name='Kýčera', lat=49.249813, lon=19.362251,
                          altitude=805.96, datum='Bpv')],
             relinks=[dict(summit_at=dict(lat=49.250385, lon=19.364540), summit_name='twin',
-                          key_col=dict(point=self.col.point.pk, name=None), parent=dict(pk=self.grand.pk, name='Turíkov Žiar')),
+                          key_col=dict(point=self.col.point.pk, name=None, was=[49.2467, 19.3681]), parent=dict(pk=self.grand.pk, name='Turíkov Žiar')),
                      dict(summit=self.named.pk, summit_name='Kýčera', key_col=dict(at=dict(lat=49.250024, lon=19.363206)),
                           parent_at=dict(lat=49.250385, lon=19.364540))]))
         self.twin.refresh_from_db(), self.named.refresh_from_db()

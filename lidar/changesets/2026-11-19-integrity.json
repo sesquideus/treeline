@@ -1,13 +1,56 @@
 {
- "sources": {"lidar": "Copernicus GLO-30", "names": "OpenStreetMap"},
+ "sources": {
+  "lidar": "Copernicus GLO-30",
+  "names": "OpenStreetMap"
+ },
  "relinks": [
-  {"summit": 3065, "summit_name": "Socompa", "key_col": {"point": 8440, "name": null},
-   "parent": {"pk": 62, "name": "Llullaillaco"}}
+  {
+   "summit": 3065,
+   "summit_name": "Socompa",
+   "key_col": {
+    "point": 8440,
+    "name": null,
+    "was": [
+     -24.38405,
+     -68.17044
+    ]
+   },
+   "parent": {
+    "pk": 62,
+    "name": "Llullaillaco"
+   }
+  }
  ],
  "isolations": [
-  {"summit": {"pk": 430, "name": "Стримба"}, "parent": {"pk": 159, "name": "Попадя"},
-   "nhp": [48.5625, 23.906944], "metres": 15910},
-  {"summit": {"pk": 81, "name": "Негровець"}, "parent": {"pk": 430, "name": "Стримба"},
-   "nhp": [48.438333, 23.799167], "metres": 9100}
+  {
+   "summit": {
+    "pk": 430,
+    "name": "Стримба"
+   },
+   "parent": {
+    "pk": 159,
+    "name": "Попадя"
+   },
+   "nhp": [
+    48.5625,
+    23.906944
+   ],
+   "metres": 15910
+  },
+  {
+   "summit": {
+    "pk": 81,
+    "name": "Негровець"
+   },
+   "parent": {
+    "pk": 430,
+    "name": "Стримба"
+   },
+   "nhp": [
+    48.438333,
+    23.799167
+   ],
+   "metres": 9100
+  }
  ]
 }

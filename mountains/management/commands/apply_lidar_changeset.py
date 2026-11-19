@@ -9,12 +9,16 @@ Plain JSON, no lidar tooling needed, so the same file goes on the server. Runnin
 changes nothing the second time: a summit is skipped when one already stands within 30 m, a
 name when the point has it in that language, a col name when the col has been named since.
 Points are found by pk and checked against the name the changeset saw, so a point renamed or
-renumbered since is skipped with a warning rather than given someone else's name. A name
+renumbered since is skipped with a warning rather than given someone else's name. A name proves
+nothing for an unnamed point, and numbers part ways between two databases as soon as either
+creates something the other does not: an unnamed point is taken by its number only where it
+also stands where the changeset saw it (`was`, [lat, lon], within 50 m), and otherwise skipped. A name
 another point already has is numbered — "Hoľa (2)" — for a person to qualify properly later.
 
 The dry run is a real one, rolled back at the end, as in `import_peaks`.
 """
 import json
+import math
 
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
@@ -28,6 +32,14 @@ from mountains.models import Col, NamedPoint, Note, PointName, Source, Summit
 from users.models import User
 
 SAME_PLACE = D(m=30)
+NEAR_ENOUGH = 50        # m: a point found by its number must stand this near where the changeset saw it
+
+
+def metres(location, at):
+    """Metres between a point's location and `at` ({'lat', 'lon'} or [lat, lon])."""
+    lat, lon = (at['lat'], at['lon']) if isinstance(at, dict) else at
+    k = math.cos(math.radians(lat))
+    return math.hypot((location.x - lon) * 111320 * k, (location.y - lat) * 110574)
 
 
 class DryRun(Exception):
@@ -170,7 +182,8 @@ class Command(BaseCommand):
         elif 'existing' in c:
             # A col the DB has, freed by a relink: this summit is the one it is the key col of.
             col = Col.objects.filter(point__pk=c['existing']['point'], point__name=c['existing']['name'],
-                                     key_for__isnull=True).first()
+                                     key_for__isnull=True).select_related('point').first()
+            col = col and self.checked(col, col.point, c['existing']['name'], c['existing'].get('was'), 'col')
             if col is None:
                 self.stdout.write(f'  ! {s["name"] or s["key"]}: col {c["existing"]["name"]} not found free: skipped')
                 self.counts['skipped'] += 1
@@ -184,7 +197,8 @@ class Command(BaseCommand):
             parent = Summit.objects.filter(point__location__dwithin=(
                 Point(s['parent']['at'][1], s['parent']['at'][0], srid=4326), SAME_PLACE)).first()
         elif s['parent'] and 'pk' in s['parent']:
-            parent = Summit.objects.filter(pk=s['parent']['pk'], point__name=s['parent']['name']).first()
+            parent = Summit.objects.filter(pk=s['parent']['pk'], point__name=s['parent']['name']).select_related('point').first()
+            parent = parent and self.checked(parent, parent.point, s['parent']['name'], s['parent'].get('was'), 'summit')
             if parent is None:
                 self.stdout.write(f'  ! parent {s["parent"]["name"]} (#{s["parent"]["pk"]}) not found: left out')
         elif s['parent'] and 'new' in s['parent']:
@@ -222,7 +236,25 @@ class Command(BaseCommand):
         self.counts['names'] += 1
         return True
 
-    def found(self, pk, name, quiet=False):
+    def checked(self, obj, point, name, at, what):
+        """
+        `obj` found by its number, kept only if it is the one the changeset meant: where `at`
+        says (if given), and never by number alone when unnamed. Numbers are not shared with
+        another database once either has created anything the other has not; a name proves the
+        identity, a missing name proves nothing.
+        """
+        if obj is None:
+            return None
+        if at is not None:
+            if metres(point.location, at) > NEAR_ENOUGH:
+                self.stdout.write(f'  ! {what} #{point.pk} is not where the changeset saw it: skipped')
+                return None
+        elif name is None:
+            self.stdout.write(f'  ! {what} #{point.pk}: unnamed, and no position to tell it by: skipped')
+            return None
+        return obj
+
+    def found(self, pk, name, quiet=False, at=None):
         point = NamedPoint.objects.filter(pk=pk).first()
         mine = self.ours.get(pk)
         if point is not None and name is None and mine and point.name and \
@@ -230,6 +262,9 @@ class Command(BaseCommand):
             return point if not quiet else None
         if point is None or point.name != name:
             self.stdout.write(f'  ! point #{pk} is no longer "{name}": skipped')
+            self.counts['skipped'] += 1
+            return None
+        if self.checked(point, point, name, at, 'point') is None:
             self.counts['skipped'] += 1
             return None
         return point
@@ -260,7 +295,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  ~ "{r["old"]}" renamed {point.name}')
 
     def col_name(self, c):
-        point = self.found(c['point'], None, quiet=True)
+        point = self.found(c['point'], None, quiet=True, at=c.get('was'))
         if point is None:
             return
         self.rename(point, c['name'], f'the key col of {c["summit"]}')
@@ -281,6 +316,7 @@ class Command(BaseCommand):
         """
         old = Summit.objects.filter(pk=sp['summit'], point__name=sp['summit_name']).select_related(
             'point', 'key_col__point', 'prominence_parent').first()
+        old = old and self.checked(old, old.point, sp['summit_name'], sp.get('summit_was'), 'summit')
         if old is None:
             self.stdout.write(f'  ! {sp["summit_name"]} (#{sp["summit"]}) not found as such: split skipped')
             self.counts['skipped'] += 1
@@ -331,7 +367,7 @@ class Command(BaseCommand):
         A point put where the lidar has it: an old col read off a map, a summit label placed
         on the slope. With an altitude, at the lidar's height too.
         """
-        point = self.found(fix['point'], fix['name'])
+        point = self.found(fix['point'], fix['name'], at=fix.get('was'))
         if point is None:
             return
         # Without a position only the height changes; without an altitude only the position:
@@ -361,25 +397,31 @@ class Command(BaseCommand):
         summit, so cols trading places are let go of first and then handed out.
         """
         def near(model, at):
-            return model.objects.filter(point__location__dwithin=(Point(at['lon'], at['lat'], srid=4326),
-                                                                  SAME_PLACE)).first()
+            here = Point(at['lon'], at['lat'], srid=4326)
+            return (model.objects.filter(point__location__dwithin=(here, SAME_PLACE))
+                    .annotate(d=Distance('point__location', here)).order_by('d').first())
+
+        def by_pk(model, pk, name, at, what):
+            obj = model.objects.filter(pk=pk, point__name=name).select_related('point').first()
+            return obj and self.checked(obj, obj.point, name, at, what)
         todo, created = [], []
         for link in links:
             # A summit or col this tooling created has no pk in common with the server: by position.
             summit = (near(Summit, link['summit_at']) if 'summit_at' in link
-                      else Summit.objects.filter(pk=link['summit'], point__name=link['summit_name']).first())
+                      else by_pk(Summit, link['summit'], link['summit_name'], link.get('summit_was'), 'summit'))
             k = link['key_col']
             if 'new' in k:
                 col = near(Col, k['new']) or Col(point=None)
             elif 'at' in k:
                 col = near(Col, k['at'])
             else:
-                col = Col.objects.filter(point__pk=k['point'], point__name=k['name']).first()
+                col = Col.objects.filter(point__pk=k['point'], point__name=k['name']).select_related('point').first()
+                col = col and self.checked(col, col.point, k['name'], k.get('was'), 'col')
             if 'parent_at' in link:
                 parent = near(Summit, link['parent_at'])
             elif 'parent' in link:
-                parent = link['parent'] and Summit.objects.filter(pk=link['parent']['pk'],
-                                                                  point__name=link['parent']['name']).first()
+                parent = link['parent'] and by_pk(Summit, link['parent']['pk'], link['parent']['name'],
+                                                  link['parent'].get('was'), 'summit')
             else:
                 parent = summit.prominence_parent if summit else None
             wanted = 'parent_at' in link or ('parent' in link and link['parent'])
@@ -554,7 +596,8 @@ class Command(BaseCommand):
             if 'at' in spec:
                 return Summit.objects.filter(point__location__dwithin=(
                     Point(spec['at'][1], spec['at'][0], srid=4326), SAME_PLACE)).first()
-            return Summit.objects.filter(pk=spec['pk'], point__name=spec['name']).first()
+            s = Summit.objects.filter(pk=spec['pk'], point__name=spec['name']).select_related('point').first()
+            return s and self.checked(s, s.point, spec['name'], spec.get('was'), 'summit')
         s, parent = summit(iso['summit']), summit(iso['parent'])
         if s is None or parent is None:
             self.stdout.write(f'  ! isolation of {iso["summit"]}: summit or parent not found as such: skipped')
@@ -590,6 +633,7 @@ class Command(BaseCommand):
         summits' parents, ranges, rivers — except the lower top's own link to it.
         """
         lower = Summit.objects.filter(pk=pr['lower']['pk'], point__name=pr['lower']['name']).select_related('point').first()
+        lower = lower and self.checked(lower, lower.point, pr['lower']['name'], pr['lower'].get('was'), 'summit')
         at = Point(pr['higher']['at'][1], pr['higher']['at'][0], srid=4326)
         higher = Summit.objects.filter(point__location__dwithin=(at, SAME_PLACE)).select_related('point').first()
         if lower is None:
