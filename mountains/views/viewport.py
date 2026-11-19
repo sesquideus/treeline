@@ -79,7 +79,11 @@ class ViewportDetailView(View):
             queryset = queryset.filter(pk__in=pks)
         else:
             if (bbox := parse_bbox(request.GET.get('bbox'))) is not None:
-                queryset = queryset.filter(**{f'{self.location_field}__within': bbox})
+                # `intersects`, not `within`: for a point the two are the same, but Postgres
+                # guesses that ST_Within on geography keeps a single row, and plans the
+                # popup's dozen joins as nested loops on that guess — 46 s for a view of
+                # Slovakia, against 0.1 s with the estimate `intersects` gets right.
+                queryset = queryset.filter(**{f'{self.location_field}__intersects': bbox})
             queryset = queryset.order_by(*self.ordering)[:parse_limit(request.GET.get('limit'))]
 
         return JsonResponse({str(obj.pk): self.detail(obj) for obj in queryset})

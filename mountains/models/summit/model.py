@@ -8,6 +8,7 @@ from django.db.models.functions import Concat, Coalesce, ATan, Cos, Sin
 from django.urls import reverse
 from geographiclib.geodesic import Geodesic
 
+from core.functions.declutter import first_zooms
 from core.functions.world import distance
 from mountains.models.base import GeoModel
 from mountains.models.col import Col
@@ -189,6 +190,7 @@ class SummitQuerySet(models.QuerySet):
         # the truth rather than a gap in the data — and the map says so with a different
         # glyph. Every other missing one means nobody has computed it yet.
         highest = max((row[3] for row in rows if row[3] is not None), default=None)
+        altitude_of = {row[0]: row[3] for row in rows}
         features = []
         for (pk, location, name, altitude, col_altitude, island,
              prominence_parent, isolation_parent, slope_parent, horizon_parent,
@@ -232,6 +234,12 @@ class SummitQuerySet(models.QuerySet):
                     } if nearest_higher_point else None,
                 },
             })
+        # The zoom each summit first shows at: the map draws it from there on in.
+        zooms = first_zooms((f['properties']['pk'], *f['geometry']['coordinates'],
+                             f['properties']['prom'], altitude_of[f['properties']['pk']])
+                            for f in features)
+        for f in features:
+            f['properties']['z'] = zooms[f['properties']['pk']]
         return features
 
     def only_complete(self):

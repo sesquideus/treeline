@@ -25,7 +25,7 @@ from mountains.views.cache import data_version
 
 # What map.js reads off a skeleton feature before any detail has arrived.
 SUMMIT_SKELETON_KEYS = {'type', 'pk', 'name', 'prom', 'prominence_parent', 'isolation_parent',
-                        'slope_parent', 'horizon_parent', 'kc', 'ilp'}
+                        'slope_parent', 'horizon_parent', 'kc', 'ilp', 'z'}
 COL_SKELETON_KEYS = {'type', 'pk', 'name', 'confluence'}
 
 

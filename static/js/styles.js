@@ -134,6 +134,34 @@ function denseCoords(coords) {
     return dense;
 }
 
+// Styles are built once and reused. A style function runs for every feature in view on every
+// frame, and a marker built afresh each time paints a canvas of its own each time: with ten
+// thousand peaks on screen that was most of the time a pan took. Markers are cached by what
+// makes them differ; a gradient line, which carries its own geometry, per feature.
+const styleCache = new Map();
+
+function cachedStyle(key, build) {
+    let style = styleCache.get(key);
+    if (style === undefined) {
+        style = build();
+        styleCache.set(key, style);
+    }
+    return style;
+}
+
+// Per feature, and dropped with it. Keyed by the colours too: the same line is drawn in
+// another gradient when the hierarchy on show changes. A feature's geometry is never moved
+// on these maps, so the segments cut from it stay right.
+const lineStyleCache = new WeakMap();
+
+function cachedLineStyles(feature, key, build) {
+    const held = lineStyleCache.get(feature);
+    if (held && held.key === key) return held.styles;
+    const styles = build();
+    lineStyleCache.set(feature, { key, styles });
+    return styles;
+}
+
 function segmentStyles(coords, c1, c2) {
     return coords.slice(0, -1).map((_, i) => new ol.style.Style({
         geometry: new ol.geom.LineString([coords[i], coords[i+1]]),
@@ -146,7 +174,8 @@ function segmentStyles(coords, c1, c2) {
 }
 
 function gradientLine(feature, c1, c2) {
-    return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()), c1, c2);
+    return cachedLineStyles(feature, `${c1}|${c2}`, () =>
+        segmentStyles(denseCoords(feature.getGeometry().getCoordinates()), c1, c2));
 }
 
 // A climb to the parent as one feature, the way the detail and comparison maps serve it:
@@ -155,6 +184,10 @@ function gradientLine(feature, c1, c2) {
 // these are its gradients — so the routed line is those two, and the straight one runs
 // from the first colour of the one to the last of the other, as the global map's does.
 function prominenceClimb(feature) {
+    return cachedLineStyles(feature, 'climb', () => prominenceClimbStyles(feature));
+}
+
+function prominenceClimbStyles(feature) {
     const coords = feature.getGeometry().getCoordinates();
     if (coords.length < 3) {
         return segmentStyles(denseCoords(coords),
@@ -188,14 +221,14 @@ function dashedLine(color, width=3, dash=[8, 5]) {
 }
 
 function dot(color, radius=6) {
-    return new ol.style.Style({
+    return cachedStyle(`dot|${color}|${radius}`, () => new ol.style.Style({
         image: new ol.style.Circle({
             radius,
             fill: new ol.style.Fill({ color }),
             stroke: new ol.style.Stroke({ color: '#fff', width: 1.5 }),
         }),
         zIndex: Z_POINT,
-    });
+    }));
 }
 
 // Summit markers are outlined in ink rather than the usual white surface ring: the fill now
@@ -204,7 +237,7 @@ function dot(color, radius=6) {
 const SUMMIT_OUTLINE = 'rgba(11, 11, 11, 0.8)';
 
 function summitMarker(color, radius = 6, { outline = SUMMIT_OUTLINE, zIndex = Z_POINT } = {}) {
-    return new ol.style.Style({
+    return cachedStyle(`summit|${color}|${radius}|${outline}|${zIndex}`, () => new ol.style.Style({
         image: new ol.style.RegularShape({
             points: 3,
             radius,
@@ -212,19 +245,19 @@ function summitMarker(color, radius = 6, { outline = SUMMIT_OUTLINE, zIndex = Z_
             stroke: new ol.style.Stroke({ color: outline, width: 1 }),
         }),
         zIndex,
-    });
+    }));
 }
 
 // A glyph riding above a marker, saying what kind of point it is where colour alone cannot.
 function glyphAbove(glyph, offsetY = -10, zIndex = Z_POINT) {
-    return new ol.style.Style({
+    return cachedStyle(`glyph|${glyph}|${offsetY}|${zIndex}`, () => new ol.style.Style({
         text: new ol.style.Text({
             text: glyph,
             font: '14px sans-serif',
             offsetY: offsetY,
         }),
         zIndex: zIndex,
-    });
+    }));
 }
 
 // A summit as the global map draws it: its prominence band's colour, its size, and its
@@ -255,14 +288,14 @@ const Z_COL = Z_POINT + Z_SUMMIT_SPAN + 2;
 const Z_SUBJECT = Z_COL + 1;
 
 function colMarker(colour, size) {
-    return new ol.style.Style({
+    return cachedStyle(`col|${size || 5}`, () => new ol.style.Style({
         image: new ol.style.Circle({
             radius: size || 5,
             fill: new ol.style.Fill({ color: '#0040FF' }),
             stroke: new ol.style.Stroke({ color: '#FFFFFF', width: 1.5 }),
         }),
         zIndex: Z_COL,
-    });
+    }));
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
         <circle cx="12" cy="12" r="4"

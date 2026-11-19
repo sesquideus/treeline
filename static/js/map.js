@@ -40,9 +40,80 @@ const MAP_DEFAULTS = {
     routing: true,       // #toggle-routing
     cols: false,         // #toggle-col-confluence
     opacity: 40,         // #map-opacity, per cent
+    base: 'freemap',     // #map-base, a key of BASE_MAPS
+};
+
+// The background maps on offer, all drawn from OpenStreetMap. Freemap's outdoor map is the
+// default and the best in the Carpathians; outside Europe it thins out, and OpenTopoMap (with
+// SRTM contours) or plain OpenStreetMap carry the Andes better. Each option in
+// core/controls.html names one of these keys.
+const BASE_MAPS = {
+    freemap: {
+        url: 'https://outdoor.tiles.freemap.sk/{z}/{x}/{y}',
+        maxZoom: 19,
+        attributions: '© <a href="https://www.freemap.sk">Freemap.sk</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+    osm: {
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        maxZoom: 19,
+        attributions: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+    opentopomap: {
+        url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        maxZoom: 17,
+        attributions: 'Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM; ' +
+                      'style © <a href="https://opentopomap.org">OpenTopoMap</a> ' +
+                      '(<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA</a>)',
+    },
 };
 
 const MAP_POSITION = /^(-?[\d.]+)\/(-?[\d.]+)\/(-?[\d.]+)$/;
+
+// --- what shows at which zoom --------------------------------------------------------
+//
+// Each summit comes with `z`, the zoom it first shows at (core/functions/declutter.py: only
+// a more prominent summit ever hides a less prominent one, and a lone hill with nothing more
+// prominent near it shows from far out). A drawn summit always keeps its real parent in the
+// hierarchy on show, drawn too: so each summit's zoom is lowered to that of its earliest
+// child in that hierarchy (`visibleZooms`). That is `vz`, and every feature belonging to a
+// summit — its marker, its line, its key col, its isolation point — carries its summit's and
+// is drawn from that zoom in. Lines are never re-attached to another ancestor.
+
+// Metres per pixel at zoom 0 on the equator, for 256-pixel tiles: the scale the zoom levels
+// are counted from, in OpenLayers and in the decluttering alike.
+const ZOOM0_RESOLUTION = 156543.03392804097;
+
+function zoomAt(resolution) {
+    return Math.log2(ZOOM0_RESOLUTION / resolution);
+}
+
+// Hidden while the view is further out than the feature's zoom: `vz` where the hierarchy has
+// set one, else the summit's own `z`. A feature with neither (a highlight, a detail map's
+// mark) is always drawn.
+function hiddenAt(feature, resolution) {
+    const vz = feature.get('vz') ?? feature.get('z');
+    return vz != null && vz > zoomAt(resolution) + 1e-6;
+}
+
+// `summits`: [{pk, z, parent}]. Returns {pk: vz}. Each summit is walked up its chain of
+// parents, lowering every ancestor that would otherwise show later than it; a walk stops at
+// the first ancestor already shown as early, so the whole costs little more than one pass.
+// The step limit is a guard against a cycle, which the data model forbids but a half-edited
+// database can hold for a moment.
+function visibleZooms(summits) {
+    const vz = {}, parent = {};
+    summits.forEach(s => { vz[s.pk] = s.z == null ? 0 : s.z; parent[s.pk] = s.parent; });
+    const order = summits.map(s => s.pk).sort((a, b) => vz[a] - vz[b]);
+    for (const pk of order) {
+        const v = vz[pk];
+        let p = parent[pk];
+        for (let steps = 0; p != null && p in vz && vz[p] > v && steps < 10000; steps++) {
+            vz[p] = v;
+            p = parent[p];
+        }
+    }
+    return vz;
+}
 
 // Hand-rolled rather than `URLSearchParams`, which is a browser API and not part of the
 // language — this way the parsing can be run by the tests (see mountains/test_js_runtime.py)
@@ -85,6 +156,7 @@ function parseMapState(hash) {
     for (const name of MAP_TOGGLES) {
         if (params[name] === '0' || params[name] === '1') state[name] = params[name] === '1';
     }
+    if (Object.prototype.hasOwnProperty.call(BASE_MAPS, params.base)) state.base = params.base;
     const opacity = Number(params.opacity);
     if (params.opacity !== undefined && Number.isFinite(opacity)
             && opacity >= 0 && opacity <= 100) {
@@ -104,6 +176,7 @@ function formatMapState(state) {
         if (state[name] !== MAP_DEFAULTS[name]) parts.push(`${name}=${state[name] ? 1 : 0}`);
     }
     if (state.opacity !== MAP_DEFAULTS.opacity) parts.push(`opacity=${state.opacity}`);
+    if (state.base && state.base !== MAP_DEFAULTS.base) parts.push(`base=${state.base}`);
     return parts.length ? '#' + parts.join('&') : '';
 }
 
@@ -536,17 +609,45 @@ const DATA_CREDITS =
     'provided under COPERNICUS by the European Union and ESA; all rights reserved. ' +
     'Some names © OpenStreetMap contributors, ODbL';
 
+// The tile source for a key of BASE_MAPS. The referrer goes along as the origin: Freemap and
+// the OpenStreetMap tile servers both want to know which site is asking.
+function baseSource(key) {
+    const base = BASE_MAPS[key] || BASE_MAPS[MAP_DEFAULTS.base];
+    return new ol.source.XYZ({
+        url: base.url,
+        maxZoom: base.maxZoom,
+        tileLoadFunction: function(imageTile, src) {
+            imageTile.getImage().referrerPolicy = 'origin';
+            imageTile.getImage().src = src;
+        },
+        attributions: base.attributions,
+    });
+}
+
+// The reader's last choice of background, so the detail maps (which have no controls) draw
+// the same one as the global map. Storage can be missing or refuse (private windows): then
+// it is simply the default.
+const BASE_MAP_KEY = 'treeline.base-map';
+
+function storedBaseMap() {
+    try {
+        const key = window.localStorage.getItem(BASE_MAP_KEY);
+        return Object.prototype.hasOwnProperty.call(BASE_MAPS, key) ? key : MAP_DEFAULTS.base;
+    } catch (e) {
+        return MAP_DEFAULTS.base;
+    }
+}
+
+function storeBaseMap(key) {
+    try {
+        window.localStorage.setItem(BASE_MAP_KEY, key);
+    } catch (e) { /* not remembered, no harm */ }
+}
+
 function makeMap(geojson, styleFor, coords, zoom, onHover, onOpen) {
     const tileLayer = new ol.layer.Tile({
         opacity: 0.4,
-        source: new ol.source.XYZ({
-            url: 'https://outdoor.tiles.freemap.sk/{z}/{x}/{y}',
-            tileLoadFunction: function(imageTile, src) {
-                imageTile.getImage().referrerPolicy = 'origin';
-                imageTile.getImage().src = src;
-            },
-            attributions: '© <a href="https://www.freemap.sk">Freemap.sk</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }),
+        source: baseSource(storedBaseMap()),
     })
 
     const vectorLayer = new ol.layer.Vector({
@@ -751,12 +852,9 @@ const CONFLUENCE_RIVER_COLOUR    = 'rgba(110, 205, 255, 0.95)';
 
 // One definition of the pink col → confluence line, shared by the layer the toggle switches
 // on and the one a hovered col draws for itself, so the two cannot drift apart.
-function confluenceLineStyle(feature) {
-    return segmentStyles(
-        denseCoords(feature.getGeometry().getCoordinates()),
-        CONFLUENCE_COLOUR_A,
-        CONFLUENCE_COLOUR_B,
-    );
+function confluenceLineStyle(feature, resolution) {
+    if (resolution !== undefined && hiddenAt(feature, resolution)) return null;
+    return gradientLine(feature, CONFLUENCE_COLOUR_A, CONFLUENCE_COLOUR_B);
 }
 
 // The course of a river, drawn over the blue of the rivers layer in the confluence pink, so
@@ -769,12 +867,9 @@ function confluenceRiverStyle() {
     });
 }
 
-function confluenceSisterStyle(feature) {
-    return segmentStyles(
-        denseCoords(feature.getGeometry().getCoordinates()),
-        CONFLUENCE_SISTER_A,
-        CONFLUENCE_SISTER_B,
-    );
+function confluenceSisterStyle(feature, resolution) {
+    if (resolution !== undefined && hiddenAt(feature, resolution)) return null;
+    return gradientLine(feature, CONFLUENCE_SISTER_A, CONFLUENCE_SISTER_B);
 }
 
 function confluenceGroupStyle(feature) {
@@ -795,43 +890,36 @@ function confluenceLine(colCoord, confluenceCoord, type = 'confluence_line') {
 }
 
 function lineageStyle(mode, useRouting) {
-    return feature => {
+    return (feature, resolution) => {
+        if (hiddenAt(feature, resolution)) return null;
         const segment = feature.get('segment');
 
         switch (mode) {
             case 'prominence':
                 switch (segment) {
                     case 'peak_to_col':
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            PROMINENCE_PEAK_TO_COL_A, PROMINENCE_PEAK_TO_COL_B);
+                        return gradientLine(feature, PROMINENCE_PEAK_TO_COL_A, PROMINENCE_PEAK_TO_COL_B);
                     case 'col_to_parent':
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            PROMINENCE_COL_TO_PARENT_A, PROMINENCE_COL_TO_PARENT_B);
+                        return gradientLine(feature, PROMINENCE_COL_TO_PARENT_A, PROMINENCE_COL_TO_PARENT_B);
                     default:
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            PROMINENCE_PEAK_TO_COL_A, PROMINENCE_COL_TO_PARENT_B);
+                        return gradientLine(feature, PROMINENCE_PEAK_TO_COL_A, PROMINENCE_COL_TO_PARENT_B);
                 }
 
             case 'isolation':
                 switch (segment) {
                     case 'peak_to_nhp':
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            ISOLATION_PEAK_TO_NHP_A, ISOLATION_PEAK_TO_NHP_B);
+                        return gradientLine(feature, ISOLATION_PEAK_TO_NHP_A, ISOLATION_PEAK_TO_NHP_B);
                     case 'nhp_to_parent':
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            ISOLATION_NHP_TO_PARENT_A, ISOLATION_NHP_TO_PARENT_B);
+                        return gradientLine(feature, ISOLATION_NHP_TO_PARENT_A, ISOLATION_NHP_TO_PARENT_B);
                     default:
-                        return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                            ISOLATION_PEAK_TO_NHP_A, ISOLATION_NHP_TO_PARENT_B);
+                        return gradientLine(feature, ISOLATION_PEAK_TO_NHP_A, ISOLATION_NHP_TO_PARENT_B);
                 }
 
             case 'slope':
-                return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                    SLOPE_COLOUR_A, SLOPE_COLOUR_B);
+                return gradientLine(feature, SLOPE_COLOUR_A, SLOPE_COLOUR_B);
 
             case 'horizon':
-                return segmentStyles(denseCoords(feature.getGeometry().getCoordinates()),
-                    HORIZON_COLOUR_A, HORIZON_COLOUR_B);
+                return gradientLine(feature, HORIZON_COLOUR_A, HORIZON_COLOUR_B);
 
             default:
                 return [];
@@ -895,6 +983,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
                     ol.proj.fromLonLat([props.ilp.lon, props.ilp.lat]),
                 ]),
                 pk: props.pk,
+                vz: props.vz,
                 segment: 'peak_to_nhp',
             }));
             return;
@@ -915,6 +1004,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
                     ol.proj.fromLonLat(waypoint),
                 ]),
                 pk: props.pk,
+                vz: props.vz,
                 segment: 'peak_to_col',
             }));
             // key col → parent
@@ -924,6 +1014,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
                     ol.proj.fromLonLat(toCoord),
                 ]),
                 pk: props.pk,
+                vz: props.vz,
                 segment: 'col_to_parent',
             }));
             return;
@@ -936,6 +1027,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
                     ol.proj.fromLonLat(waypoint),
                 ]),
                 pk: props.pk,
+                vz: props.vz,
                 segment: 'peak_to_nhp',
             }));
             // NHP → parent
@@ -945,6 +1037,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
                     ol.proj.fromLonLat(toCoord),
                 ]),
                 pk: props.pk,
+                vz: props.vz,
                 segment: 'nhp_to_parent',
             }));
             return;
@@ -958,6 +1051,7 @@ function buildLineageLayer(summits, cols, mode, useRouting) {
             geometry: new ol.geom.LineString(coords),
             pk: props.pk,
             parent_pk: parentPk,
+            vz: props.vz,
         }));
     });
 
@@ -986,17 +1080,20 @@ function buildKeyColLayer(summits, cols) {
             geometry: new ol.geom.Point(ol.proj.fromLonLat(col.geometry.coordinates)),
             pk: kcPk,
             type: 'col',
+            vz: feature.properties.vz,
         }));
     });
 
     return new ol.layer.Vector({
         source: vectorSource,
-        style: styleFor,
+        style: (feature, resolution) => hiddenAt(feature, resolution) ? null : styleFor(feature),
     });
 }
 
 
-function buildConfluenceLayer(cols, visible = true) {
+// `zoomOfCol`: {col pk: the zoom its summit shows at}; a col nobody's key col has none, and
+// shows always.
+function buildConfluenceLayer(cols, visible = true, zoomOfCol = {}) {
     const vectorSource = new ol.source.Vector();
 
     cols.features.forEach(feature => {
@@ -1005,10 +1102,12 @@ function buildConfluenceLayer(cols, visible = true) {
 
         const colCoord = feature.geometry.coordinates;
 
-        vectorSource.addFeature(confluenceLine(
+        const line = confluenceLine(
             ol.proj.fromLonLat(colCoord),
             ol.proj.fromLonLat([confluence.lon, confluence.lat]),
-        ));
+        );
+        line.set('z', zoomOfCol[feature.properties.pk]);
+        vectorSource.addFeature(line);
     });
 
     const layer = new ol.layer.Vector({
@@ -1035,12 +1134,14 @@ function buildIsolationPointLayer(summits) {
             alt: ilp.alt,
             type: 'isolation_point',
             has_parent: hasParent,
+            vz: feature.properties.vz,
         }));
     });
 
     return new ol.layer.Vector({
         source: vectorSource,
-        style: function(feature) {
+        style: function(feature, resolution) {
+            if (hiddenAt(feature, resolution)) return null;
             const base = styleFor(feature);
             if (!feature.get('has_parent')) {
                 return [].concat(base).concat(new ol.style.Style({
@@ -1075,7 +1176,8 @@ const ROOTLESS_MARK = {
     },
 };
 
-function summitStyleFor(feature) {
+function summitStyleFor(feature, resolution) {
+    if (resolution !== undefined && hiddenAt(feature, resolution)) return null;
     if (feature.get('type') !== 'summit') return styleFor(feature);
     const mark = ROOTLESS_MARK[currentMode];
     if (!mark || feature.get(mark.parent)) return styleFor(feature);
@@ -1321,10 +1423,12 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         const [lon, lat] = ol.proj.toLonLat(map.getView().getCenter());
         const mode = document.querySelector('input[name="tree"]:checked');
         const opacity = document.getElementById('map-opacity');
+        const base = document.getElementById('map-base');
         const state = {
             position: { zoom: map.getView().getZoom(), lat: lat, lon: lon },
             mode: mode ? mode.value : MAP_DEFAULTS.mode,
             opacity: opacity ? Number(opacity.value) : MAP_DEFAULTS.opacity,
+            base: base ? base.value : MAP_DEFAULTS.base,
         };
         for (const name of MAP_TOGGLES) {
             const box = document.getElementById(CONTROL_IDS[name]);
@@ -1354,6 +1458,11 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         if (opacity && Number(opacity.value) !== state.opacity) {
             opacity.value = state.opacity;
             if (notify) opacity.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const base = document.getElementById('map-base');
+        if (base && base.value !== state.base) {
+            base.value = state.base;
+            if (notify) base.dispatchEvent(new Event('change', { bubbles: true }));
         }
     }
 
@@ -1516,6 +1625,20 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         const useRouting = routeToggle && routeToggle.checked;
         if (lineageLayer) map.removeLayer(lineageLayer);
 
+        // Which summits show from which zoom depends on the hierarchy: every parent at least
+        // as early as its earliest child. Written onto the raw data the layers are built
+        // from, and onto the summit features themselves (silently: setStyle below redraws).
+        const parentAttr = lineageParentAttr(currentMode);
+        const vz = visibleZooms(summitsData.features.map(f => ({
+            pk: f.properties.pk, z: f.properties.z,
+            parent: parentAttr ? f.properties[parentAttr] : null,
+        })));
+        summitsData.features.forEach(f => {
+            f.properties.vz = vz[f.properties.pk];
+            const feature = summitFeatureByPk[f.properties.pk];
+            if (feature) feature.set('vz', f.properties.vz, true);
+        });
+
         lineageLayer = buildLineageLayer(summitsData, colsData, currentMode, useRouting);
         lineageLayer.set('name', 'lineage');
         lineageLayer.setZIndex(Z_LINEAGE);
@@ -1569,6 +1692,9 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         // from them directly: setting them here is enough, and dispatching events at a map
         // whose layers do not exist yet would not be.
         const resumed = parseMapState(window.location.hash);
+        // A link that names a background wins; otherwise the reader's own last choice, which
+        // the fragment leaves out when it is the default.
+        if (!/(^#|&)base=/.test(window.location.hash)) resumed.base = storedBaseMap();
         applyMapControls(resumed, false);
         if (resumed.position) {
             applyMapPosition(resumed.position);
@@ -1602,6 +1728,15 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         });
         confluencePointLayer.set('name', 'highlight-confluence-marks');
         map.addLayer(confluencePointLayer);
+
+        const baseSelect = document.getElementById('map-base');
+        if (baseSelect) {
+            tileLayer.setSource(baseSource(baseSelect.value));
+            baseSelect.addEventListener('change', function() {
+                tileLayer.setSource(baseSource(this.value));
+                storeBaseMap(this.value);
+            });
+        }
 
         const opacitySlider = document.getElementById('map-opacity');
         if (opacitySlider) {
@@ -1657,7 +1792,12 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
                 colConfluenceLayer.setVisible(this.checked);
             });
         }
-        let colConfluenceLayer = buildConfluenceLayer(cols, colToggle && colToggle.checked);
+        // A col → confluence line belongs to the summit whose key col it starts from.
+        const zoomOfCol = {};
+        summits.features.forEach(f => {
+            if (f.properties.kc != null) zoomOfCol[f.properties.kc] = f.properties.z;
+        });
+        let colConfluenceLayer = buildConfluenceLayer(cols, colToggle && colToggle.checked, zoomOfCol);
         colConfluenceLayer.set('name', 'col_confluence');
         colConfluenceLayer.setZIndex(Z_CONFLUENCE);
         map.addLayer(colConfluenceLayer);
@@ -1690,6 +1830,7 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         }
         const opacityControl = document.getElementById('map-opacity');
         if (opacityControl) opacityControl.addEventListener('input', rememberMapState);
+        if (baseSelect) baseSelect.addEventListener('change', rememberMapState);
 
         // Somebody pasted a link into the address bar of a tab that is already open, or used
         // the back button onto a fragment we did not write. `replaceState` fires no

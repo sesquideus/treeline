@@ -4,6 +4,15 @@
             <input type="range" id="map-opacity" min="0" max="100" value="40">
             Map opacity
         </label>
+        <label>
+            Background
+            {# Keys of BASE_MAPS in static/js/map.js #}
+            <select id="map-base">
+                <option value="freemap" selected>Freemap outdoor</option>
+                <option value="osm">OpenStreetMap</option>
+                <option value="opentopomap">OpenTopoMap</option>
+            </select>
+        </label>
     </div>
     <div class="toggle-group">
         <span class="group-title">Show</span>

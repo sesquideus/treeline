@@ -1,8 +1,8 @@
 """
 Remembering what the reader had on screen.
 
-The whole control state lives in the URL fragment — position, lineage mode, layer toggles
-and base-map opacity — so a reload, or a pasted link, restores the view it describes:
+The whole control state lives in the URL fragment — position, lineage mode, layer toggles,
+base-map choice and opacity — so a reload, or a pasted link, restores the view it describes:
 
     #map=11.25/49.16451/20.13403&mode=isolation&cols=1
 
@@ -136,7 +136,7 @@ class StateFormatTests(SimpleTestCase):
 
     def test_the_whole_state_round_trips(self):
         state = dict(position=self.HERE, mode='horizon', summits=False, routing=False,
-                     rivers=False, cols=True, ranges=True, opacity=85)
+                     rivers=False, cols=True, ranges=True, opacity=85, base='osm')
         self.assertEqual(parse_state(format_state(**state)), state)
 
 
@@ -144,7 +144,7 @@ class StateParseTests(SimpleTestCase):
     def test_an_empty_fragment_is_all_defaults(self):
         self.assertEqual(parse_state(''), {
             'position': None, 'mode': 'prominence', 'summits': True, 'routing': True,
-            'rivers': True, 'cols': False, 'ranges': False, 'opacity': 40,
+            'rivers': True, 'cols': False, 'ranges': False, 'opacity': 40, 'base': 'freemap',
         })
 
     def test_a_position_only_fragment_still_reads(self):
@@ -226,7 +226,7 @@ class ControlVocabularyTests(SimpleTestCase):
         names = sorted(control_ids())
         self.assertEqual(names, sorted(evaluate('MAP_TOGGLES')))
         self.assertEqual(names, sorted(name for name in evaluate('MAP_DEFAULTS')
-                                       if name not in ('mode', 'opacity')))
+                                       if name not in ('mode', 'opacity', 'base')))
 
     def test_the_ticked_boxes_are_the_declared_defaults(self):
         """
@@ -242,6 +242,35 @@ class ControlVocabularyTests(SimpleTestCase):
     def test_summits_are_shown_by_default_and_hiding_them_is_remembered(self):
         self.assertTrue(parse_state('')['summits'])
         self.assertFalse(parse_state('#summits=0')['summits'])
+
+
+class BaseMapTests(SimpleTestCase):
+    """The background: one of BASE_MAPS, offered in the panel, remembered in the fragment."""
+
+    def options(self):
+        with open(CONTROLS, encoding='utf-8') as handle:
+            select = handle.read().split('<select id="map-base">')[1].split('</select>')[0]
+        return re.findall(r'<option value="([^"]+)"( selected)?>', select)
+
+    def test_every_option_is_a_base_map_and_every_base_map_an_option(self):
+        self.assertEqual(sorted(v for v, _ in self.options()), sorted(evaluate('Object.keys(BASE_MAPS)')))
+
+    def test_the_selected_option_is_the_default(self):
+        self.assertEqual([v for v, sel in self.options() if sel], [evaluate('MAP_DEFAULTS')['base']])
+
+    def test_the_default_is_left_out_and_another_round_trips(self):
+        self.assertEqual(parse_state('')['base'], 'freemap')
+        self.assertNotIn('base=', format_state(**evaluate('MAP_DEFAULTS')))
+        state = dict(evaluate('MAP_DEFAULTS'), base='opentopomap')
+        self.assertEqual(parse_state(format_state(**state))['base'], 'opentopomap')
+
+    def test_an_unknown_base_falls_back_without_losing_the_rest(self):
+        state = parse_state('#map=8.00/48.70000/19.70000&base=googlesat&mode=isolation')
+        self.assertEqual(state['base'], 'freemap')
+        self.assertEqual(state['mode'], 'isolation')
+
+    def test_a_prototype_name_is_not_a_base_map(self):
+        self.assertEqual(parse_state('#base=constructor')['base'], 'freemap')
 
 
 class WiringTests(SimpleTestCase):
