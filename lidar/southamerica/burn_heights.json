@@ -1,0 +1,2626 @@
+[
+{
+"name": "Aconcagua",
+"pk": 29,
+"lat": -32.653472,
+"lon": -70.011528,
+"altitude": 6960.8,
+"source": null
+},
+{
+"name": "Ojos del Salado",
+"pk": 63,
+"lat": -27.109861,
+"lon": -68.54125,
+"altitude": 6893.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Monte Pissis",
+"pk": 125,
+"lat": -27.754306,
+"lon": -68.799028,
+"altitude": 6793.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Bonete",
+"pk": 18001,
+"lat": -28.01875,
+"lon": -68.75625,
+"altitude": 6759.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huascarán",
+"pk": 3067,
+"lat": -9.120694,
+"lon": -77.604861,
+"altitude": 6754.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Llullaillaco",
+"pk": 62,
+"lat": -24.720139,
+"lon": -68.536806,
+"altitude": 6752.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tres Cruces Sur",
+"pk": 18033,
+"lat": -27.099028,
+"lon": -68.778194,
+"altitude": 6748.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Mercedario",
+"pk": 17795,
+"lat": -31.979306,
+"lon": -70.113194,
+"altitude": 6710.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cazadero",
+"pk": 20940,
+"lat": -27.19625,
+"lon": -68.560694,
+"altitude": 6670.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huascarán Norte",
+"pk": 21432,
+"lat": -9.099861,
+"lon": -77.62125,
+"altitude": 6655.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Tres Cruces Central",
+"pk": 21453,
+"lat": -27.069028,
+"lon": -68.787083,
+"altitude": 6629.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Incahuasi",
+"pk": 17975,
+"lat": -27.03375,
+"lon": -68.296806,
+"altitude": 6621.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Yerupajá",
+"pk": 17865,
+"lat": -10.267361,
+"lon": -76.905694,
+"altitude": 6617.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tupungato",
+"pk": 17801,
+"lat": -33.358472,
+"lon": -69.770694,
+"altitude": 6570.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Sajama",
+"pk": 17816,
+"lat": -18.108472,
+"lon": -68.882917,
+"altitude": 6550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán El Muerto",
+"pk": 18768,
+"lat": -27.057917,
+"lon": -68.484583,
+"altitude": 6510.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Antofalla",
+"pk": 17852,
+"lat": -25.562917,
+"lon": -67.88125,
+"altitude": 6440.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Illimani",
+"pk": 17866,
+"lat": -16.654306,
+"lon": -67.784583,
+"altitude": 6438.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Veladero",
+"pk": 18414,
+"lat": -28.072917,
+"lon": -68.977361,
+"altitude": 6436.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ancohuma",
+"pk": 17815,
+"lat": -15.854306,
+"lon": -68.541806,
+"altitude": 6427.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Coropuna",
+"pk": 17821,
+"lat": -15.545972,
+"lon": -72.660417,
+"altitude": 6425.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro El Cóndor",
+"pk": 17910,
+"lat": -26.632361,
+"lon": -68.360694,
+"altitude": 6414.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huandoy",
+"pk": 17973,
+"lat": -9.028472,
+"lon": -77.665139,
+"altitude": 6395.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ramada",
+"pk": 18236,
+"lat": -32.082639,
+"lon": -70.018194,
+"altitude": 6384.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cachi",
+"pk": 17833,
+"lat": -24.932361,
+"lon": -66.390417,
+"altitude": 6380.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ausangate",
+"pk": 17845,
+"lat": -13.788194,
+"lon": -71.229306,
+"altitude": 6372.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huantsan",
+"pk": 17965,
+"lat": -9.514306,
+"lon": -77.311528,
+"altitude": 6369.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chopicalqui",
+"pk": 20176,
+"lat": -9.08875,
+"lon": -77.574583,
+"altitude": 6345.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Siula Grande",
+"pk": 20740,
+"lat": -10.293472,
+"lon": -76.892361,
+"altitude": 6344.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Parinacota",
+"pk": 17847,
+"lat": -18.165972,
+"lon": -69.141528,
+"altitude": 6342.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ampato",
+"pk": 17849,
+"lat": -15.820972,
+"lon": -71.880139,
+"altitude": 6288.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Pomerape",
+"pk": 18940,
+"lat": -18.127639,
+"lon": -69.129306,
+"altitude": 6282.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Reclus",
+"pk": 19618,
+"lat": -27.918194,
+"lon": -68.932917,
+"altitude": 6275.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Salcantay",
+"pk": 17811,
+"lat": -13.333194,
+"lon": -72.543472,
+"altitude": 6271.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chimborazo",
+"pk": 17791,
+"lat": -1.469028,
+"lon": -78.817917,
+"altitude": 6270.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Majadita",
+"pk": 17835,
+"lat": -30.420417,
+"lon": -69.78125,
+"altitude": 6266.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Santa Cruz",
+"pk": 18136,
+"lat": -8.894028,
+"lon": -77.709583,
+"altitude": 6241.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tres Quebradas",
+"pk": 17971,
+"lat": -27.30125,
+"lon": -68.808472,
+"altitude": 6239.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pular",
+"pk": 3064,
+"lat": -24.200972,
+"lon": -68.066806,
+"altitude": 6233.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chinchey",
+"pk": 20651,
+"lat": -9.381528,
+"lon": -77.330694,
+"altitude": 6222.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Olivares",
+"pk": 18134,
+"lat": -30.299028,
+"lon": -69.900694,
+"altitude": 6216.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Solo",
+"pk": 20362,
+"lat": -27.104861,
+"lon": -68.713194,
+"altitude": 6205.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Copa",
+"pk": 18111,
+"lat": -9.269583,
+"lon": -77.48125,
+"altitude": 6188.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro La Mesa",
+"pk": 18811,
+"lat": -32.06375,
+"lon": -70.115972,
+"altitude": 6180.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Aucanquilcha",
+"pk": 3062,
+"lat": -21.220972,
+"lon": -68.468194,
+"altitude": 6176.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro El Toro",
+"pk": 17864,
+"lat": -29.130139,
+"lon": -69.786806,
+"altitude": 6168.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ranrapalca",
+"pk": 19031,
+"lat": -9.41125,
+"lon": -77.416806,
+"altitude": 6162.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tortolas",
+"pk": 18064,
+"lat": -29.939306,
+"lon": -69.907083,
+"altitude": 6160.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Hualcán",
+"pk": 20057,
+"lat": -9.204028,
+"lon": -77.518194,
+"altitude": 6160.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Alto",
+"pk": 18973,
+"lat": -33.469306,
+"lon": -69.815139,
+"altitude": 6148.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán El Ermitaño",
+"pk": 18099,
+"lat": -26.784306,
+"lon": -68.60125,
+"altitude": 6146.0,
+"source": "andes.org.uk"
+},
+{
+"name": "San Pedro",
+"pk": 3063,
+"lat": -21.887639,
+"lon": -68.391528,
+"altitude": 6145.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Sierra Nevada",
+"pk": 18105,
+"lat": -26.490972,
+"lon": -68.559583,
+"altitude": 6140.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Queva",
+"pk": 17921,
+"lat": -24.308194,
+"lon": -66.732361,
+"altitude": 6140.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Colanguil",
+"pk": 17966,
+"lat": -29.597917,
+"lon": -69.458472,
+"altitude": 6122.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Barrancas Blancas",
+"pk": 18523,
+"lat": -26.99125,
+"lon": -68.665694,
+"altitude": 6119.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Callangate",
+"pk": 19803,
+"lat": -13.732361,
+"lon": -71.16125,
+"altitude": 6110.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán San Pablo",
+"pk": 19520,
+"lat": -21.882917,
+"lon": -68.343194,
+"altitude": 6110.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Marmolejo",
+"pk": 17834,
+"lat": -33.735139,
+"lon": -69.878194,
+"altitude": 6108.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Jatunriti",
+"pk": 18350,
+"lat": -13.725139,
+"lon": -71.082083,
+"altitude": 6106.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chearoco",
+"pk": 18569,
+"lat": -15.962917,
+"lon": -68.410694,
+"altitude": 6104.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Famatina",
+"pk": 17802,
+"lat": -29.014028,
+"lon": -67.82625,
+"altitude": 6097.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Aracar",
+"pk": 17881,
+"lat": -24.290139,
+"lon": -67.783472,
+"altitude": 6095.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Jatunhuma",
+"pk": 20818,
+"lat": -13.745972,
+"lon": -71.137361,
+"altitude": 6093.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Solimana",
+"pk": 18050,
+"lat": -15.409306,
+"lon": -72.894028,
+"altitude": 6093.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huayna Potosí",
+"pk": 18301,
+"lat": -16.262639,
+"lon": -68.15375,
+"altitude": 6088.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerros Colorados",
+"pk": 18589,
+"lat": -26.177917,
+"lon": -68.38125,
+"altitude": 6080.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chachani",
+"pk": 17850,
+"lat": -16.195139,
+"lon": -71.532083,
+"altitude": 6075.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Baboso",
+"pk": 21469,
+"lat": -28.008472,
+"lon": -68.909861,
+"altitude": 6070.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Cerro Negro",
+"pk": 18465,
+"lat": -33.449861,
+"lon": -69.702639,
+"altitude": 6070.0,
+"source": "andes.org.uk"
+},
+{
+"name": "El Plomo",
+"pk": 17980,
+"lat": -33.10375,
+"lon": -70.065972,
+"altitude": 6070.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Vicuñas",
+"pk": 20174,
+"lat": -27.023472,
+"lon": -68.614583,
+"altitude": 6067.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Guallatiri",
+"pk": 18015,
+"lat": -18.424306,
+"lon": -69.090417,
+"altitude": 6063.0,
+"source": "andes.org.uk"
+},
+{
+"name": "El Fraile",
+"pk": 19555,
+"lat": -27.043194,
+"lon": -68.38125,
+"altitude": 6061.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Acotango",
+"pk": 19205,
+"lat": -18.382917,
+"lon": -69.048472,
+"altitude": 6052.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Copiapó",
+"pk": 17896,
+"lat": -27.30625,
+"lon": -69.131528,
+"altitude": 6052.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Socompa",
+"pk": 3065,
+"lat": -24.39625,
+"lon": -68.245417,
+"altitude": 6051.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Yayamari",
+"pk": 20245,
+"lat": -13.768472,
+"lon": -70.982917,
+"altitude": 6049.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Acamarachi",
+"pk": 37,
+"lat": -23.292917,
+"lon": -67.617917,
+"altitude": 6046.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chaupi Orco",
+"pk": 17949,
+"lat": -14.65625,
+"lon": -69.229583,
+"altitude": 6044.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado San Francisco",
+"pk": 18395,
+"lat": -26.919861,
+"lon": -68.263194,
+"altitude": 6038.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Quitaraju",
+"pk": 20598,
+"lat": -8.894583,
+"lon": -77.665417,
+"altitude": 6036.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Palpana",
+"pk": 17854,
+"lat": -21.538472,
+"lon": -68.522361,
+"altitude": 6035.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Salín",
+"pk": 17986,
+"lat": -24.328194,
+"lon": -68.067917,
+"altitude": 6029.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Hualca Hualca",
+"pk": 20686,
+"lat": -15.719306,
+"lon": -71.863194,
+"altitude": 6025.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Laguna Blanca",
+"pk": 17885,
+"lat": -26.530139,
+"lon": -67.059306,
+"altitude": 6012.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Uturunco",
+"pk": 18068,
+"lat": -22.264583,
+"lon": -67.187083,
+"altitude": 6008.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Alto Toroni",
+"pk": 17894,
+"lat": -19.752639,
+"lon": -68.696806,
+"altitude": 5995.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Polleras",
+"pk": 18048,
+"lat": -33.245417,
+"lon": -69.919028,
+"altitude": 5993.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Sairecabur",
+"pk": 33,
+"lat": -22.719028,
+"lon": -67.890417,
+"altitude": 5992.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pumasillo",
+"pk": 18207,
+"lat": -13.245972,
+"lon": -72.820694,
+"altitude": 5991.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Tacora",
+"pk": 17900,
+"lat": -17.720694,
+"lon": -69.772361,
+"altitude": 5980.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Contrahierbas",
+"pk": 18631,
+"lat": -9.106806,
+"lon": -77.490694,
+"altitude": 5954.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Juncal",
+"pk": 19357,
+"lat": -33.045139,
+"lon": -70.08625,
+"altitude": 5953.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Polapi",
+"pk": 18287,
+"lat": -21.64875,
+"lon": -68.393194,
+"altitude": 5949.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Paniri",
+"pk": 17917,
+"lat": -22.059583,
+"lon": -68.228194,
+"altitude": 5946.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Peñas Azules",
+"pk": 19773,
+"lat": -27.991806,
+"lon": -68.652083,
+"altitude": 5935.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Licancabur",
+"pk": 34,
+"lat": -22.834861,
+"lon": -67.882917,
+"altitude": 5930.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Aguas Calientes",
+"pk": 18290,
+"lat": -23.361528,
+"lon": -67.682083,
+"altitude": 5924.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Mulas Muertas",
+"pk": 18963,
+"lat": -26.950139,
+"lon": -68.510139,
+"altitude": 5921.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Piedra Parada",
+"pk": 19095,
+"lat": -26.450417,
+"lon": -68.739028,
+"altitude": 5920.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Humantay",
+"pk": 18344,
+"lat": -13.360972,
+"lon": -72.59375,
+"altitude": 5917.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Miñiques",
+"pk": 3066,
+"lat": -23.816528,
+"lon": -67.758194,
+"altitude": 5910.0,
+"source": "manual measurement from Freemap Slovakia"
+},
+{
+"name": "Cerro del Toro",
+"pk": 20360,
+"lat": -26.607083,
+"lon": -68.631806,
+"altitude": 5909.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Falso Azufre",
+"pk": 18575,
+"lat": -26.800139,
+"lon": -68.361806,
+"altitude": 5906.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chucula",
+"pk": 18470,
+"lat": -26.767083,
+"lon": -67.997639,
+"altitude": 5900.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cotopaxi",
+"pk": 17817,
+"lat": -0.680417,
+"lon": -78.438194,
+"altitude": 5897.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Ticlla",
+"pk": 18179,
+"lat": -12.259306,
+"lon": -75.959306,
+"altitude": 5897.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Puntas Negras",
+"pk": 18163,
+"lat": -23.745694,
+"lon": -67.540139,
+"altitude": 5890.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Laguna Verde",
+"pk": 18949,
+"lat": -26.802639,
+"lon": -68.507083,
+"altitude": 5872.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Jotabeche",
+"pk": 18297,
+"lat": -27.698194,
+"lon": -69.217917,
+"altitude": 5870.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Mururata",
+"pk": 18274,
+"lat": -16.520417,
+"lon": -67.817083,
+"altitude": 5869.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Ollagüe",
+"pk": 17912,
+"lat": -21.30625,
+"lon": -68.17875,
+"altitude": 5868.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Casiri",
+"pk": 19043,
+"lat": -18.041806,
+"lon": -69.074028,
+"altitude": 5857.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán San José",
+"pk": 19956,
+"lat": -33.789306,
+"lon": -69.895694,
+"altitude": 5856.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ananea",
+"pk": 18389,
+"lat": -14.617083,
+"lon": -69.420417,
+"altitude": 5853.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Peinado",
+"pk": 18044,
+"lat": -26.622639,
+"lon": -68.115694,
+"altitude": 5850.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tinte",
+"pk": 19409,
+"lat": -22.654861,
+"lon": -67.01375,
+"altitude": 5849.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro del Azufre (2)",
+"pk": 18178,
+"lat": -21.783194,
+"lon": -68.239306,
+"altitude": 5848.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro San Lorenzo",
+"pk": 20625,
+"lat": -30.214861,
+"lon": -69.862083,
+"altitude": 5841.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Putre",
+"pk": 18183,
+"lat": -18.112917,
+"lon": -69.507917,
+"altitude": 5840.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tomasamil",
+"pk": 17940,
+"lat": -21.292639,
+"lon": -67.96875,
+"altitude": 5840.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tebenquicho",
+"pk": 17944,
+"lat": -25.351528,
+"lon": -67.646806,
+"altitude": 5837.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Misti",
+"pk": 17882,
+"lat": -16.29625,
+"lon": -71.410972,
+"altitude": 5822.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Pastos Grandes",
+"pk": 18209,
+"lat": -21.750139,
+"lon": -67.839028,
+"altitude": 5820.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Sahuasiray",
+"pk": 18078,
+"lat": -13.213472,
+"lon": -71.988472,
+"altitude": 5818.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Tutupaca",
+"pk": 18187,
+"lat": -17.025694,
+"lon": -70.372083,
+"altitude": 5815.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tocorpuri",
+"pk": 19383,
+"lat": -22.436528,
+"lon": -67.890972,
+"altitude": 5808.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Allincapac",
+"pk": 18371,
+"lat": -13.908194,
+"lon": -70.41625,
+"altitude": 5805.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huanacuni",
+"pk": 20448,
+"lat": -14.849306,
+"lon": -69.155694,
+"altitude": 5796.0,
+"source": "andes.org.uk"
+},
+{
+"name": "de la Aguada",
+"pk": 20118,
+"lat": -25.679028,
+"lon": -67.895139,
+"altitude": 5795.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Lejía",
+"pk": 18230,
+"lat": -23.555139,
+"lon": -67.764306,
+"altitude": 5793.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Puquintica",
+"pk": 17993,
+"lat": -18.738472,
+"lon": -68.977917,
+"altitude": 5790.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cayambe",
+"pk": 17837,
+"lat": 0.025417,
+"lon": -77.989028,
+"altitude": 5790.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado León Muerto",
+"pk": 18688,
+"lat": -26.099306,
+"lon": -68.532639,
+"altitude": 5785.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Quimsachata",
+"pk": 20348,
+"lat": -19.74375,
+"lon": -68.811528,
+"altitude": 5785.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Lila",
+"pk": 18331,
+"lat": -25.556528,
+"lon": -68.073472,
+"altitude": 5780.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Cajeros",
+"pk": 19592,
+"lat": -25.628194,
+"lon": -68.007917,
+"altitude": 5780.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Llongote",
+"pk": 18851,
+"lat": -12.332639,
+"lon": -75.949583,
+"altitude": 5780.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Onas",
+"pk": 19464,
+"lat": -25.445972,
+"lon": -68.004028,
+"altitude": 5780.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Arizar",
+"pk": 19640,
+"lat": -24.417361,
+"lon": -67.987639,
+"altitude": 5774.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Quishuar",
+"pk": 18500,
+"lat": -13.377639,
+"lon": -72.741806,
+"altitude": 5771.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Toconquis",
+"pk": 18453,
+"lat": -25.885694,
+"lon": -67.084028,
+"altitude": 5770.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Excelsior",
+"pk": 19397,
+"lat": -33.060417,
+"lon": -69.559306,
+"altitude": 5770.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Negro de La Laguna Verde",
+"pk": 18620,
+"lat": -27.707361,
+"lon": -68.545972,
+"altitude": 5764.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Aguas Blancas",
+"pk": 18176,
+"lat": -25.706528,
+"lon": -68.478194,
+"altitude": 5761.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Patos",
+"pk": 18479,
+"lat": -25.448472,
+"lon": -68.094028,
+"altitude": 5761.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro del León",
+"pk": 18112,
+"lat": -22.141528,
+"lon": -68.10625,
+"altitude": 5760.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Salle",
+"pk": 18622,
+"lat": -22.487361,
+"lon": -66.774583,
+"altitude": 5760.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Antisana",
+"pk": 17908,
+"lat": -0.484861,
+"lon": -78.142361,
+"altitude": 5758.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Colorado",
+"pk": 20134,
+"lat": -22.592083,
+"lon": -67.922083,
+"altitude": 5748.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Champara",
+"pk": 17998,
+"lat": -8.685972,
+"lon": -77.790417,
+"altitude": 5735.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcan Quetena",
+"pk": 18710,
+"lat": -22.260972,
+"lon": -67.415417,
+"altitude": 5730.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tunshu",
+"pk": 18623,
+"lat": -11.89375,
+"lon": -75.984028,
+"altitude": 5730.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Paroma",
+"pk": 18022,
+"lat": -20.93875,
+"lon": -68.412917,
+"altitude": 5728.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro San Miguel (2)",
+"pk": 19466,
+"lat": -24.536806,
+"lon": -66.13125,
+"altitude": 5715.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Negro (9)",
+"pk": 20999,
+"lat": -22.222083,
+"lon": -67.871528,
+"altitude": 5708.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Santa Rosa",
+"pk": 18718,
+"lat": -10.48625,
+"lon": -76.722361,
+"altitude": 5706.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Lastarria",
+"pk": 18518,
+"lat": -25.168472,
+"lon": -68.507361,
+"altitude": 5705.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Juriques",
+"pk": 18889,
+"lat": -22.84625,
+"lon": -67.824861,
+"altitude": 5704.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Granada",
+"pk": 18438,
+"lat": -22.557917,
+"lon": -66.544583,
+"altitude": 5697.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Araral",
+"pk": 18189,
+"lat": -21.604583,
+"lon": -68.180417,
+"altitude": 5688.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Mururaju",
+"pk": 18675,
+"lat": -9.807639,
+"lon": -77.244583,
+"altitude": 5688.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Yarupac",
+"pk": 19355,
+"lat": -10.462361,
+"lon": -76.77375,
+"altitude": 5685.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Caullaraju",
+"pk": 19663,
+"lat": -9.952083,
+"lon": -77.244028,
+"altitude": 5682.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Mojónes",
+"pk": 18143,
+"lat": -25.654028,
+"lon": -67.35625,
+"altitude": 5680.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Convento",
+"pk": 20821,
+"lat": -22.91625,
+"lon": -66.584583,
+"altitude": 5680.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Vilama",
+"pk": 21281,
+"lat": -22.540694,
+"lon": -66.972917,
+"altitude": 5678.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Choquetacarpo",
+"pk": 18241,
+"lat": -13.231528,
+"lon": -73.090972,
+"altitude": 5660.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tumisa",
+"pk": 18148,
+"lat": -23.460139,
+"lon": -67.809861,
+"altitude": 5658.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pichu Pichu",
+"pk": 18133,
+"lat": -16.442083,
+"lon": -71.237917,
+"altitude": 5655.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Aguas Dulces",
+"pk": 20865,
+"lat": -26.287639,
+"lon": -68.204028,
+"altitude": 5650.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pico Condoriri",
+"pk": 21030,
+"lat": -16.167917,
+"lon": -68.242083,
+"altitude": 5648.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Doña Ana",
+"pk": 18120,
+"lat": -29.761528,
+"lon": -70.110139,
+"altitude": 5648.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chela",
+"pk": 18056,
+"lat": -21.406806,
+"lon": -68.501806,
+"altitude": 5644.0,
+"source": "andes.org.uk"
+},
+{
+"name": "dos Hermanas",
+"pk": 20097,
+"lat": -27.543194,
+"lon": -68.972639,
+"altitude": 5641.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Colachi",
+"pk": 21530,
+"lat": -23.240694,
+"lon": -67.64625,
+"altitude": 5631.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Ubinas",
+"pk": 18372,
+"lat": -16.348472,
+"lon": -70.902083,
+"altitude": 5630.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Archibarca",
+"pk": 18196,
+"lat": -25.237917,
+"lon": -67.865417,
+"altitude": 5629.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Inacaliri",
+"pk": 18586,
+"lat": -21.980694,
+"lon": -68.069583,
+"altitude": 5626.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro del Inca",
+"pk": 18721,
+"lat": -21.794306,
+"lon": -68.06125,
+"altitude": 5624.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Cachi Laguna",
+"pk": 19266,
+"lat": -21.689028,
+"lon": -67.890694,
+"altitude": 5620.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Zapaleri",
+"pk": 19319,
+"lat": -22.809306,
+"lon": -67.178194,
+"altitude": 5620.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Inca",
+"pk": 19367,
+"lat": -24.599583,
+"lon": -68.492917,
+"altitude": 5620.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chila",
+"pk": 18723,
+"lat": -15.405972,
+"lon": -72.166806,
+"altitude": 5620.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Lliscaya",
+"pk": 18201,
+"lat": -18.890694,
+"lon": -68.911528,
+"altitude": 5616.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Punillla",
+"pk": 18343,
+"lat": -28.305139,
+"lon": -69.015417,
+"altitude": 5612.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Rincón",
+"pk": 18322,
+"lat": -24.033194,
+"lon": -67.322639,
+"altitude": 5608.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Negro (2)",
+"pk": 18724,
+"lat": -25.032083,
+"lon": -68.379028,
+"altitude": 5606.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Miscanti",
+"pk": 19255,
+"lat": -23.67375,
+"lon": -67.71625,
+"altitude": 5605.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Guacha",
+"pk": 19842,
+"lat": -22.682639,
+"lon": -67.444306,
+"altitude": 5599.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Mismi",
+"pk": 19189,
+"lat": -15.519028,
+"lon": -71.684583,
+"altitude": 5598.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Arintica",
+"pk": 18849,
+"lat": -18.745972,
+"lon": -69.047361,
+"altitude": 5597.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Los Amarillos",
+"pk": 18293,
+"lat": -29.293194,
+"lon": -70.000694,
+"altitude": 5593.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Aguilucho",
+"pk": 20774,
+"lat": -21.829306,
+"lon": -68.202083,
+"altitude": 5581.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Guayaques",
+"pk": 20227,
+"lat": -22.898194,
+"lon": -67.567917,
+"altitude": 5577.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Raria",
+"pk": 19937,
+"lat": -9.82125,
+"lon": -77.207639,
+"altitude": 5576.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chuquiananta",
+"pk": 18418,
+"lat": -18.915972,
+"lon": -69.151806,
+"altitude": 5575.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Lirima",
+"pk": 21333,
+"lat": -19.759306,
+"lon": -68.862083,
+"altitude": 5572.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro de La Flecha",
+"pk": 18745,
+"lat": -28.776806,
+"lon": -69.662361,
+"altitude": 5570.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Leoncito",
+"pk": 18628,
+"lat": -24.162639,
+"lon": -67.817361,
+"altitude": 5568.0,
+"source": "andes.org.uk"
+},
+{
+"name": "San Roque",
+"pk": 19329,
+"lat": -17.059028,
+"lon": -67.240139,
+"altitude": 5550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chorolque",
+"pk": 17967,
+"lat": -20.91875,
+"lon": -66.03625,
+"altitude": 5550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Jolljepunco",
+"pk": 19415,
+"lat": -13.505972,
+"lon": -71.224861,
+"altitude": 5550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Colorado (12)",
+"pk": 21502,
+"lat": -26.043194,
+"lon": -67.170972,
+"altitude": 5550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Isluga",
+"pk": 18460,
+"lat": -19.155417,
+"lon": -68.820139,
+"altitude": 5550.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Abra Grande",
+"pk": 19188,
+"lat": -25.46125,
+"lon": -68.297917,
+"altitude": 5540.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Laguna Verde (2)",
+"pk": 19085,
+"lat": -22.757361,
+"lon": -67.756528,
+"altitude": 5531.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Quisiquisini",
+"pk": 19195,
+"lat": -18.236528,
+"lon": -69.048472,
+"altitude": 5530.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chicón",
+"pk": 19342,
+"lat": -13.231528,
+"lon": -72.057917,
+"altitude": 5530.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcan",
+"pk": 18142,
+"lat": -30.481806,
+"lon": -70.266806,
+"altitude": 5527.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Mesada Negra",
+"pk": 21439,
+"lat": -22.450694,
+"lon": -66.882083,
+"altitude": 5527.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tiquimani",
+"pk": 19313,
+"lat": -16.199028,
+"lon": -68.087361,
+"altitude": 5519.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Rayado",
+"pk": 20790,
+"lat": -23.17625,
+"lon": -67.689861,
+"altitude": 5510.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Yucamane",
+"pk": 21635,
+"lat": -17.184583,
+"lon": -70.19625,
+"altitude": 5508.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Sara Sara",
+"pk": 17839,
+"lat": -15.329583,
+"lon": -73.445972,
+"altitude": 5505.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chulluncani",
+"pk": 18888,
+"lat": -21.564028,
+"lon": -67.855694,
+"altitude": 5500.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Pabellón",
+"pk": 20028,
+"lat": -22.332083,
+"lon": -67.76375,
+"altitude": 5498.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro del Azufre",
+"pk": 18026,
+"lat": -25.374028,
+"lon": -68.883472,
+"altitude": 5488.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tuzgle",
+"pk": 18519,
+"lat": -24.056806,
+"lon": -66.479028,
+"altitude": 5486.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Rosado",
+"pk": 20020,
+"lat": -24.769583,
+"lon": -68.387917,
+"altitude": 5483.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Milluacocha",
+"pk": 21613,
+"lat": -8.802361,
+"lon": -77.735417,
+"altitude": 5480.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Ascotán",
+"pk": 18926,
+"lat": -21.678194,
+"lon": -68.117639,
+"altitude": 5478.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Aguas Blancas (2)",
+"pk": 20947,
+"lat": -27.784861,
+"lon": -69.340417,
+"altitude": 5475.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Vidal Gormaz",
+"pk": 20287,
+"lat": -27.77125,
+"lon": -69.08875,
+"altitude": 5470.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Imán",
+"pk": 18282,
+"lat": -29.233194,
+"lon": -69.472639,
+"altitude": 5467.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Calalaste",
+"pk": 19045,
+"lat": -25.774028,
+"lon": -67.570694,
+"altitude": 5466.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Huayanay",
+"pk": 20166,
+"lat": -13.324028,
+"lon": -72.382083,
+"altitude": 5464.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Puripica",
+"pk": 20279,
+"lat": -22.672639,
+"lon": -67.626528,
+"altitude": 5464.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Cortaderal",
+"pk": 20733,
+"lat": -24.247083,
+"lon": -65.619306,
+"altitude": 5463.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Diamante (2)",
+"pk": 20387,
+"lat": -25.792639,
+"lon": -66.849583,
+"altitude": 5457.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Castillo (2)",
+"pk": 17950,
+"lat": -33.975694,
+"lon": -69.881528,
+"altitude": 5450.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cunurana",
+"pk": 21224,
+"lat": -14.547639,
+"lon": -70.831806,
+"altitude": 5443.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huayrahuiri",
+"pk": 21650,
+"lat": -14.975139,
+"lon": -72.204028,
+"altitude": 5438.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Mundo Khorihuarani",
+"pk": 18124,
+"lat": -19.802639,
+"lon": -66.479028,
+"altitude": 5438.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Verde",
+"pk": 18712,
+"lat": -33.237083,
+"lon": -70.21375,
+"altitude": 5436.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chuhuilla",
+"pk": 20397,
+"lat": -21.50125,
+"lon": -67.788472,
+"altitude": 5435.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tolosa",
+"pk": 20400,
+"lat": -32.767917,
+"lon": -70.037639,
+"altitude": 5432.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Cariquima",
+"pk": 18132,
+"lat": -19.543472,
+"lon": -68.670417,
+"altitude": 5432.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Inti Pasto",
+"pk": 18482,
+"lat": -21.392083,
+"lon": -67.90625,
+"altitude": 5426.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Laguna Pedernal",
+"pk": 20332,
+"lat": -25.344861,
+"lon": -68.290972,
+"altitude": 5423.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Caltama",
+"pk": 18004,
+"lat": -20.635417,
+"lon": -68.109306,
+"altitude": 5421.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chuscha",
+"pk": 18348,
+"lat": -26.149306,
+"lon": -66.230139,
+"altitude": 5420.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Toconce",
+"pk": 21277,
+"lat": -22.19375,
+"lon": -68.072361,
+"altitude": 5419.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Amparay",
+"pk": 21225,
+"lat": -13.402639,
+"lon": -72.667917,
+"altitude": 5418.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tridente",
+"pk": 19121,
+"lat": -26.286806,
+"lon": -68.557361,
+"altitude": 5417.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ritacuba Blanco",
+"pk": 17794,
+"lat": 6.494306,
+"lon": -72.297639,
+"altitude": 5410.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Loma Larga",
+"pk": 18164,
+"lat": -33.687083,
+"lon": -69.993194,
+"altitude": 5404.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Curutú",
+"pk": 18624,
+"lat": -23.17625,
+"lon": -67.059306,
+"altitude": 5398.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chacaltaya",
+"pk": 21480,
+"lat": -16.349583,
+"lon": -68.127361,
+"altitude": 5395.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cosapilla",
+"pk": 21054,
+"lat": -17.851528,
+"lon": -69.40125,
+"altitude": 5386.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Colina",
+"pk": 20546,
+"lat": -33.963194,
+"lon": -69.853194,
+"altitude": 5385.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Alcay",
+"pk": 20929,
+"lat": -11.295972,
+"lon": -76.472917,
+"altitude": 5375.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Panteón de Aliste",
+"pk": 21321,
+"lat": -26.285139,
+"lon": -68.835694,
+"altitude": 5373.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Losloyo",
+"pk": 18722,
+"lat": -23.139861,
+"lon": -67.350694,
+"altitude": 5370.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Brajma",
+"pk": 20427,
+"lat": -22.722083,
+"lon": -67.128194,
+"altitude": 5356.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Colorado (10)",
+"pk": 21031,
+"lat": -22.567361,
+"lon": -66.60875,
+"altitude": 5355.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Balansani",
+"pk": 21564,
+"lat": -14.039028,
+"lon": -70.209861,
+"altitude": 5354.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Terijuay",
+"pk": 18871,
+"lat": -13.007083,
+"lon": -72.184028,
+"altitude": 5350.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Aricoma",
+"pk": 21116,
+"lat": -14.312083,
+"lon": -69.783472,
+"altitude": 5350.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Alitar",
+"pk": 21562,
+"lat": -23.144306,
+"lon": -67.637917,
+"altitude": 5346.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Rabicano",
+"pk": 20683,
+"lat": -33.314028,
+"lon": -69.98375,
+"altitude": 5334.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Millpo",
+"pk": 21642,
+"lat": -10.467639,
+"lon": -76.854028,
+"altitude": 5330.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pico Calingasta",
+"pk": 20280,
+"lat": -31.269306,
+"lon": -70.201528,
+"altitude": 5330.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Huacani",
+"pk": 21536,
+"lat": -15.933472,
+"lon": -71.515417,
+"altitude": 5321.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Mellado",
+"pk": 19637,
+"lat": -24.593194,
+"lon": -68.267639,
+"altitude": 5317.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Lagunas Bravas",
+"pk": 19666,
+"lat": -26.291528,
+"lon": -68.642639,
+"altitude": 5315.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Guanacero",
+"pk": 18477,
+"lat": -24.289306,
+"lon": -67.447917,
+"altitude": 5314.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Blanco",
+"pk": 20070,
+"lat": -24.625139,
+"lon": -68.029028,
+"altitude": 5313.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Lalaccotuna",
+"pk": 18588,
+"lat": -11.876528,
+"lon": -74.840972,
+"altitude": 5312.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Ananta",
+"pk": 20251,
+"lat": -13.794583,
+"lon": -70.619028,
+"altitude": 5305.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro del Agua",
+"pk": 19472,
+"lat": -26.665139,
+"lon": -68.871528,
+"altitude": 5301.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Choquelimpie",
+"pk": 20992,
+"lat": -18.252361,
+"lon": -69.225139,
+"altitude": 5298.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pico Guardián",
+"pk": 20641,
+"lat": 10.787917,
+"lon": -73.63625,
+"altitude": 5285.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chihuana",
+"pk": 18046,
+"lat": -21.104306,
+"lon": -67.864306,
+"altitude": 5279.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Pajonales",
+"pk": 20203,
+"lat": -26.222917,
+"lon": -68.619306,
+"altitude": 5268.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chivato",
+"pk": 18974,
+"lat": -29.525972,
+"lon": -69.81125,
+"altitude": 5264.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Maipo",
+"pk": 17982,
+"lat": -34.16375,
+"lon": -69.831528,
+"altitude": 5264.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Desfiladero",
+"pk": 21252,
+"lat": -30.293472,
+"lon": -70.199306,
+"altitude": 5264.0,
+"source": "andes.org.uk"
+},
+{
+"name": "de la Peña",
+"pk": 18169,
+"lat": -25.071806,
+"lon": -68.71375,
+"altitude": 5262.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Belén",
+"pk": 19277,
+"lat": -18.490694,
+"lon": -69.421528,
+"altitude": 5260.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Ratones",
+"pk": 18790,
+"lat": -25.243194,
+"lon": -66.879583,
+"altitude": 5252.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tatajachuri",
+"pk": 18200,
+"lat": -19.49625,
+"lon": -69.102361,
+"altitude": 5252.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Illiniza Sur",
+"pk": 17905,
+"lat": -0.662917,
+"lon": -78.715972,
+"altitude": 5245.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tirani",
+"pk": 18834,
+"lat": -20.625139,
+"lon": -68.314306,
+"altitude": 5239.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Gemelos",
+"pk": 19078,
+"lat": -32.881528,
+"lon": -70.00625,
+"altitude": 5229.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Cenizo",
+"pk": 20519,
+"lat": -27.858194,
+"lon": -68.460417,
+"altitude": 5227.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Come Caballos",
+"pk": 19251,
+"lat": -28.227083,
+"lon": -69.392083,
+"altitude": 5224.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Colorado (7)",
+"pk": 19973,
+"lat": -24.06625,
+"lon": -66.594028,
+"altitude": 5223.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Morado",
+"pk": 20217,
+"lat": -22.918472,
+"lon": -65.187917,
+"altitude": 5221.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Latarana",
+"pk": 19010,
+"lat": -19.311528,
+"lon": -68.956528,
+"altitude": 5210.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Sapajo",
+"pk": 18215,
+"lat": -19.947917,
+"lon": -68.312361,
+"altitude": 5208.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Porquesa",
+"pk": 20178,
+"lat": -19.962083,
+"lon": -68.736806,
+"altitude": 5190.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Caracari",
+"pk": 20548,
+"lat": -17.745972,
+"lon": -69.637083,
+"altitude": 5190.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Sosneado",
+"pk": 120,
+"lat": -34.755694,
+"lon": -69.97125,
+"altitude": 5189.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Canasita",
+"pk": 19406,
+"lat": -17.801806,
+"lon": -69.152083,
+"altitude": 5184.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Chila (2)",
+"pk": 20039,
+"lat": -17.209028,
+"lon": -69.722917,
+"altitude": 5184.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Towa",
+"pk": 19404,
+"lat": -20.47125,
+"lon": -68.401528,
+"altitude": 5183.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Quebrado",
+"pk": 18747,
+"lat": -25.275694,
+"lon": -68.756806,
+"altitude": 5180.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Coranzulí",
+"pk": 18895,
+"lat": -22.986806,
+"lon": -66.297917,
+"altitude": 5170.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Ubina",
+"pk": 18234,
+"lat": -20.457083,
+"lon": -66.366806,
+"altitude": 5150.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Utcohuarco",
+"pk": 21450,
+"lat": -11.73375,
+"lon": -74.949583,
+"altitude": 5149.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Napa",
+"pk": 18525,
+"lat": -20.517083,
+"lon": -68.666528,
+"altitude": 5145.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cono de la Isla",
+"pk": 19949,
+"lat": -25.738194,
+"lon": -68.690972,
+"altitude": 5126.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Caranhuaraso",
+"pk": 19985,
+"lat": -14.331806,
+"lon": -73.763194,
+"altitude": 5124.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Pabellón del Inca",
+"pk": 19155,
+"lat": -20.902083,
+"lon": -68.605972,
+"altitude": 5112.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Jagualulune",
+"pk": 18886,
+"lat": -19.977083,
+"lon": -68.377639,
+"altitude": 5110.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Vizcachera",
+"pk": 19523,
+"lat": -25.200694,
+"lon": -67.328194,
+"altitude": 5109.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Malcante",
+"pk": 17860,
+"lat": -25.077361,
+"lon": -65.851528,
+"altitude": 5102.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Azul (5)",
+"pk": 20123,
+"lat": -28.420139,
+"lon": -68.803194,
+"altitude": 5095.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Uquilla",
+"pk": 18941,
+"lat": -20.849583,
+"lon": -68.198472,
+"altitude": 5092.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Bayo Grande",
+"pk": 18587,
+"lat": -26.730694,
+"lon": -66.65625,
+"altitude": 5091.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Pastillitos",
+"pk": 19225,
+"lat": -27.147361,
+"lon": -69.190972,
+"altitude": 5090.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Colorado",
+"pk": 20982,
+"lat": -27.390139,
+"lon": -68.006806,
+"altitude": 5085.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Volcán Doña Inés",
+"pk": 18490,
+"lat": -26.080139,
+"lon": -69.18375,
+"altitude": 5075.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Kolligi",
+"pk": 18069,
+"lat": -20.661806,
+"lon": -67.756528,
+"altitude": 5074.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Aguas Calientes",
+"pk": 20156,
+"lat": -24.900972,
+"lon": -68.672083,
+"altitude": 5066.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Tazna",
+"pk": 18635,
+"lat": -20.628194,
+"lon": -66.200972,
+"altitude": 5054.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Fundición",
+"pk": 19913,
+"lat": -22.449583,
+"lon": -65.189306,
+"altitude": 5050.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Pacra",
+"pk": 18944,
+"lat": -8.415139,
+"lon": -77.841806,
+"altitude": 5049.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Yunque",
+"pk": 18741,
+"lat": -31.88125,
+"lon": -70.313194,
+"altitude": 5046.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Laguna",
+"pk": 18101,
+"lat": -34.11125,
+"lon": -69.627361,
+"altitude": 5034.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Negro (10)",
+"pk": 21120,
+"lat": -24.099583,
+"lon": -66.371528,
+"altitude": 5026.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Nevado Lazopata",
+"pk": 19325,
+"lat": -11.70625,
+"lon": -74.875139,
+"altitude": 5025.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Tungurahua",
+"pk": 17955,
+"lat": -1.470417,
+"lon": -78.444861,
+"altitude": 5023.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Casabindo",
+"pk": 19425,
+"lat": -22.955417,
+"lon": -66.137361,
+"altitude": 5021.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Cerro Chahualmayoc",
+"pk": 18313,
+"lat": -22.32625,
+"lon": -65.240139,
+"altitude": 5010.0,
+"source": "andes.org.uk"
+},
+{
+"name": "Risco Plateado",
+"pk": 3068,
+"lat": -34.918472,
+"lon": -69.994028,
+"altitude": 4999.0,
+"source": "andes.org.uk"
+}
+]

@@ -74,6 +74,20 @@ uv run --group lidar python lidar/changeset.py cmp.json db.json lidar/changesets
 uv run python manage.py apply_lidar_changeset lidar/changesets/NEW.json --dry-run   # then without, here and on amos
 ```
 
+The exact way, which supersedes the pooled `prominence.py`/`parents.py` above: the catchment
+engine floods the full 1 m grid in tiles and stitches them (`lidar/catchments.py`, tested against
+the one-piece flood in `lidar/test_catchments.py`). DMR 5.0's spikes are filtered first; tops
+whose ground reaches the edge of the data are flagged and keep the database's key col and parent.
+
+```bash
+cd lidar && uv run --project .. --group lidar python catchments.py dmr5 --out P10.json   # all of Slovakia: ~47 min, 10 workers
+CATCHMENTS=lidar/P10.json OUT=DIR uv run python manage.py shell < lidar/catchments_db.py # changesets + DIR/review.json
+uv run --group lidar python -m unittest lidar/test_catchments.py
+```
+
+`lidar/tiled.py` is the same idea on Copernicus at 1″ for whole continents (South America:
+`lidar/southamerica/README.md`).
+
 Beyond the border, Copernicus GLO-30 fills in (a 30 m surface model, forest canopy included):
 anything it decides is flagged less precise. Names come from an OpenStreetMap extract (what
 Freemap draws). `apply_lidar_changeset` is idempotent and checks each point's name before

@@ -44,9 +44,6 @@ class Command(BaseCommand):
 
     def handle(self, path, dry_run=False, author=None, **options):
         data = json.load(open(path))
-        self.languages = {lang.iso639_1: lang for lang in Language.objects.all()}
-        self.datums = {d.code: d for d in VerticalDatum.objects.all()}
-        self.countries = {c.code: c for c in Country.objects.all()}
         self.lidar = Source.objects.get_or_create(name=data['sources']['lidar'])[0]
         self.osm = Source.objects.get_or_create(name=data['sources']['names'])[0]
         self.author = (User.objects.get(username=author) if author
@@ -59,6 +56,10 @@ class Command(BaseCommand):
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
             with transaction.atomic():
+                self.reference(data.get('reference', {}))
+                self.languages = {lang.iso639_1: lang for lang in Language.objects.all()}
+                self.datums = {d.code: d for d in VerticalDatum.objects.all()}
+                self.countries = {c.code: c for c in Country.objects.all()}
                 # Splits and moves first, then relinks (which may free a col), then new summits
                 # (which may take one), names, and last the cols nothing needs any more.
                 new = self.new = {}
@@ -94,6 +95,21 @@ class Command(BaseCommand):
             f'{c["removed"]} cols removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted; '
             f'{c["skipped"]} skipped'))
 
+    def reference(self, ref):
+        """
+        Countries and languages a changeset's points need and a database may lack: created when
+        missing, left as they are when present (a person may have renamed them since).
+        """
+        for c in ref.get('countries', []):
+            if not Country.objects.filter(code=c['code']).exists():
+                Country.objects.create(code=c['code'], name=c['name'], full_name=c['full_name'],
+                                       english_name=c['english_name'])
+                self.stdout.write(f'  + country {c["code"]} {c["english_name"]}')
+        for lang in ref.get('languages', []):
+            if not Language.objects.filter(iso639_1=lang['iso639_1']).exists():
+                Language.objects.create(**lang)
+                self.stdout.write(f'  + language {lang["iso639_1"]} {lang["english_name"]}')
+
     # ------------------------------------------------------------------ summits
 
     def unique(self, name, what):
@@ -120,9 +136,12 @@ class Command(BaseCommand):
     def point(self, d, what):
         """A new NamedPoint, numbered if its name is taken; the plain name also a PointName."""
         name = self.unique(d['name'], what)
+        # A height from elsewhere than the changeset's own data (a published list) names its
+        # source, and its datum may be unknown.
         point = NamedPoint(name=name, location=Point(d['lon'], d['lat'], srid=4326),
-                           altitude=round(d['altitude'], 2), altitude_datum=self.datums[d['datum']],
-                           source=self.lidar)
+                           altitude=round(d['altitude'], 2),
+                           altitude_datum=self.datums[d['datum']] if d.get('datum') else None,
+                           source=Source.objects.get_or_create(name=d['source'])[0] if d.get('source') else self.lidar)
         point.full_clean()
         point.save()
         point.countries.set([self.countries[c] for c in d['countries'] if c in self.countries])
@@ -138,14 +157,17 @@ class Command(BaseCommand):
         old = Summit.objects.filter(point__location__dwithin=(here, SAME_PLACE)).select_related('point').first()
         if old:
             self.rename(old.point, s['name'], 'the summit')
-            if old.key_col and old.key_col.point:
+            if old.key_col and old.key_col.point and s.get('col'):
                 self.rename(old.key_col.point, s['col'].get('name'), 'its key col')
             self.stdout.write(f'  = {s["name"] or s["key"]}: already there as {old}')
             new[s['key']] = old
             self.counts['skipped'] += 1
             return
-        c = s['col']
-        if 'existing' in c:
+        c = s.get('col')
+        if s.get('island'):
+            # An island's high point: its key col is the sea.
+            col = None
+        elif 'existing' in c:
             # A col the DB has, freed by a relink: this summit is the one it is the key col of.
             col = Col.objects.filter(point__pk=c['existing']['point'], point__name=c['existing']['name'],
                                      key_for__isnull=True).first()
@@ -169,7 +191,7 @@ class Command(BaseCommand):
             parent = new.get(s['parent']['new'])
         # The prominence source goes with the parent: the database will not have one alone.
         summit = Summit(point=self.point(s, 'the summit'), key_col=col, prominence_parent=parent,
-                        prominence_source=self.lidar if parent else None)
+                        prominence_source=self.lidar if parent else None, island_high_point=bool(s.get('island')))
         try:
             summit.full_clean()
         except ValidationError as e:
@@ -182,7 +204,7 @@ class Command(BaseCommand):
         new[s['key']] = summit
         self.counts['summits'] += 1
         self.stdout.write(f'  + {summit.point} {s["altitude"]:.1f} m, P {s["prominence"]:.1f}, '
-                          f'key col {col.point}, parent {summit.prominence_parent}')
+                          f'key col {col.point if col else "the sea"}, parent {summit.prominence_parent}')
 
     # ------------------------------------------------------------------ names
 
@@ -312,21 +334,26 @@ class Command(BaseCommand):
         point = self.found(fix['point'], fix['name'])
         if point is None:
             return
-        here = Point(fix['lon'], fix['lat'], srid=4326)
-        # Without an altitude only the position moves: the height, its datum and its source stay.
+        # Without a position only the height changes; without an altitude only the position:
+        # the height, its datum and its source stay. A height from elsewhere than the lidar (a
+        # published list) names its `source`, and its `datum` may be null: unknown.
+        here = Point(fix['lon'], fix['lat'], srid=4326) if 'lat' in fix else point.location
         height = fix.get('altitude')
+        datum = self.datums[fix['datum']] if fix.get('datum') else None
+        source = Source.objects.get_or_create(name=fix['source'])[0] if fix.get('source') else self.lidar
         if point.location.distance(here) < 1e-7 and (height is None or (
-                point.altitude == height and point.altitude_datum and point.altitude_datum.code == fix['datum'])):
+                point.altitude == height and point.altitude_datum == datum and point.source == source)):
             self.counts['skipped'] += 1
             return
         was = f'{point.location.y:.6f}, {point.location.x:.6f}, {point.altitude} m'
         point.location = here
         if height is not None:
-            point.altitude, point.altitude_datum, point.source = height, self.datums[fix['datum']], self.lidar
+            point.altitude, point.altitude_datum, point.source = height, datum, source
         point.full_clean()
         point.save()
         self.counts['moved'] += 1
-        self.stdout.write(f'  + {point.name or point}: {was} -> {fix["lat"]:.6f}, {fix["lon"]:.6f}, {point.altitude} m')
+        self.stdout.write(f'  + {point.name or point}: {was} -> {here.y:.6f}, {here.x:.6f}, {point.altitude} m'
+                          + (f' ({point.source})' if point.source != self.lidar else ''))
 
     def relink(self, links):
         """
@@ -336,7 +363,7 @@ class Command(BaseCommand):
         def near(model, at):
             return model.objects.filter(point__location__dwithin=(Point(at['lon'], at['lat'], srid=4326),
                                                                   SAME_PLACE)).first()
-        todo = []
+        todo, created = [], []
         for link in links:
             # A summit or col this tooling created has no pk in common with the server: by position.
             summit = (near(Summit, link['summit_at']) if 'summit_at' in link
@@ -365,8 +392,13 @@ class Command(BaseCommand):
                 continue
             if not col.pk:
                 col = Col.objects.create(point=self.point(k['new'], f'the new key col of {summit.point}'))
+                created.append(col)
             todo.append((summit, col, parent))
+        # Each summit's own col, to give back if its relink is refused: the cols are let go of
+        # all at once below, so a refused summit would otherwise be left with none.
+        before = {s.pk: s.key_col_id for s, _, _ in todo}
         Summit.objects.filter(pk__in=[s.pk for s, _, _ in todo]).update(key_col=None)
+        refused = []
         for summit, col, parent in todo:
             summit.refresh_from_db()
             if parent is not None:
@@ -379,13 +411,24 @@ class Command(BaseCommand):
             except ValidationError as e:
                 # Left as it was, for a person: the change would break an invariant here.
                 self.stdout.write(f'  ! {summit.point}: {"; ".join(e.messages)} Not relinked.')
-                summit.refresh_from_db()
+                refused.append(summit)
                 self.counts['skipped'] += 1
                 continue
             summit.save()
             self.counts['relinked'] += 1
-            self.stdout.write(f'  + {summit.point}: key col {col.point}, parent {parent.point}, '
+            self.stdout.write(f'  + {summit.point}: key col {col.point}, parent {parent.point if parent else None}, '
                               f'P {summit.compute_prominence():.1f}')
+        for summit in refused:
+            old = before[summit.pk]
+            if old is not None and not Summit.objects.filter(key_col_id=old).exists():
+                Summit.objects.filter(pk=summit.pk).update(key_col_id=old)
+            elif old is not None:
+                self.stdout.write(f'  ! {summit.point}: its old key col went to another summit; left without one')
+        for col in created:
+            if not Summit.objects.filter(key_col=col).exists():
+                point = col.point
+                col.delete()
+                point.delete()
 
     def remove_col(self, at):
         """A col this tooling made that nothing needs any more: one it duplicated, say."""

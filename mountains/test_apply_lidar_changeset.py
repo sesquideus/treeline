@@ -206,6 +206,18 @@ class TieAndMoveTests(TestCase):
         self.assertIsNone(point.source)
         self.assertAlmostEqual(point.location.y, 49.2502)
 
+    def test_a_height_from_a_list_keeps_the_position_and_names_its_source(self):
+        point = self.kycera.point
+        data = dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), points=[
+            dict(point=point.pk, name='Kýčera', altitude=807.0, datum=None, source='andes.org.uk')])
+        ApplyTests.run_it(self, data)
+        point.refresh_from_db()
+        self.assertEqual(point.altitude, 807.0)
+        self.assertIsNone(point.altitude_datum)
+        self.assertEqual(point.source.name, 'andes.org.uk')
+        self.assertAlmostEqual(point.location.y, 49.25)
+        self.assertIn('1 skipped', ApplyTests.run_it(self, data))
+
 
 class KeyColTests(TestCase):
     """A summit given the key col the lidar shows; the col it had, given to the summit that owns it."""
@@ -239,6 +251,32 @@ class KeyColTests(TestCase):
         before = (Summit.objects.count(), NamedPoint.objects.count())
         ApplyTests.run_it(self, self.data())
         self.assertEqual((Summit.objects.count(), NamedPoint.objects.count()), before)
+
+
+class RefusedRelinkTests(TestCase):
+    """A relink the invariants refuse leaves the summit exactly as it was: its own key col too."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_country('sk')
+        cls.top = make_summit('Kráľova hoľa', 1944.9, 48.88, 20.14, key_col=make_col('Low', 300.0, 48.0, 20.0))
+        cls.javorinka = make_col('Javorinka', 942.0, 48.795843, 20.135847)
+        cls.fabova = make_summit('Fabova hoľa', 1439.3, 48.80, 20.10, key_col=cls.javorinka, prominence_parent=cls.top)
+        cls.small = make_summit('Kopa', 1100.0, 48.81, 20.11, key_col=make_col(None, 1090.0, 48.809, 20.109),
+                                prominence_parent=cls.fabova)
+
+    def test_the_summit_keeps_its_key_col(self):
+        # Kopa (P10) under Fabova hoľa is fine; Fabova hoľa (P497) under Kopa is not.
+        out = ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), relinks=[dict(
+            summit=self.fabova.pk, summit_name='Fabova hoľa', parent=dict(pk=self.small.pk, name='Kopa'),
+            key_col=dict(new=dict(lat=48.794998, lon=20.125914, altitude=928.3, datum='Bpv', name=None,
+                                  names=[], countries=['sk'])))]))
+        self.assertIn('Not relinked', out)
+        self.fabova.refresh_from_db()
+        self.assertEqual(self.fabova.key_col, self.javorinka)
+        self.assertEqual(self.fabova.prominence_parent, self.top)
+        self.assertFalse(Col.objects.filter(point__altitude=928.3).exists(), 'the col made for it is gone again')
 
 
 class TwinSwapTests(TestCase):
@@ -449,3 +487,54 @@ class RenameTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 renamed', ApplyTests.run_it(self, self.data()))
+
+
+class CopernicusTests(TestCase):
+    """South America from Copernicus: countries the database lacks, islands, heights from a list."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_language('es', 20)
+        make_country('cl')
+
+    def data(self):
+        return dict(
+            sources=dict(lidar='Copernicus GLO-30', names='OpenStreetMap'),
+            reference=dict(
+                countries=[dict(code='fk', name='Falkland Islands', full_name='Falkland Islands',
+                                english_name='Falkland Islands')],
+                languages=[dict(iso639_1='pt', country_code='br', name='Português', english_name='Portuguese',
+                                priority=25)]),
+            summits=[
+                dict(key='glo:-51.69,-58.83', lat=-51.691806, lon=-58.834514, name='Mount Usborne',
+                     names=[dict(lang='en', name='Mount Usborne', local=True)], altitude=703.2, datum='EGM2008',
+                     countries=['fk'], prominence=703.2, parent=None, island=True, notes=[]),
+                dict(key='glo:-27.11,-68.54', lat=-27.109722, lon=-68.541389, name='Ojos del Salado',
+                     names=[dict(lang='es', name='Ojos del Salado', local=True)], altitude=6893.0, datum=None,
+                     source='andes.org.uk', countries=['cl'], prominence=3684.1, parent=None, notes=[],
+                     col=dict(lat=-27.0, lon=-68.0, name=None, names=[], altitude=3208.9, datum='EGM2008',
+                              countries=['cl'], notes=[]))])
+
+    def test_islands_lists_and_new_countries(self):
+        ApplyTests.run_it(self, self.data())
+        usborne = Summit.objects.get(point__name='Mount Usborne')
+        self.assertTrue(usborne.island_high_point)
+        self.assertIsNone(usborne.key_col)
+        self.assertEqual(list(usborne.point.countries.values_list('code', flat=True)), ['fk'])
+        self.assertEqual(usborne.point.source.name, 'Copernicus GLO-30')
+        ojos = Summit.objects.get(point__name='Ojos del Salado')
+        self.assertEqual(ojos.point.source.name, 'andes.org.uk')
+        self.assertIsNone(ojos.point.altitude_datum)
+        self.assertEqual(ojos.key_col.point.altitude_datum.code, 'EGM2008')
+        self.assertEqual(ojos.key_col.point.source.name, 'Copernicus GLO-30')
+
+    def test_a_dry_run_leaves_no_countries_behind(self):
+        ApplyTests.run_it(self, self.data(), '--dry-run')
+        self.assertFalse(Summit.objects.filter(point__name='Mount Usborne').exists())
+        from core.models import Country
+        self.assertFalse(Country.objects.filter(code='fk').exists())
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 summits', ApplyTests.run_it(self, self.data()))
