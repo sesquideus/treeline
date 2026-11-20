@@ -4,7 +4,9 @@
     python3 lidar/southamerica/p100_changeset.py P100.json KNOWN.json OSM.json ADMIN0.geojson BURNED.json OUT.json
 
 - Heights: a list height burned into the mosaic (andes.org.uk, or the database's own) where the
-  top is one of those, else Copernicus GLO-30 (EGM2008).
+  top is one of those, else Copernicus GLO-30 (EGM2008) to 0.01 m. Not that the model is
+  accurate to a centimetre (it is to metres): rounded to 0.1 m, a summit and its parent a few
+  centimetres apart came out equal, and the database refuses a parent that is not higher.
 - Names: the nearest OSM peak within 500 m, each name given to one top only, and none a database
   summit within 2 km already has.
 - Parents: a database summit by where it stands (numbers are not shared with another database),
@@ -158,6 +160,9 @@ for k, cs in claims.items():
 
 burn = grid([(b['at'], b['now']) for b in burned], NCELL, lambda b: b[0])
 summits, stats = [], dict(named=0, list=0, island=0, edge=0)
+# Database summits that are parents here, with the highest height the flood has for the top
+# they stand for: see `raised` below.
+parent_tops = {}
 for x in sorted(new, key=lambda x: -x['prom']):
     cs = countries(x['lat'], x['lon'])
     lang = next((LANG[c] for c in cs if c in LANG), 'es')
@@ -171,15 +176,15 @@ for x in sorted(new, key=lambda x: -x['prom']):
         rec.update(altitude=float(lst), datum=None, source='andes.org.uk')
         stats['list'] += 1
     else:
-        rec.update(altitude=round(x['h'], 1), datum='EGM2008')
+        rec.update(altitude=round(x['h'], 2), datum='EGM2008')
     if name:
         stats['named'] += 1
     if x['island']:
         stats['island'] += 1
         rec.update(island=True, prominence=rec['altitude'], parent=None)
     else:
-        rec['prominence'] = round(rec['altitude'] - x['col_h'], 1)
-        rec['col'] = dict(lat=x['col'][0], lon=x['col'][1], name=None, names=[], altitude=round(x['col_h'], 1),
+        rec['prominence'] = round(rec['altitude'] - x['col_h'], 2)
+        rec['col'] = dict(lat=x['col'][0], lon=x['col'][1], name=None, names=[], altitude=round(x['col_h'], 2),
                           datum='EGM2008', countries=countries(*x['col']), notes=[])
         if x.get('edge'):
             stats['edge'] += 1
@@ -195,11 +200,67 @@ for x in sorted(new, key=lambda x: -x['prom']):
             # by number and where it stands: numbers are not shared with another database
             k = known_by_pk[p['db']['pk']]
             rec['parent'] = dict(at=[k['lat'], k['lon']])
+            if 'h' in p:
+                parent_tops.setdefault(k['pk'], []).append((p['h'], rec))
         else:
             rec['parent'] = dict(new=key(p))
     rec['notes'] = notes
     summits.append(rec)
 
-json.dump(dict(sources=dict(lidar='Copernicus GLO-30', names='OpenStreetMap'), summits=summits),
+# A database summit the database has lower than (or level with) a child the flood found for it
+# is raised to the flood's height of its top, where that is higher: a surface model at 30 m
+# misses a sharp summit far more often than it overshoots one, so of a list's height (or one
+# rounded to 0.1 m) and Copernicus's, the higher is the likelier. Only where it would refuse a
+# parent; everywhere else the database's height stands.
+points, raised = [], 0
+for pk, uses in parent_tops.items():
+    k = known_by_pk[pk]
+    flood = max(h for h, _ in uses)
+    if k['alt'] is None or not any(k['alt'] <= rec['altitude'] for _, rec in uses) or flood <= k['alt']:
+        continue
+    points.append(dict(summit_at=[k['lat'], k['lon']], altitude=round(flood, 2), datum='EGM2008',
+                       source='Copernicus GLO-30'))
+    print(f'  {k["name"] or "unnamed"} {k["alt"]} m -> {flood:.2f} m (Copernicus), the higher of the two')
+    k['alt'] = round(flood, 2)
+    raised += 1
+
+# A child the model has level with its parent, to the centimetre (in height or in prominence):
+# the flood told them apart by its own tie order, which the database cannot hold, and it would
+# refuse the parent. At metres of accuracy a parent one step too far up is better than none,
+# so the child goes to its parent's parent (on up, until one is strictly higher and more
+# prominent), with a note saying which summit it ties with. Heights stay as the model has them.
+by_key = {r['key']: r for r in summits}
+
+
+def height_and_prominence(parent):
+    if 'new' in parent:
+        q = by_key[parent['new']]
+        return q['altitude'], q['prominence'], q
+    k = next(k for k in known if [k['lat'], k['lon']] == parent['at'])
+    return k['alt'], None, None
+
+
+stepped = 0
+for rec in summits:
+    parent, tie = rec.get('parent'), None
+    for _ in range(50):
+        if not parent:
+            break
+        alt, prom, q = height_and_prominence(parent)
+        if (alt is None or alt > rec['altitude']) and (prom is None or prom > rec['prominence']):
+            break
+        tie = tie or q
+        parent = q and q.get('parent')
+    if tie is not None:
+        rec['parent'] = parent
+        rec['notes'].append(f'Copernicus has this level with {tie["name"] or "the unnamed summit at " + tie["key"][4:]} '
+                            f'({tie["altitude"]} m, P {tie["prominence"]} m), its prominence parent in the flood; '
+                            'linked one step further up instead, as the database will not take a parent that is not '
+                            'strictly higher and more prominent.')
+        stepped += 1
+print(stepped, 'summits level with their parent linked one step further up')
+
+json.dump(dict(sources=dict(lidar='Copernicus GLO-30', names='OpenStreetMap'), points=points, summits=summits),
           open(OUT, 'w'), ensure_ascii=False, indent=1)
+print(raised, 'database summits raised to the flood\'s height')
 print(len(summits), 'new summits', stats, sorted({c for s in summits for c in s['countries']}))

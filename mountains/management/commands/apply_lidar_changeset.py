@@ -378,7 +378,15 @@ class Command(BaseCommand):
         A point put where the lidar has it: an old col read off a map, a summit label placed
         on the slope. With an altitude, at the lidar's height too.
         """
-        point = self.found(fix['point'], fix['name'], at=fix.get('was'))
+        if 'summit_at' in fix:
+            # By where the summit stands: numbers are not shared with another database.
+            point = self.summit_point_at(fix['summit_at'])
+            if point is None:
+                self.stdout.write(f'  ! no summit at {fix["summit_at"]}: not moved')
+                self.counts['skipped'] += 1
+                return
+        else:
+            point = self.found(fix['point'], fix['name'], at=fix.get('was'))
         if point is None:
             return
         # Without a position only the height changes; without an altitude only the position:

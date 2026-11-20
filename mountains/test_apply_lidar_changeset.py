@@ -669,3 +669,29 @@ class LineParentTests(TestCase):
     def test_nobody_where_the_changeset_says_is_skipped(self):
         out = ApplyTests.run_it(self, self.data(dict(summit_at=[49.06, 20.06], parent_at=[49.5, 20.5], cutoff=30)))
         self.assertIn('no summit at', out)
+
+
+class MoveBySummitAtTests(TestCase):
+    """A height fix for a summit found where it stands: numbers are not shared with amos."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.laguna = make_summit('Laguna', 5034.0, -34.110694, -69.629028)
+
+    def data(self, at):
+        return dict(sources=dict(lidar='Copernicus GLO-30', names='OpenStreetMap'),
+                    points=[dict(summit_at=at, altitude=5071.9, source='Copernicus GLO-30')])
+
+    def test_the_summit_there_takes_the_height(self):
+        self.assertIn('1 moved', ApplyTests.run_it(self, self.data([-34.110694, -69.629028])))
+        self.laguna.point.refresh_from_db()
+        self.assertEqual(self.laguna.point.altitude, 5071.9)
+        self.assertEqual(self.laguna.point.source.name, 'Copernicus GLO-30')
+        self.assertIn('0 moved', ApplyTests.run_it(self, self.data([-34.110694, -69.629028])))
+
+    def test_nobody_there_is_skipped(self):
+        out = ApplyTests.run_it(self, self.data([-34.2, -69.7]))
+        self.assertIn('not moved', out)
+        self.laguna.point.refresh_from_db()
+        self.assertEqual(self.laguna.point.altitude, 5034.0)
