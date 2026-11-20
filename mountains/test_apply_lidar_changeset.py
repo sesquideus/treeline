@@ -12,6 +12,7 @@ from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 
+from mountains.map_zooms import refresh_map_zooms
 from mountains.models import Col, NamedPoint, PointName, Source, Summit
 from mountains.test_factories import make_col, make_country, make_point, make_summit
 from mountains.test_point_names import make_language
@@ -598,6 +599,7 @@ class RemoveSummitTests(TestCase):
                     remove_summits=[dict(at=list(at), why='the ground rises on into Hungary')])
 
     def test_the_summit_and_its_key_col_go_and_the_isolation_is_kept_unattributed(self):
+        refresh_map_zooms()             # its row in the map's zooms is no reason to keep it
         out = ApplyTests.run_it(self, self.data())
         self.assertIn('1 summits removed', out)
         self.assertFalse(Summit.objects.filter(pk=self.edge.pk).exists())

@@ -517,7 +517,8 @@ class Command(BaseCommand):
             return
         point, key_col = s.point, s.key_col
         blockers = []
-        for obj, allowed in ((s, {('Summit', 'isolation_parent')}),
+        # Derived rows (the map's zooms) go with the summit; isolation children are handled below.
+        for obj, allowed in ((s, {('Summit', 'isolation_parent'), ('SummitMapZoom', 'summit')}),
                              (point, {('PointName', 'point'), ('Note', 'point')})):
             for rel in obj._meta.related_objects:
                 if (rel.related_model.__name__, rel.field.name) in allowed or rel.related_model._meta.auto_created:
