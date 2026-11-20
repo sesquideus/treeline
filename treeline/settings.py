@@ -183,3 +183,16 @@ STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 )
+
+# Every static file is served under a name carrying a hash of its contents (map.3f2a9c.js), so
+# a deploy can never pair a new template with a browser's or a proxy's old copy of the script,
+# and both may cache them for good. Needs `collectstatic` on every deploy (the deploy script
+# runs it), which writes the manifest the names come from; with DEBUG on, runserver serves the
+# plain names. The tests render without a manifest, hence the plain storage there.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage' if TESTING
+        else 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+    },
+}

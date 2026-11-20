@@ -1869,11 +1869,15 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
         summitLayer.setStyle(summitStyleFor);
     }
 
+    // Context layers, fetched whole once. Either failing leaves its layer empty, never the
+    // map without summits: those are loaded view by view below, whatever happens here.
+    const EMPTY = { type: 'FeatureCollection', features: [] };
+    const layerData = url => !url ? Promise.resolve(EMPTY) : fetch(url)
+        .then(r => r.ok ? r.json() : Promise.reject(`${url}: ${r.status}`))
+        .catch(error => { console.error('map layer', error); return EMPTY; });
     Promise.all([
-        fetch(riversUrl).then(r => r.json()),
-        // Optional, so a template that calls this without it still works.
-        rangesUrl ? fetch(rangesUrl).then(r => r.json())
-                  : Promise.resolve({type: 'FeatureCollection', features: []}),
+        layerData(riversUrl),
+        layerData(rangesUrl),       // optional: a template may call this without it
     ]).then(([rivers, ranges]) => {
         summitsByPk = {};
         summitByKeyCol = {};
