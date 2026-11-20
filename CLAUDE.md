@@ -23,6 +23,7 @@ uv run python manage.py test                       # all tests
 uv run python manage.py test mountains             # one app
 uv run python manage.py test mountains.tests.Foo   # one test case/method
 ./db_import.sh                       # dump on amos (via ssh), then DROP + recreate `treeline` here from it
+uv run python manage.py refresh_map_zooms   # after migrate on a deploy, and after big imports (see below)
 ```
 
 Running the tests builds a throwaway `test_treeline` database, which needs two one-time
@@ -123,6 +124,16 @@ junction carries its own name and countries. `River`, `Source`, `Note`, and the
 `PointName` (multilingual names) round out the app. `core` provides `Country`/`Language`
 and geodesic helpers (`core/functions/world.py`); `users` supplies the custom
 `AUTH_USER_MODEL = 'users.User'`.
+
+### The global map loads by view
+
+The map fetches summits and cols tile by tile from `map/features.json`
+(`mountains/views/map_features.py`), never the whole database. Which summit shows from which
+zoom (spacing 48 px, `core/functions/declutter.py`) and each summit's edge to its parent in every
+hierarchy are stored in `SummitMapZoom`, rebuilt whole by `mountains/map_zooms.py`: on the first
+map request after a data change, or at once by `refresh_map_zooms` and at the end of
+`apply_lidar_changeset`. The data version (`mountains/views/cache.py`) moves once per committed
+transaction, never at each write inside one.
 
 ## Key patterns to follow
 

@@ -17,6 +17,8 @@ urlpatterns = [
     path('prominence-tree.json', views.summit.tree.ProminenceJsonView.as_view(), name='prominence-tree-json'),
 
     path('map', views.map, name='map'),
+    # The map's summits and cols for one view; see mountains/views/map_features.py
+    path('map/features.json', views.map_features.MapFeaturesView.as_view(), name='map-features'),
 
     path('rivers/geo.json', views.river.GeoJsonView.as_view(), name='rivers-geojson'),
     path('ranges/geo.json', views.range.GeoJsonView.as_view(), name='ranges-geojson'),

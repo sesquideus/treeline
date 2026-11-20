@@ -42,6 +42,8 @@ summits = list(
         'isolation_parent__point',
         'slope_parent__point',
         'horizon_parent__point',
+        'line_parent__point',
+        'line_parent__key_col__point',
     )
 )
 by_pk = {s.pk: s for s in summits}
@@ -112,9 +114,28 @@ for s in summits:
     if (prom := prominence(s)) is not None and prom < 0:
         err('negative-prominence', s, f'{label(s)} has prominence {prom:.0f} m')
 
+# --- line parent ------------------------------------------------------------
+
+for s in summits:
+    p = s.line_parent
+    if p is None or s.point is None or p.point is None:
+        continue
+    if s.point.altitude is not None and p.point.altitude is not None and p.point.altitude <= s.point.altitude:
+        err('line-parent-not-higher', s,
+            f'{label(s)} ({s.point.altitude:.0f} m) has line parent '
+            f'{label(p)} ({p.point.altitude:.0f} m) — must be higher')
+    # Worked out among summits of at least the cutoff: one that has fallen below it since
+    # (re-measured, its key col moved) was never a candidate, and the link is stale.
+    theirs = prominence(p)
+    if s.line_cutoff is not None and theirs is not None and theirs < s.line_cutoff:
+        warn('line-parent-below-cutoff', s,
+             f'{label(s)} has line parent {label(p)} of P={theirs:.0f} m, '
+             f'below the cutoff of {s.line_cutoff:.0f} m it was worked out at')
+
 # --- cycles and roots -------------------------------------------------------
 
-for attr in ('prominence_parent_id', 'isolation_parent_id', 'slope_parent_id', 'horizon_parent_id'):
+for attr in ('prominence_parent_id', 'isolation_parent_id', 'slope_parent_id', 'horizon_parent_id',
+             'line_parent_id'):
     for s in summits:
         seen = {s.pk}
         cur = by_pk.get(getattr(s, attr))

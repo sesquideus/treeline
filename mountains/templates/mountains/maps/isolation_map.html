@@ -17,9 +17,8 @@
 {% block init_map %}
     <script>
         initGlobalMap(
-            "{% url 'summits-geojson' %}",
+            "{% url 'map-features' %}",
             "{% url 'rivers-geojson' %}",
-            "{% url 'cols-geojson' %}",
             "{% url 'summits-detail-json' %}",
             "{% url 'cols-detail-json' %}",
             "{% url 'ranges-geojson' %}",

@@ -8,6 +8,7 @@ import json
 import tempfile
 
 from django.contrib.auth import get_user_model
+from django.contrib.gis.geos import Point
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -572,3 +573,97 @@ class CopernicusTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 summits', ApplyTests.run_it(self, self.data()))
+
+
+class RemoveSummitTests(TestCase):
+    """A top only because the lidar stops at the border: removed, by position, and only that."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        lidar = Source.objects.create(name='DMR 5.0')
+        cls.parent = make_summit('Lysá hora', 295.65, 48.505128, 21.577336)
+        cls.col = make_col(None, 229.43, 48.503896, 21.584335)
+        cls.col.point.source = lidar
+        cls.col.point.save()
+        cls.edge = make_summit(None, 243.66, 48.50607, 21.586702, key_col=cls.col, prominence_parent=cls.parent)
+        cls.edge.point.source = lidar
+        cls.edge.point.save()
+        cls.lower = make_summit(None, 191.94, 48.508, 21.59, isolation_parent=cls.edge,
+                                nearest_higher_point=Point(21.593085, 48.51121, srid=4326),
+                                isolation_name='its southern slope')
+
+    def data(self, at=(48.50607, 21.586702)):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'),
+                    remove_summits=[dict(at=list(at), why='the ground rises on into Hungary')])
+
+    def test_the_summit_and_its_key_col_go_and_the_isolation_is_kept_unattributed(self):
+        out = ApplyTests.run_it(self, self.data())
+        self.assertIn('1 summits removed', out)
+        self.assertFalse(Summit.objects.filter(pk=self.edge.pk).exists())
+        self.assertFalse(Col.objects.filter(pk=self.col.pk).exists())
+        self.lower.refresh_from_db()
+        self.assertIsNone(self.lower.isolation_parent)
+        self.assertIsNone(self.lower.isolation_name)
+        self.assertAlmostEqual(self.lower.nearest_higher_point.y, 48.51121)
+        self.assertIn('isolation parent cleared', self.lower.point.notes.get().text.lower())
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 summits removed', ApplyTests.run_it(self, self.data()))
+
+    def test_a_prominence_child_keeps_it(self):
+        make_summit(None, 240.0, 48.507, 21.588, key_col=make_col(None, 235.0, 48.5065, 21.5875),
+                    prominence_parent=self.edge)
+        out = ApplyTests.run_it(self, self.data())
+        self.assertIn('not removed', out)
+        self.assertTrue(Summit.objects.filter(pk=self.edge.pk).exists())
+
+    def test_a_named_summit_is_never_taken(self):
+        self.edge.point.name = 'Somár'
+        self.edge.point.save()
+        self.assertIn('0 summits removed', ApplyTests.run_it(self, self.data()))
+        self.assertTrue(Summit.objects.filter(pk=self.edge.pk).exists())
+
+
+class LineParentTests(TestCase):
+    """Line parents by position, with the cutoff and the data they were worked out from."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.top = make_summit('Top', 2000, 49.0, 20.0, island_high_point=True)
+        cls.hump = make_summit('Hump', 1500, 49.05, 20.05, key_col=make_col(None, 1400, 49.03, 20.03),
+                               prominence_parent=cls.top)
+        cls.spur = make_summit('Spur', 1450, 49.06, 20.06, key_col=make_col(None, 1300, 49.055, 20.055),
+                               prominence_parent=cls.top)
+
+    def data(self, *links):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), line_parents=list(links))
+
+    def test_the_first_higher_not_the_more_prominent(self):
+        out = ApplyTests.run_it(self, self.data(
+            dict(summit_at=[49.06, 20.06], parent_at=[49.05, 20.05], cutoff=30),
+            dict(summit_at=[49.0, 20.0], parent_at=None, cutoff=30)))
+        self.assertIn('2 line parents', out)
+        self.spur.refresh_from_db()
+        self.top.refresh_from_db()
+        self.assertEqual(self.spur.line_parent, self.hump)
+        self.assertEqual((self.spur.line_cutoff, self.spur.line_source.name), (30, 'DMR 5.0'))
+        self.assertIsNone(self.top.line_parent)          # looked: an island has none
+        self.assertEqual(self.top.line_cutoff, 30)
+
+    def test_a_second_run_changes_nothing(self):
+        data = self.data(dict(summit_at=[49.06, 20.06], parent_at=[49.05, 20.05], cutoff=30))
+        ApplyTests.run_it(self, data)
+        self.assertIn('0 line parents', ApplyTests.run_it(self, data))
+
+    def test_a_lower_parent_is_refused(self):
+        out = ApplyTests.run_it(self, self.data(dict(summit_at=[49.05, 20.05], parent_at=[49.06, 20.06], cutoff=30)))
+        self.assertIn('Line parent not set', out)
+        self.hump.refresh_from_db()
+        self.assertIsNone(self.hump.line_parent)
+
+    def test_nobody_where_the_changeset_says_is_skipped(self):
+        out = ApplyTests.run_it(self, self.data(dict(summit_at=[49.06, 20.06], parent_at=[49.5, 20.5], cutoff=30)))
+        self.assertIn('no summit at', out)

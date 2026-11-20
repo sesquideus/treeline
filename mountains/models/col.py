@@ -9,6 +9,29 @@ from core.functions.world import distance
 from mountains.models.base import GeoModel
 
 
+#: What `col_skeleton_feature()` is built from, in this order.
+COL_SKELETON_FIELDS = ('pk', 'point__location', 'point__name',
+                       'confluence_river_id', 'confluence_river__mouth__location')
+
+
+def col_skeleton_feature(row):
+    """One col's skeleton feature from a `COL_SKELETON_FIELDS` row (see `skeleton_features`)."""
+    pk, location, name, river, mouth = row
+    return {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [location.x, location.y]},
+        'properties': {
+            'type': 'col',
+            'pk': pk,
+            'name': name,
+            # `river` is the id of the river, which is what makes sister cols
+            # findable in the browser: they are the cols that share it.
+            'confluence': {'lon': mouth.x, 'lat': mouth.y, 'river': river}
+                          if mouth else None,
+        },
+    }
+
+
 class ColQuerySet(models.QuerySet):
     def with_db_status(self):
         """
@@ -56,27 +79,8 @@ class ColQuerySet(models.QuerySet):
         Built from `values_list`, like `SummitQuerySet.skeleton_features()`; property names
         must match `to_dict()`, which is what `static/js/map.js` reads.
         """
-        rows = self.values_list(
-            'pk', 'point__location', 'point__name',
-            'confluence_river_id', 'confluence_river__mouth__location',
-        )
-        return [
-            {
-                'type': 'Feature',
-                'geometry': {'type': 'Point', 'coordinates': [location.x, location.y]},
-                'properties': {
-                    'type': 'col',
-                    'pk': pk,
-                    'name': name,
-                    # `river` is the id of the river, which is what makes sister cols
-                    # findable in the browser: they are the cols that share it.
-                    'confluence': {'lon': mouth.x, 'lat': mouth.y, 'river': river}
-                                  if mouth else None,
-                },
-            }
-            for pk, location, name, river, mouth in rows
-            if location is not None
-        ]
+        return [col_skeleton_feature(row) for row in self.values_list(*COL_SKELETON_FIELDS)
+                if row[1] is not None]
 
     def with_full_name(self):
         return self.annotate(

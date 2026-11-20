@@ -28,6 +28,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from core.models import Country, Language, VerticalDatum
+from mountains.map_zooms import refresh_and_record_map_zooms
 from mountains.models import Col, NamedPoint, Note, PointName, Source, Summit
 from users.models import User
 
@@ -63,7 +64,8 @@ class Command(BaseCommand):
         if self.author is None:
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
-                           removed=0, merged=0, isolations=0, promoted=0, skipped=0)
+                           removed=0, summits_removed=0, merged=0, isolations=0, promoted=0,
+                           line_parents=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -90,21 +92,30 @@ class Command(BaseCommand):
                     self.replace_name(r)
                 for at in data.get('remove_cols', []):
                     self.remove_col(at)
+                for r in data.get('remove_summits', []):
+                    self.remove_summit(r)
                 for m in data.get('merges', []):
                     self.merge(m)
                 for iso in data.get('isolations', []):
                     self.isolation(iso)
                 for pr in data.get('promotions', []):
                     self.promote(pr)
+                for lp in data.get('line_parents', []):
+                    self.line_parent(lp)
                 if dry_run:
                     raise DryRun
         except DryRun:
             self.stdout.write(self.style.WARNING('dry run: rolled back'))
+        else:
+            # Now rather than on the first map request after the import: with a large
+            # changeset, that would be one reader waiting half a minute.
+            refresh_and_record_map_zooms()
         c = self.counts
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
-            f'{c["removed"]} cols removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted; '
+            f'{c["removed"]} cols removed, {c["summits_removed"]} summits removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted, '
+            f'{c["line_parents"]} line parents; '
             f'{c["skipped"]} skipped'))
 
     def reference(self, ref):
@@ -446,6 +457,9 @@ class Command(BaseCommand):
             if parent is not None:
                 # It may itself have been relinked a moment ago: check cycles against that.
                 parent.refresh_from_db()
+            if before.get(summit.pk) != col.pk:
+                # A line parent was found across the key col it had: no longer this one.
+                summit.line_parent = summit.line_cutoff = summit.line_source = None
             summit.key_col, summit.prominence_parent = col, parent
             summit.prominence_source = self.lidar if parent else None
             try:
@@ -485,6 +499,55 @@ class Command(BaseCommand):
         col.delete()
         point.delete()
         self.counts['removed'] += 1
+
+    def remove_summit(self, r):
+        """
+        A summit this tooling made that is none: a top only because the data stops there (the
+        ground rises on beyond a border). By position, unnamed and from the lidar only; refused
+        while it is any summit's prominence parent or anything else refers to it. A summit it
+        was the isolation parent of keeps its nearest higher point, which is real ground, and
+        loses only the attribution, with a note saying why. Its key col goes too if nothing
+        else needs it.
+        """
+        here = Point(r['at'][1], r['at'][0], srid=4326)
+        s = (Summit.objects.filter(point__location__dwithin=(here, D(m=2)), point__name__isnull=True,
+                                   point__source=self.lidar).select_related('point', 'key_col__point').first())
+        if s is None:
+            self.counts['skipped'] += 1           # gone already, or not what the changeset saw
+            return
+        point, key_col = s.point, s.key_col
+        blockers = []
+        for obj, allowed in ((s, {('Summit', 'isolation_parent')}),
+                             (point, {('PointName', 'point'), ('Note', 'point')})):
+            for rel in obj._meta.related_objects:
+                if (rel.related_model.__name__, rel.field.name) in allowed or rel.related_model._meta.auto_created:
+                    continue
+                if rel.one_to_one and rel.related_model is Summit:
+                    continue                         # the summit itself, on its point
+                if rel.related_model._default_manager.filter(**{rel.field.name: obj}).exists():
+                    blockers.append(f'{rel.related_model.__name__}.{rel.field.name}')
+        if blockers:
+            self.stdout.write(f'  ! unnamed summit at {r["at"]}: still referred to by {", ".join(blockers)}: not removed')
+            self.counts['skipped'] += 1
+            return
+        for child in Summit.objects.filter(isolation_parent=s).select_related('point'):
+            child.isolation_parent, child.isolation_name = None, None
+            child.full_clean()
+            child.save()
+            Note.objects.create(point=child.point, author=self.author, text=(
+                'Isolation parent cleared: it was an unnamed top at '
+                f'{r["at"][0]:.5f}, {r["at"][1]:.5f} that is no summit ({r["why"]}). '
+                'The nearest higher point stands; whose ground it is remains to be found.'))
+            self.stdout.write(f'  - {child.point}: isolation parent cleared')
+        s.delete()
+        point.delete()
+        self.counts['summits_removed'] += 1
+        self.stdout.write(f'  - unnamed summit at {r["at"]}: removed ({r["why"]})')
+        if key_col is not None and key_col.point.source == self.lidar and not Summit.objects.filter(key_col=key_col).exists():
+            col_point = key_col.point
+            key_col.delete()
+            col_point.delete()
+            self.counts['removed'] += 1
 
     # ------------------------------------------------------------------ duplicates
 
@@ -580,6 +643,46 @@ class Command(BaseCommand):
         s = (Summit.objects.filter(point__location__dwithin=(here, D(m=2))).select_related('point')
              .annotate(d=Distance('point__location', here)).order_by('d').first())
         return s.point if s else None
+
+    # ------------------------------------------------------------------ line parents
+
+    def line_parent(self, lp):
+        """
+        A summit's line parent (`Summit.line_parent`), both found where they stand
+        (`summit_at`, `parent_at`: [lat, lon], within 2 m) — numbers are not shared with
+        another database. `parent_at` null records that there is none (an island high point).
+        `cutoff`: the least prominence the walk counted; `source`, if given, the elevation data,
+        else the changeset's lidar source. A summit or parent not found is skipped, and so is
+        one already linked so.
+        """
+        summit_point = self.summit_point_at(lp['summit_at'])
+        summit = summit_point and Summit.objects.select_related('point').get(point=summit_point)
+        if summit is None:
+            self.stdout.write(f'  ! line parent: no summit at {lp["summit_at"]}: skipped')
+            self.counts['skipped'] += 1
+            return
+        parent = None
+        if lp.get('parent_at'):
+            parent_point = self.summit_point_at(lp['parent_at'])
+            parent = parent_point and Summit.objects.select_related('point').get(point=parent_point)
+            if parent is None:
+                self.stdout.write(f'  ! line parent of {summit.point}: no summit at {lp["parent_at"]}: skipped')
+                self.counts['skipped'] += 1
+                return
+        source = Source.objects.get_or_create(name=lp['source'])[0] if lp.get('source') else self.lidar
+        if (summit.line_parent_id == (parent and parent.pk) and summit.line_cutoff == lp['cutoff']
+                and summit.line_source_id == source.pk):
+            self.counts['skipped'] += 1
+            return
+        summit.line_parent, summit.line_cutoff, summit.line_source = parent, lp['cutoff'], source
+        try:
+            summit.full_clean()
+        except ValidationError as e:
+            self.stdout.write(f'  ! {summit.point}: {"; ".join(e.messages)} Line parent not set.')
+            self.counts['skipped'] += 1
+            return
+        summit.save()
+        self.counts['line_parents'] += 1
 
     # ------------------------------------------------------------------ isolation
 

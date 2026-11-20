@@ -1,11 +1,11 @@
 """
-Which summit a map shows from which zoom (`core.functions.declutter`), and the browser half of
-it: a parent never shows later than its child (`visibleZooms` in static/js/map.js).
+Which summit a map shows from which zoom (`core.functions.declutter`): first by prominence
+and spacing, then lowered along each hierarchy so that a parent never shows later than its
+child (`visible_zooms`).
 """
 from django.test import SimpleTestCase
 
-from core.functions.declutter import first_zooms
-from mountains.test_js_runtime import call
+from core.functions.declutter import first_zooms, visible_zooms
 
 
 def zooms(*summits, **kw):
@@ -74,8 +74,7 @@ class VisibleZoomTests(SimpleTestCase):
     """
 
     def vz(self, *summits):
-        return {int(k): v for k, v in call('visibleZooms',
-                                           [dict(pk=pk, z=z, parent=p) for pk, z, p in summits]).items()}
+        return visible_zooms(summits)
 
     def test_a_parent_shows_as_early_as_its_earliest_child(self):
         self.assertEqual(self.vz((1, 9, None), (2, 5, 1), (3, 7, 1)), {1: 5, 2: 5, 3: 7})

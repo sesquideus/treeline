@@ -25,7 +25,7 @@ from mountains.views.cache import data_version
 
 # What map.js reads off a skeleton feature before any detail has arrived.
 SUMMIT_SKELETON_KEYS = {'type', 'pk', 'name', 'prom', 'prominence_parent', 'isolation_parent',
-                        'slope_parent', 'horizon_parent', 'kc', 'ilp', 'z'}
+                        'slope_parent', 'horizon_parent', 'line_parent', 'kc', 'ilp', 'z'}
 COL_SKELETON_KEYS = {'type', 'pk', 'name', 'confluence'}
 
 
@@ -246,7 +246,8 @@ class CacheTests(MapDataTestCase):
         version = data_version()
 
         self.alpha_col.point.altitude = 2000.0
-        self.alpha_col.point.save()
+        with self.captureOnCommitCallbacks(execute=True):      # the version moves at the commit
+            self.alpha_col.point.save()
 
         self.assertNotEqual(data_version(), version)
         after = self.features('summits-geojson')[self.alpha.pk]['properties']['prom']

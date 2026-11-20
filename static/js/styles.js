@@ -118,6 +118,10 @@ const SLOPE_COLOUR_B             = [180, 220, 255, 1];
 const HORIZON_COLOUR_A           = [180, 50,  180, 1];
 const HORIZON_COLOUR_B           = [255, 200, 255, 1];
 
+// The line parent: from the summit, down through its key col, up to the first higher one.
+const LINE_COLOUR_A              = [220, 110,   0, 1];   // orange
+const LINE_COLOUR_B              = [ 90, 170,   0, 1];   // green
+
 
 function denseCoords(coords) {
     const dense = [];

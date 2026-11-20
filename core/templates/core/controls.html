@@ -4,6 +4,10 @@
             <input type="range" id="map-opacity" min="0" max="100" value="40">
             Map opacity
         </label>
+        <label title="Fewer or more summits at every zoom: each step halves or doubles them">
+            <input type="range" id="map-density" min="-2" max="2" step="1" value="0">
+            Summit density
+        </label>
         <label>
             Background
             {# Keys of BASE_MAPS in static/js/map.js #}
@@ -27,6 +31,7 @@
         <label><input type="radio" name="tree" value="isolation"> Isolation</label>
         <label><input type="radio" name="tree" value="slope"> Slope</label>
         <label><input type="radio" name="tree" value="horizon"> Horizon</label>
+        <label title="The first higher summit across the key col, among those of at least a cutoff prominence"><input type="radio" name="tree" value="line"> Line</label>
     </div>
     <div class="toggle-group">
         <label>

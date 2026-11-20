@@ -30,7 +30,7 @@ const HOME_EXTENT = [16.83, 47.73, 22.57, 49.61];   // lon/lat, Slovakia
 //
 // Only what differs from the defaults is written, so the common case stays short and a
 // reader who has changed nothing gets a clean "#map=..." rather than a wall of settings.
-const MAP_MODES = ['none', 'prominence', 'isolation', 'slope', 'horizon'];
+const MAP_MODES = ['none', 'prominence', 'isolation', 'slope', 'horizon', 'line'];
 const MAP_TOGGLES = ['summits', 'rivers', 'ranges', 'routing', 'cols'];
 const MAP_DEFAULTS = {
     mode: 'prominence',
@@ -75,7 +75,8 @@ const MAP_POSITION = /^(-?[\d.]+)\/(-?[\d.]+)\/(-?[\d.]+)$/;
 // a more prominent summit ever hides a less prominent one, and a lone hill with nothing more
 // prominent near it shows from far out). A drawn summit always keeps its real parent in the
 // hierarchy on show, drawn too: so each summit's zoom is lowered to that of its earliest
-// child in that hierarchy (`visibleZooms`). That is `vz`, and every feature belonging to a
+// child in that hierarchy (`visible_zooms`, computed with the rest on the server and sent per
+// hierarchy as `zooms`). That is `vz`, and every feature belonging to a
 // summit — its marker, its line, its key col, its isolation point — carries its summit's and
 // is drawn from that zoom in. Lines are never re-attached to another ancestor.
 
@@ -92,27 +93,102 @@ function zoomAt(resolution) {
 // mark) is always drawn.
 function hiddenAt(feature, resolution) {
     const vz = feature.get('vz') ?? feature.get('z');
-    return vz != null && vz > zoomAt(resolution) + 1e-6;
+    return vz != null && vz > zoomAt(resolution) + densityShift + 1e-6;
 }
 
-// `summits`: [{pk, z, parent}]. Returns {pk: vz}. Each summit is walked up its chain of
-// parents, lowering every ancestor that would otherwise show later than it; a walk stops at
-// the first ancestor already shown as early, so the whole costs little more than one pass.
-// The step limit is a guard against a cycle, which the data model forbids but a half-edited
-// database can hold for a moment.
-function visibleZooms(summits) {
-    const vz = {}, parent = {};
-    summits.forEach(s => { vz[s.pk] = s.z == null ? 0 : s.z; parent[s.pk] = s.parent; });
-    const order = summits.map(s => s.pk).sort((a, b) => vz[a] - vz[b]);
-    for (const pk of order) {
-        const v = vz[pk];
-        let p = parent[pk];
-        for (let steps = 0; p != null && p in vz && vz[p] > v && steps < 10000; steps++) {
-            vz[p] = v;
-            p = parent[p];
+// The density slider of the global map, in zoom levels: +1 draws what would show one level
+// further in, twice as dense; -1 half as dense. The zooms themselves are the server's, at
+// one fixed spacing (core/functions/declutter.py), so tuning needs nothing rebuilt. 0 on the
+// detail maps, which have no slider.
+let densityShift = 0;
+const DENSITY_KEY = 'treeline.map-density';
+const DENSITY_RANGE = [-2, 2];
+
+function storedDensity() {
+    try {
+        const value = Number(window.localStorage.getItem(DENSITY_KEY));
+        return Number.isInteger(value) && value >= DENSITY_RANGE[0] && value <= DENSITY_RANGE[1] ? value : 0;
+    } catch (e) {
+        return 0;
+    }
+}
+
+function storeDensity(value) {
+    try {
+        window.localStorage.setItem(DENSITY_KEY, String(value));
+    } catch (e) { /* not remembered, no harm */ }
+}
+
+// --- loading by view -------------------------------------------------------------
+//
+// The global map holds only what the views it has shown need: summits and cols come from
+// `map/features.json` (mountains/views/map_features.py) tile by tile, 512 px tiles at the
+// view's whole zoom level, and stay once loaded. Which summit shows from which zoom is the
+// server's (`zooms`, per hierarchy); the browser copies the one for its mode into `vz`.
+
+const MERCATOR_HALF = 20037508.342789244;    // half the world's width in EPSG:3857 metres
+const EARTH_RADIUS = 6378137;
+const TILE_ZOOM_STEP = 1;                    // a 512 px tile is a 256 px one a level further out
+
+function mercatorToLonLat(x, y) {
+    const lon = x / EARTH_RADIUS * 180 / Math.PI;
+    const lat = (2 * Math.atan(Math.exp(y / EARTH_RADIUS)) - Math.PI / 2) * 180 / Math.PI;
+    return [lon, lat];
+}
+
+// The tiles covering `extent` ([minX, minY, maxX, maxY] in EPSG:3857) at `zoom`, with one tile
+// of margin all round, so that a short pan finds its features already there. Each is
+// {key, z, bbox}: `z` the whole zoom level the features are asked for (the view's, moved by
+// the density `shift`), `bbox` in lon/lat for the request, `key` naming the tile, that zoom
+// and the mode, which together decide what it holds. Columns wrap round the antimeridian;
+// rows stop at the edge of the world.
+function mapTiles(extent, zoom, mode, shift = 0) {
+    const z = Math.max(0, Math.floor(zoom + 1e-9));
+    const asked = Math.max(0, Math.min(18, Math.floor(zoom + shift + 1e-9)));
+    const n = Math.max(1, 2 ** (z - TILE_ZOOM_STEP));
+    const size = 2 * MERCATOR_HALF / n;
+    const col = x => Math.floor((x + MERCATOR_HALF) / size);
+    const row = y => Math.floor((MERCATOR_HALF - y) / size);
+    const x0 = col(extent[0]) - 1, x1 = col(extent[2]) + 1;
+    const y0 = Math.max(0, row(extent[3]) - 1), y1 = Math.min(n - 1, row(extent[1]) + 1);
+    const tiles = [], seen = new Set();
+    for (let x = x0; x <= Math.min(x1, x0 + n - 1); x++) {
+        const wx = ((x % n) + n) % n;
+        for (let y = y0; y <= y1; y++) {
+            const key = `${mode}/${asked}/${z}/${wx}/${y}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const [minLon, maxLat] = mercatorToLonLat(-MERCATOR_HALF + wx * size, MERCATOR_HALF - y * size);
+            const [maxLon, minLat] = mercatorToLonLat(-MERCATOR_HALF + (wx + 1) * size, MERCATOR_HALF - (y + 1) * size);
+            tiles.push({ key: key, z: asked, bbox: [minLon, minLat, maxLon, maxLat] });
         }
     }
-    return vz;
+    return tiles;
+}
+
+// Merge one `map/features.json` payload into the store ({summits, cols} FeatureCollections and
+// their `byPk` indexes). Returns the features that were new; a feature already held is left
+// as it is, since it may carry popup detail merged onto it since.
+function mergeMapFeatures(store, payload) {
+    const added = { summits: [], cols: [] };
+    [['summits', store.summitsByPk], ['cols', store.colsByPk]].forEach(([kind, byPk]) => {
+        ((payload[kind] && payload[kind].features) || []).forEach(f => {
+            if (f.properties.pk in byPk) return;
+            byPk[f.properties.pk] = f;
+            store[kind].features.push(f);
+            added[kind].push(f);
+        });
+    });
+    return added;
+}
+
+// The zoom each summit shows from in the hierarchy on show; `none` draws no hierarchy, so its
+// own first zoom.
+function applyModeZooms(features, mode) {
+    features.forEach(f => {
+        const zooms = f.properties.zooms;
+        f.properties.vz = zooms && zooms[mode] != null ? zooms[mode] : f.properties.z;
+    });
 }
 
 // Hand-rolled rather than `URLSearchParams`, which is a browser API and not part of the
@@ -921,6 +997,9 @@ function lineageStyle(mode, useRouting) {
             case 'horizon':
                 return gradientLine(feature, HORIZON_COLOUR_A, HORIZON_COLOUR_B);
 
+            case 'line':
+                return gradientLine(feature, LINE_COLOUR_A, LINE_COLOUR_B);
+
             default:
                 return [];
         }
@@ -932,8 +1011,11 @@ function lineageWaypoint(mode, props, useRouting, byColPk) {
     if (!useRouting) return null;
     switch (mode) {
         case 'prominence':
+        case 'line': {
+            // Both leave the summit through its key col.
             const col = byColPk[props.kc];
             return col ? [col.geometry.coordinates[0], col.geometry.coordinates[1]] : null;
+        }
         case 'isolation':
             return props.ilp && props.ilp.lon != null ? [props.ilp.lon, props.ilp.lat] : null;
         default:
@@ -954,6 +1036,7 @@ function lineageParentAttr(mode) {
         case 'isolation':  return 'isolation_parent';
         case 'slope':      return 'slope_parent';
         case 'horizon':    return 'horizon_parent';
+        case 'line':       return 'line_parent';
         case 'none':       return null;
         default:           return null;
     }
@@ -1232,10 +1315,11 @@ function buildRiversLayer(rivers) {
     });
 }
 
-function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDetailUrl,
-                       rangesUrl) {
+function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, rangesUrl) {
     let map, lineageLayer, summitLayer, refreshPopup;
-    let summitsData, colsData;
+    // Everything loaded so far (see `loadView`): the layers are built from these.
+    const summitsData = { type: 'FeatureCollection', features: [] };
+    const colsData = { type: 'FeatureCollection', features: [] };
 
     const routeToggle = document.getElementById('toggle-routing');
 
@@ -1361,6 +1445,10 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
     function applyDetail(kind, payload) {
         Object.entries(payload).forEach(([key, detail]) => {
             const pk = Number(key);
+            // Detail for a feature not loaded yet is dropped, not held: the view's own load
+            // asks for it again once the feature is there (see `loadView`).
+            const held = kind === 'summit' ? summitsByPk[pk] : colsByPk[pk];
+            if (!held) return;
             detailHeld[kind].add(pk);
             if (kind === 'summit') {
                 if (summitFeatureByPk[pk]) summitFeatureByPk[pk].setProperties(detail);
@@ -1523,6 +1611,29 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         });
     }
 
+    // The sister cols of a confluence can lie outside every view loaded so far: on the first
+    // hover, all of that river's cols are fetched, and the group drawn again if the col is
+    // still the one under the cursor. Held for the group only, not added to the map's own
+    // cols: they belong to no summit loaded, so nothing would say from which zoom to draw them.
+    const riverColsAsked = new Set();
+
+    function fetchRiverCols(river, feature) {
+        if (river == null || riverColsAsked.has(river)) return;
+        riverColsAsked.add(river);
+        fetch(`${featuresUrl}?river=${river}`)
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(payload => {
+                const held = colsByRiver[river] = colsByRiver[river] || [];
+                const have = new Set(held.map(c => c.properties.pk));
+                payload.cols.features.forEach(c => { if (!have.has(c.properties.pk)) held.push(c); });
+                if (groupShownFor === `col:${feature.get('pk')}`) {
+                    groupShownFor = null;
+                    showConfluenceGroup(feature);
+                }
+            })
+            .catch(() => riverColsAsked.delete(river));
+    }
+
     function showConfluenceGroup(feature) {
         const type = feature && feature.get('type');
         // Keyed by type as well as pk: a river and a col can share an id, and the two are
@@ -1567,6 +1678,7 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         const confluence = feature.get('confluence');
         if (!confluence || confluence.lon == null) return;
         const mouth = ol.proj.fromLonLat([confluence.lon, confluence.lat]);
+        fetchRiverCols(confluence.river, feature);
 
         (colsByRiver[confluence.river] || []).forEach(col => {
             if (col.properties.pk === feature.get('pk')) return;   // makeMap draws that one
@@ -1601,7 +1713,8 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         const mode = document.querySelector('input[name="tree"]:checked').value;
         const useRouting = routeToggle && routeToggle.checked;
 
-        if (mode === 'prominence' && useRouting) {
+        // Ringed where the lines run through them: prominence and line both leave through it.
+        if ((mode === 'prominence' || mode === 'line') && useRouting) {
             keyColLayer = buildKeyColLayer(summitsData, colsData);
             keyColFeatureByPk = {};
             keyColLayer.getSource().getFeatures().forEach(f => {
@@ -1619,22 +1732,130 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         }
     }
 
+    // --- loading by view ----------------------------------------------------------------
+    //
+    // On every move, the tiles of the view (and a tile round it) not yet loaded in this mode
+    // are fetched, merged into the store, and the layers built from the store are rebuilt
+    // once for the whole batch. What is loaded stays; past `MAX_HELD` summits the store is
+    // emptied and the view loaded afresh, which only long browsing close in ever reaches.
+    const MAX_HELD = 100000;
+    const tilesLoaded = new Set();          // keys from `mapTiles`, in flight or done
+    let colConfluenceLayer = null;
+    let loadGeneration = 0;                 // a reset makes answers to older requests stale
+
+    function currentModeName() {
+        const mode = document.querySelector('input[name="tree"]:checked');
+        return (mode && mode.value) || MAP_DEFAULTS.mode;
+    }
+
+    function indexNew(added) {
+        added.summits.forEach(f => {
+            if (f.properties.kc != null) summitByKeyCol[f.properties.kc] = f;
+        });
+        added.cols.forEach(f => {
+            const river = f.properties.confluence && f.properties.confluence.river;
+            if (river != null) (colsByRiver[river] = colsByRiver[river] || []).push(f);
+        });
+        applyModeZooms(added.summits, currentModeName());
+        const features = new ol.format.GeoJSON().readFeatures(
+            { type: 'FeatureCollection', features: added.summits },
+            { featureProjection: 'EPSG:3857' });
+        features.forEach(f => {
+            f.set('vz', f.get('vz'), true);
+            summitFeatureByPk[f.get('pk')] = f;
+        });
+        summitLayer.getSource().addFeatures(features);
+    }
+
+    function resetStore() {
+        loadGeneration++;
+        tilesLoaded.clear();
+        summitsData.features.length = 0;
+        colsData.features.length = 0;
+        [summitsByPk, colsByPk, summitByKeyCol, colsByRiver, summitFeatureByPk, keyColFeatureByPk]
+            .forEach(index => Object.keys(index).forEach(k => delete index[k]));
+        detailHeld.summit.clear();
+        detailHeld.col.clear();
+        clearHighlight();
+        summitLayer.getSource().clear();
+    }
+
+    function loadView() {
+        if (!map) return;
+        if (summitsData.features.length > MAX_HELD) resetStore();
+        const view = map.getView();
+        const tiles = mapTiles(view.calculateExtent(map.getSize()), view.getZoom(), currentModeName(),
+                               densityShift)
+            .filter(t => !tilesLoaded.has(t.key));
+        if (!tiles.length) return;
+        tiles.forEach(t => tilesLoaded.add(t.key));
+        const generation = loadGeneration;
+        const mode = currentModeName();
+        // Each tile is drawn as it arrives, not when the slowest has: the layers built from
+        // the store are rebuilt at most once per frame, however many tiles land in it.
+        tiles.forEach(t =>
+            fetch(`${featuresUrl}?bbox=${t.bbox.map(v => v.toFixed(6)).join(',')}&zoom=${t.z}&mode=${mode}`)
+                .then(r => r.ok ? r.json() : Promise.reject(r.status))
+                .then(payload => {
+                    if (generation !== loadGeneration) return;
+                    const store = { summits: summitsData, cols: colsData,
+                                    summitsByPk: summitsByPk, colsByPk: colsByPk };
+                    const added = mergeMapFeatures(store, payload);
+                    if (!added.summits.length && !added.cols.length) return;
+                    indexNew(added);
+                    scheduleRebuild();
+                })
+                .catch(error => {
+                    tilesLoaded.delete(t.key);              // asked again on the next move
+                    console.error('map tile', t.key, error);
+                })
+        );
+    }
+
+    let rebuildPending = false;
+
+    function scheduleRebuild() {
+        if (rebuildPending) return;
+        rebuildPending = true;
+        requestAnimationFrame(() => {
+            rebuildPending = false;
+            rebuildLineage();
+            rebuildConfluence();
+            // The popup detail of what has just arrived: asked for the whole view again,
+            // since detail for a feature not yet loaded was dropped.
+            detailExtent = null;
+            scheduleViewportDetail();
+        });
+    }
+
+    // A col's confluence line belongs to the summit whose key col it starts from, and shows
+    // from that summit's zoom; a col nobody's key col shows always.
+    function rebuildConfluence() {
+        if (!map) return;
+        const colToggle = document.getElementById('toggle-col-confluence');
+        const zoomOfCol = {};
+        summitsData.features.forEach(f => {
+            if (f.properties.kc != null) zoomOfCol[f.properties.kc] = f.properties.z;
+        });
+        if (colConfluenceLayer) map.removeLayer(colConfluenceLayer);
+        colConfluenceLayer = buildConfluenceLayer(colsData, Boolean(colToggle && colToggle.checked), zoomOfCol);
+        colConfluenceLayer.set('name', 'col_confluence');
+        colConfluenceLayer.setZIndex(Z_CONFLUENCE);
+        map.addLayer(colConfluenceLayer);
+    }
+
     function rebuildLineage() {
-        if (!map || !summitsData) return;
+        if (!map) return;
         currentMode = document.querySelector('input[name="tree"]:checked').value;
         const useRouting = routeToggle && routeToggle.checked;
         if (lineageLayer) map.removeLayer(lineageLayer);
 
         // Which summits show from which zoom depends on the hierarchy: every parent at least
-        // as early as its earliest child. Written onto the raw data the layers are built
-        // from, and onto the summit features themselves (silently: setStyle below redraws).
-        const parentAttr = lineageParentAttr(currentMode);
-        const vz = visibleZooms(summitsData.features.map(f => ({
-            pk: f.properties.pk, z: f.properties.z,
-            parent: parentAttr ? f.properties[parentAttr] : null,
-        })));
+        // as early as its earliest child (the server's `zooms`, one per mode). Written onto
+        // the raw data the layers are built from, and onto the summit features themselves
+        // (silently: setStyle below redraws).
+        applyModeZooms(summitsData.features, currentMode);
         summitsData.features.forEach(f => {
-            f.properties.vz = vz[f.properties.pk];
             const feature = summitFeatureByPk[f.properties.pk];
             if (feature) feature.set('vz', f.properties.vz, true);
         });
@@ -1649,34 +1870,21 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
     }
 
     Promise.all([
-        fetch(summitsUrl).then(r => r.json()),
         fetch(riversUrl).then(r => r.json()),
-        fetch(colsUrl).then(r => r.json()),
-        // Optional, so an older template that calls this with five arguments still works.
+        // Optional, so a template that calls this without it still works.
         rangesUrl ? fetch(rangesUrl).then(r => r.json())
                   : Promise.resolve({type: 'FeatureCollection', features: []}),
-    ]).then(([summits, rivers, cols, ranges]) => {
-        summitsData = summits;
-        colsData = cols;
-
+    ]).then(([rivers, ranges]) => {
         summitsByPk = {};
-        summits.features.forEach(f => { summitsByPk[f.properties.pk] = f; });
         summitByKeyCol = {};
-        summits.features.forEach(f => {
-            if (f.properties.kc != null) summitByKeyCol[f.properties.kc] = f;
-        });
         colsByPk = {};
         colsByRiver = {};
-        cols.features.forEach(f => {
-            colsByPk[f.properties.pk] = f;
-            const river = f.properties.confluence && f.properties.confluence.river;
-            if (river != null) (colsByRiver[river] = colsByRiver[river] || []).push(f);
-        });
         riversByPk = {};
         rivers.features.forEach(f => { riversByPk[f.properties.pk] = f; });
 
+        // Empty to begin with: the summits arrive view by view (`loadView`).
         const { map: m, tileLayer, vectorLayer, refreshPopup: refresh } =
-            makeMap(summits, styleFor, [19.7, 48.7], 8, onHover);
+            makeMap(summitsData, styleFor, [19.7, 48.7], 8, onHover);
         map = m;
         refreshPopup = refresh;
         summitLayer = vectorLayer;
@@ -1745,6 +1953,20 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
             });
         }
 
+        // Denser or sparser: every layer's style reads `densityShift` (`hiddenAt`), so a
+        // redraw shows the change at once, and the tiles for the new density follow.
+        const densitySlider = document.getElementById('map-density');
+        densityShift = storedDensity();
+        if (densitySlider) {
+            densitySlider.value = densityShift;
+            densitySlider.addEventListener('input', function() {
+                densityShift = Number(this.value);
+                storeDensity(densityShift);
+                map.getLayers().forEach(layer => layer.changed());
+                loadView();
+            });
+        }
+
         // The peaks themselves. Orthogonal to the radios above them: those choose which
         // hierarchy joins the markers, this says whether the markers are drawn at all, and
         // the two together give the skeleton of a tree with no peaks or the peaks with no
@@ -1789,31 +2011,25 @@ function initGlobalMap(summitsUrl, riversUrl, colsUrl, summitsDetailUrl, colsDet
         const colToggle = document.getElementById('toggle-col-confluence');
         if (colToggle) {
             colToggle.addEventListener('change', function() {
-                colConfluenceLayer.setVisible(this.checked);
+                if (colConfluenceLayer) colConfluenceLayer.setVisible(this.checked);
             });
         }
-        // A col → confluence line belongs to the summit whose key col it starts from.
-        const zoomOfCol = {};
-        summits.features.forEach(f => {
-            if (f.properties.kc != null) zoomOfCol[f.properties.kc] = f.properties.z;
-        });
-        let colConfluenceLayer = buildConfluenceLayer(cols, colToggle && colToggle.checked, zoomOfCol);
-        colConfluenceLayer.set('name', 'col_confluence');
-        colConfluenceLayer.setZIndex(Z_CONFLUENCE);
-        map.addLayer(colConfluenceLayer);
-
+        rebuildConfluence();
 
         rebuildLineage();
         // Nothing else applies the slider on load: the tile layer's opacity is only ever set
         // by the `input` listener, which has not fired yet.
         tileLayer.setOpacity(resumed.opacity / 100);
 
+        map.on('moveend', loadView);
         map.on('moveend', scheduleViewportDetail);
         map.on('moveend', rememberMapState);
-        requestViewportDetail();       // the peaks the reader starts out looking at
+        loadView();                    // the peaks the reader starts out looking at
 
+        // A new mode lowers different parents: re-read the zooms of what is loaded at once,
+        // then fetch what that hierarchy shows here and the other did not.
         document.querySelectorAll('input[name="tree"]').forEach(r =>
-            r.addEventListener('change', rebuildLineage)
+            r.addEventListener('change', () => { rebuildLineage(); loadView(); })
         );
         if (routeToggle) routeToggle.addEventListener('change', rebuildLineage);
 

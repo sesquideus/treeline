@@ -18,7 +18,7 @@ the browser's business (`displayParents` in static/js/map.js).
 import math
 
 TILE = 256          # pixels across the world at zoom 0, as the web map tiles count them
-SPACING = 16        # pixels between two summits' markers, at the least
+SPACING = 48        # pixels between two summits' markers, at the least
 MAX_ZOOM = 18
 
 
@@ -61,3 +61,26 @@ def first_zooms(summits, spacing=SPACING, max_zoom=MAX_ZOOM):
                 grid.setdefault((cx, cy), []).append((x, y))
                 zoom[key] = z
     return zoom
+
+
+def visible_zooms(summits, steps=10000):
+    """
+    `summits`: (key, zoom, parent key or None). Returns {key: zoom at which it is drawn}:
+    every summit's ancestors are lowered to its own zoom, so a drawn summit always has its
+    parent in the hierarchy drawn too, never a line re-attached to a grandparent. Each walk
+    stops at the first ancestor already shown as early, so the whole costs little more than
+    one pass. `steps` guards against a cycle, which the data model forbids but a half-edited
+    database can hold for a moment. A parent not among `summits` ends the walk.
+    """
+    vz, parent = {}, {}
+    for key, zoom, up in summits:
+        vz[key] = 0 if zoom is None else zoom
+        parent[key] = up
+    for key in sorted(vz, key=lambda k: vz[k]):
+        v, p = vz[key], parent[key]
+        for _ in range(steps):
+            if p is None or p not in vz or vz[p] <= v:
+                break
+            vz[p] = v
+            p = parent[p]
+    return vz

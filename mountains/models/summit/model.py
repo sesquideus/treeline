@@ -33,6 +33,65 @@ def prominence_expression():
     )
 
 
+#: What `summit_skeleton_feature()` is built from, in this order.
+SUMMIT_SKELETON_FIELDS = (
+    'pk', 'point__location', 'point__name', 'point__altitude',
+    'key_col__point__altitude', 'island_high_point',
+    'prominence_parent_id', 'isolation_parent_id', 'slope_parent_id',
+    'horizon_parent_id', 'key_col_id', 'nearest_higher_point',
+    'slope_computed', 'horizon_computed', 'line_parent_id',
+)
+
+
+def summit_skeleton_feature(row, highest):
+    """
+    One summit's skeleton feature from a `SUMMIT_SKELETON_FIELDS` row; `highest` is the altitude
+    of the highest summit there is (see `skeleton_features`). Shared by the whole-world
+    endpoint and the map's viewport endpoint, so the two can never drift apart.
+    """
+    (pk, location, name, altitude, col_altitude, island,
+     prominence_parent, isolation_parent, slope_parent, horizon_parent,
+     key_col, nearest_higher_point, slope_computed, horizon_computed, line_parent) = row
+    # Same island-high-point branch as with_prominence(): for those the sea is the
+    # col, and a plain subtraction would leave them without a prominence band.
+    if island:
+        prominence = altitude
+    elif col_altitude is not None and altitude is not None:
+        prominence = altitude - col_altitude
+    else:
+        prominence = None
+    return {
+        'type': 'Feature',
+        'geometry': {'type': 'Point', 'coordinates': [location.x, location.y]},
+        'properties': {
+            'type': 'summit',
+            'pk': pk,
+            'name': name,
+            'prom': prominence,
+            'prominence_parent': prominence_parent,
+            'isolation_parent': isolation_parent,
+            'slope_parent': slope_parent,
+            'horizon_parent': horizon_parent,
+            'line_parent': line_parent,
+            'kc': key_col,
+            # Only on the summit nothing is higher than (`highest`).
+            **({'top': True} if altitude is not None and altitude == highest else {}),
+            # Only where a parent is missing, which is the one case the map asks:
+            # was it looked for and not found, or never looked for at all?
+            **({'slope_computed': True}
+               if slope_parent is None and slope_computed else {}),
+            **({'horizon_computed': True}
+               if horizon_parent is None and horizon_computed else {}),
+            # Only the position: the lineage layer routes through it, and the
+            # isolation point layer marks it. Its name and distance are detail.
+            'ilp': {
+                'lon': nearest_higher_point.x,
+                'lat': nearest_higher_point.y,
+            } if nearest_higher_point else None,
+        },
+    }
+
+
 class SummitQuerySet(models.QuerySet):
     def with_point(self):
         return self.select_related('point')
@@ -178,62 +237,14 @@ class SummitQuerySet(models.QuerySet):
         `to_dict()` exactly. `name` is here so a popup has a caption before its detail
         arrives.
         """
-        rows = list(self.values_list(
-            'pk', 'point__location', 'point__name', 'point__altitude',
-            'key_col__point__altitude', 'island_high_point',
-            'prominence_parent_id', 'isolation_parent_id', 'slope_parent_id',
-            'horizon_parent_id', 'key_col_id', 'nearest_higher_point',
-            'slope_computed', 'horizon_computed',
-        ))
+        rows = list(self.values_list(*SUMMIT_SKELETON_FIELDS))
         # The highest summit in the collection. A slope parent has to be *higher* than its
         # child (see the compute action), so for that one summit a missing slope parent is
         # the truth rather than a gap in the data — and the map says so with a different
         # glyph. Every other missing one means nobody has computed it yet.
         highest = max((row[3] for row in rows if row[3] is not None), default=None)
         altitude_of = {row[0]: row[3] for row in rows}
-        features = []
-        for (pk, location, name, altitude, col_altitude, island,
-             prominence_parent, isolation_parent, slope_parent, horizon_parent,
-             key_col, nearest_higher_point, slope_computed, horizon_computed) in rows:
-            if location is None:
-                continue
-            # Same island-high-point branch as with_prominence(): for those the sea is the
-            # col, and a plain subtraction would leave them without a prominence band.
-            if island:
-                prominence = altitude
-            elif col_altitude is not None and altitude is not None:
-                prominence = altitude - col_altitude
-            else:
-                prominence = None
-            features.append({
-                'type': 'Feature',
-                'geometry': {'type': 'Point', 'coordinates': [location.x, location.y]},
-                'properties': {
-                    'type': 'summit',
-                    'pk': pk,
-                    'name': name,
-                    'prom': prominence,
-                    'prominence_parent': prominence_parent,
-                    'isolation_parent': isolation_parent,
-                    'slope_parent': slope_parent,
-                    'horizon_parent': horizon_parent,
-                    'kc': key_col,
-                    # Only on the summit nothing is higher than; see `highest` above.
-                    **({'top': True} if altitude is not None and altitude == highest else {}),
-                    # Only where a parent is missing, which is the one case the map asks:
-                    # was it looked for and not found, or never looked for at all?
-                    **({'slope_computed': True}
-                       if slope_parent is None and slope_computed else {}),
-                    **({'horizon_computed': True}
-                       if horizon_parent is None and horizon_computed else {}),
-                    # Only the position: the lineage layer routes through it, and the
-                    # isolation point layer marks it. Its name and distance are detail.
-                    'ilp': {
-                        'lon': nearest_higher_point.x,
-                        'lat': nearest_higher_point.y,
-                    } if nearest_higher_point else None,
-                },
-            })
+        features = [summit_skeleton_feature(row, highest) for row in rows if row[1] is not None]
         # The zoom each summit first shows at: the map draws it from there on in.
         zooms = first_zooms((f['properties']['pk'], *f['geometry']['coordinates'],
                              f['properties']['prom'], altitude_of[f['properties']['pk']])
@@ -266,6 +277,13 @@ class Summit(GeoModel):
             models.CheckConstraint(
                 name='isolation_parent_requires_source',
                 condition=Q(isolation_parent__isnull=True) | Q(isolation_source__isnull=False),
+            ),
+            # A line parent says what it was worked out from and how far down the summits it
+            # counted went; a cutoff with no parent is "looked, there is none" (an island high
+            # point), so the cutoff stands alone but the parent never does.
+            models.CheckConstraint(
+                name='line_parent_requires_cutoff_and_source',
+                condition=Q(line_parent__isnull=True) | Q(line_cutoff__isnull=False, line_source__isnull=False),
             ),
             models.CheckConstraint(
                 name='prominence_source_requires_parent',
@@ -320,6 +338,21 @@ class Summit(GeoModel):
     horizon_std_computed = models.DateTimeField(
         null=True, blank=True,
         help_text='When the horizon parent (std) was last computed')
+
+    # The line parent (Helman): the first summit *higher* than this one reached across its
+    # key col, among summits of at least `line_cutoff` prominence. Unlike the prominence
+    # parent it depends on that cutoff — a lesser hump in between, counted at a lower one,
+    # takes over — so it is only as good as the data is complete down to it, and is stored
+    # with it and with the elevation data it was worked out from.
+    line_parent = models.ForeignKey('Summit', null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='line_children',
+                                    help_text='The first higher summit across the key col, among those of '
+                                              'at least the cutoff prominence')
+    line_cutoff = models.FloatField(null=True, blank=True,
+                                    help_text='Prominence (m) of the least summit the line walk counted; '
+                                              'set with no parent: looked, there is none')
+    line_source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name='line_data')
 
     objects = SummitQuerySet.as_manager()
 
@@ -377,6 +410,20 @@ class Summit(GeoModel):
                 )
             })
 
+    def _check_line_parent_altitude(self):
+        # Higher, strictly: what makes the line hierarchy a tree, with no cycle to look for.
+        if not (self.line_parent and self.line_parent.point and self.point):
+            return
+        if self.line_parent.point.altitude <= self.point.altitude:
+            raise ValidationError({
+                'line_parent': (
+                    f'{self.line_parent.point.name} '
+                    f'({self.line_parent.point.altitude} m) '
+                    f'must be higher than {self.point.name} '
+                    f'({self.point.altitude} m).'
+                )
+            })
+
     def _check_prominence_cycle(self):
         if not self.prominence_parent:
             return
@@ -413,6 +460,7 @@ class Summit(GeoModel):
         self._check_key_col_altitude()
         self._check_prominence_parent_altitude()
         self._check_isolation_parent_altitude()
+        self._check_line_parent_altitude()
         self._check_prominence_cycle()
 
         #if self.isolation_parent_id is None and self.isolation_source_id is not None:
@@ -698,6 +746,7 @@ class Summit(GeoModel):
             'isolation_parent': self.isolation_parent_id,
             'slope_parent': self.slope_parent_id,
             'horizon_parent': self.horizon_parent_id,
+            'line_parent': self.line_parent_id,
             'ilp': {
                 'name': self.isolation_name,
                 'parent': self.isolation_parent.point.name if self.isolation_parent else None,

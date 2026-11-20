@@ -3,7 +3,7 @@ from django.shortcuts import render
 from .summit import (ProminenceForestView, IsolationForestView, MountainDetailView, SlopeTreeView, HorizonTreeView,
                      SummitDetailGeoJSON, SummitCompareView)
 from .river import river
-from . import col, point, range
+from . import col, map_features, point, range
 from .statistics import StatisticsView
 
 

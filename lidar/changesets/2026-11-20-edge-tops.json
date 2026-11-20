@@ -1,0 +1,16 @@
+{
+ "sources": {
+  "lidar": "DMR 5.0",
+  "names": "OpenStreetMap"
+ },
+ "remove_summits": [
+  {
+   "at": [49.50489, 18.715048],
+   "why": "a top only where DMR 5.0 stops at the Czech border; Copernicus has the ground rising some 60 m on beyond it"
+  },
+  {
+   "at": [48.50607, 21.586702],
+   "why": "a top only where DMR 5.0 stops at the Hungarian border; Copernicus has the ground rising some 50 m on beyond it"
+  }
+ ]
+}
