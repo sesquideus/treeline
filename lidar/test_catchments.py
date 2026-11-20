@@ -10,7 +10,7 @@ import unittest
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from catchments import despike, reference, run, walk  # noqa: E402
+from catchments import despike, reference, run, walk, walk_line  # noqa: E402
 
 
 def noise(h, w, seed, scale=100.0, quantum=None):
@@ -95,12 +95,16 @@ class EngineTests(unittest.TestCase):
         H, W = z.shape
         rec, stats = run(lambda a, b, c, d: z[a:b, c:d], H, W, tile, thr)
         parents, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
-        ref = reference(z, thr)
+        cutoffs = (thr, 3 * thr)
+        ref = reference(z, thr, cutoffs)
         self.assertEqual(rec['top'].tolist(), ref['top'].tolist(), 'the same tops of P >= threshold')
         self.assertEqual(rec['col'].tolist(), ref['col'].tolist(), 'the same key cols')
         np.testing.assert_array_equal(rec['hz'], ref['hz'])
         np.testing.assert_array_equal(rec['cz'], ref['cz'])
         self.assertEqual(parents.tolist(), ref['parent'].tolist(), 'the same parents')
+        for cutoff in cutoffs:
+            line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], cutoff)
+            self.assertEqual(line.tolist(), ref['line'][cutoff].tolist(), f'the same line parents at {cutoff}')
         if H * W * len(rec['top']) <= 3_000_000:
             self.assertEqual(rec['border'].tolist(), border_flags(z, rec), 'reaching the window\'s edge')
         return rec, stats, (ta, tb)
@@ -199,3 +203,74 @@ class EngineTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LineParentTests(unittest.TestCase):
+    """
+    `tiled.walk_line_parents` on synthetic ground, against what the definition says rather than
+    how the walk goes: the line parent is higher, of at least the cutoff, and on the island the
+    summit is cut off from when the water reaches its key col; with no cutoff it is the first
+    higher summit, never further than the prominence parent.
+    """
+
+    def deaths(self, z2d):
+        from tiled import flood_core
+        h, w = z2d.shape
+        z = np.ascontiguousarray(z2d, dtype=np.float32).ravel()
+        order = np.argsort(-z, kind='stable')
+        d_top, d_col, d_isle, d_far, *_ = flood_core(order, z, np.arange(len(z), dtype=np.int64),
+                                                     np.zeros(len(z), np.bool_), np.empty(1, np.int64),
+                                                     np.empty(1, np.int64), w, h)
+        srt = np.argsort(d_top)
+        d_top, d_col, d_isle, d_far = d_top[srt], d_col[srt], d_isle[srt], d_far[srt]
+        hz = z[d_top]
+        cz = np.where(d_col >= 0, z[np.maximum(d_col, 0)], np.nan).astype(np.float32)
+        return z, d_top, d_col, d_isle, d_far, hz, cz
+
+    def above(self, z, a, b):
+        return z[a] > z[b] or (z[a] == z[b] and a < b)
+
+    def island(self, z, w, h, start, col):
+        """The cells connected to `start` through cells above `col` in the strict order."""
+        seen, todo = {start}, [start]
+        while todo:
+            c = todo.pop()
+            r, x = divmod(c, w)
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    rr, xx = r + dy, x + dx
+                    q = rr * w + xx
+                    if 0 <= rr < h and 0 <= xx < w and q not in seen and self.above(z, q, col):
+                        seen.add(q)
+                        todo.append(q)
+        return seen
+
+    def test_the_definition_on_rough_ground(self):
+        from tiled import _far, walk_line_parents, walk_parents
+        for seed in range(6):
+            for z2d in (noise(40, 50, seed), smooth_hills(60, 60, seed, quantum=5.0)):
+                h, w = z2d.shape
+                z, tops, col, isle, far, hz, cz = self.deaths(z2d)
+                prom = np.where(col >= 0, hz - cz, hz)
+                for cutoff in (0.0, 5.0, 20.0):
+                    starts = tops[prom >= cutoff]
+                    line = walk_line_parents(z.reshape(h, w), h, w, tops, col, isle, hz, cz, far, starts, cutoff)
+                    parents = walk_parents(z.reshape(h, w), h, w, tops, col, isle, hz, cz, far, starts)
+                    for s, l, p in zip(starts.tolist(), line.tolist(), parents.tolist()):
+                        i = int(np.searchsorted(tops, s))
+                        if col[i] < 0:
+                            self.assertEqual(l, -1)        # the island high point: none
+                            continue
+                        with self.subTest(seed=seed, cutoff=cutoff, top=s):
+                            self.assertGreaterEqual(l, 0)
+                            j = int(np.searchsorted(tops, l))
+                            self.assertTrue(self.above(z, l, s))
+                            self.assertGreaterEqual(prom[j], cutoff)
+                            self.assertIn(l, self.island(z, w, h, int(isle[i]), int(col[i])))
+                            # The prominence parent is higher and of at least the cutoff
+                            # too, so the walk meets the line parent first, or at it.
+                            walked, q = [], s
+                            while q != p and q >= 0 and len(walked) < 100000:
+                                q = _far(z.reshape(h, w), h, w, tops, col, isle, cz, far, q)
+                                walked.append(q)
+                            self.assertIn(l, walked)

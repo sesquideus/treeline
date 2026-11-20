@@ -667,6 +667,32 @@ def walk_parents(z, rows, cols, tops, col, isle, hz, cz, farc, starts):
     return out
 
 
+@njit(cache=True)
+def walk_line_parents(z, rows, cols, tops, col, isle, hz, cz, farc, starts, cutoff):
+    """
+    Each start's line parent (Helman): across its key col and on across each top passed, to the
+    first top strictly higher than the start (in the strict order: by height, a tie by the
+    smaller position) whose prominence is at least `cutoff`. A top below the cutoff is passed
+    like a lesser top in `walk_parents`, which is what resolves it to the summit of at least
+    the cutoff whose ground it lies in. -1 for none (an island high point).
+    """
+    out = np.full(len(starts), -1, np.int64)
+    for k in range(len(starts)):
+        s = starts[k]
+        i = _death(tops, s)
+        hs = hz[i]
+        p = _far(z, rows, cols, tops, col, isle, cz, farc, s)
+        for _ in range(100000000):
+            if p < 0:
+                break
+            j = _death(tops, p)
+            if j >= 0 and _above(hz[j], p, hs, s) and _prom(tops, col, hz, cz, p) >= cutoff:
+                break
+            p = _far(z, rows, cols, tops, col, isle, cz, farc, p)
+        out[k] = p
+    return out
+
+
 def walk(work, min_prominence, out):
     g = Grid(work)
     z = g.array()

@@ -794,11 +794,41 @@ def walk(tops, col, hz, cz, far):
     return out, tie_a, tie_b
 
 
+def walk_line(tops, col, hz, cz, far, cutoff):
+    """
+    Each top's line parent (Helman): across its key col and on across each top passed, to the
+    first top strictly higher (by height, a tie by the smaller gid) of prominence at least
+    `cutoff`. The records hold only the tops of at least the threshold, the lesser ones
+    already passed on to whatever is across their cols, so `cutoff` below the threshold is
+    the threshold. -1 for none (an island high point).
+    """
+    n = len(tops)
+    prom = np.where(col >= 0, hz - cz, hz)
+    out = np.full(n, -1, np.int64)
+    for s in range(n):
+        p = far[s]
+        for _ in range(1 << 30):
+            if p < 0:
+                break
+            i = np.searchsorted(tops, p)
+            if i >= n or tops[i] != p:       # cannot happen: every label resolves to a settled top
+                p = -2
+                break
+            if (hz[i] > hz[s] or (hz[i] == hz[s] and tops[i] < tops[s])) and prom[i] >= cutoff:
+                break
+            p = far[i]
+        out[s] = p
+    return out
+
+
 # ------------------------------------------------------------------ the reference
 
-def reference(z2d, thr=THRESHOLD):
-    """`tiled.flood_core` in one piece and `tiled.walk_parents`: deaths and parents of P >= thr."""
-    from tiled import flood_core, walk_parents
+def reference(z2d, thr=THRESHOLD, line_cutoffs=()):
+    """
+    `tiled.flood_core` in one piece and `tiled.walk_parents`: deaths and parents of P >= thr,
+    and with `line_cutoffs` their line parents at each (`tiled.walk_line_parents`).
+    """
+    from tiled import flood_core, walk_line_parents, walk_parents
     h, w = z2d.shape
     z = np.ascontiguousarray(z2d, dtype=np.float32).ravel()
     gid = np.arange(len(z), dtype=np.int64)
@@ -812,7 +842,10 @@ def reference(z2d, thr=THRESHOLD):
     prom = np.where(d_col >= 0, hz - cz, hz)
     sel = np.flatnonzero(prom >= thr)
     parents = walk_parents(z.reshape(h, w), h, w, d_top, d_col, d_isle, hz, cz, d_far, d_top[sel])
-    return dict(top=d_top[sel], col=d_col[sel], hz=hz[sel], cz=cz[sel], parent=parents, all=len(d_top))
+    line = {c: walk_line_parents(z.reshape(h, w), h, w, d_top, d_col, d_isle, hz, cz, d_far, d_top[sel], c)
+            for c in line_cutoffs}
+    return dict(top=d_top[sel], col=d_col[sel], hz=hz[sel], cz=cz[sel], parent=parents, line=line,
+                all=len(d_top))
 
 
 # ------------------------------------------------------------------ a window of DMR 5.0
@@ -899,11 +932,13 @@ def dmr5_reader(source, r0, c0):
     return read
 
 
-def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10):
+def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=30.0):
     """
     Every top of P >= thr in DMR 5.0 (all of it, or the box S,N,W,E), with its key col, its
-    parent and whether its ground reaches the edge of the data (border or window). Heights as
-    the raster has them (ETRS89-h); `catchments_db.py` converts them.
+    parent, its line parent at `line_cutoff`, and whether its ground reaches the edge of the
+    data (border or window). Heights as the raster has them (ETRS89-h); `catchments_db.py`
+    converts them. The records themselves go to OUT.npz beside it, with what places them, so
+    that another cutoff or walk needs no new flood.
     """
     import rasterio
     from pyproj import Transformer
@@ -922,7 +957,11 @@ def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10):
     t0 = time.time()
     rec, stats = run(dmr5_reader(SOURCE, r0, c0), H, W, tile, thr, log=lambda s: print(s, flush=True), jobs=jobs)
     par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
+    line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], line_cutoff)
     print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {thr:g}; {len(ta)} ties', flush=True)
+    np.savez_compressed(os.path.splitext(out)[0] + '.npz', **{k: v for k, v in rec.items() if isinstance(v, np.ndarray)},
+                        r0=r0, c0=c0, H=H, W=W, transform=np.array(tuple(d.transform)[:6]), crs=str(d.crs),
+                        threshold=thr)
     back = Transformer.from_crs(d.crs, 'EPSG:4326', always_xy=True)
 
     def ll(g):
@@ -939,8 +978,11 @@ def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10):
             x.update(col=ll(rec['col'][i]), col_h=float(rec['cz'][i]))
         if par[i] >= 0:
             x['parent'] = ll(par[i])
+        if line[i] >= 0:
+            x['line'] = ll(line[i])
         res.append(x)
     st = {k: v for k, v in stats.items() if k != 'tiles'}
+    st['line_cutoff'] = line_cutoff
     st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(a), ll(b)] for a, b in zip(ta, tb)])
     json.dump(dict(stats=st, summits=res), open(out, 'w'))
     print(f'-> {out}', flush=True)
@@ -973,10 +1015,13 @@ def main():
     p.add_argument('--tile', type=int, default=5000)
     p.add_argument('--threshold', type=float, default=THRESHOLD)
     p.add_argument('--jobs', type=int, default=10)
+    p.add_argument('--line-cutoff', type=float, default=30.0,
+                   help='prominence of the least summit a line parent may be (default 30: what the database holds)')
     p.add_argument('--out', required=True)
     a = ap.parse_args()
     if a.cmd == 'dmr5':
-        dmr5([float(v) for v in a.bbox.split(',')] if a.bbox else None, a.out, a.tile, a.threshold, a.jobs)
+        dmr5([float(v) for v in a.bbox.split(',')] if a.bbox else None, a.out, a.tile, a.threshold, a.jobs,
+             a.line_cutoff)
     if a.cmd == 'window':
         window([float(v) for v in a.center.split(',')], a.size, a.tile, a.threshold, a.out, not a.no_check)
 
