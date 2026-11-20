@@ -5,7 +5,7 @@ from typing import Optional
 
 from django.contrib.gis.db.models.functions import Distance
 from django.db.models import ExpressionWrapper, F, FloatField, Prefetch, Value
-from django.db.models.functions import ATan, Cos, Sin
+from django.db.models.functions import ATan, Cos, NullIf, Sin
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
 from django.views.generic import ListView, DetailView, TemplateView, FormView
@@ -241,10 +241,13 @@ class MountainDetailView(DetailView):
         point = self.object.point.location
         altitude = self.object.point.altitude
         distance = Distance('point__location', point)
+        # A summit standing exactly here has no slope or angle from here: null, not a
+        # division by zero that takes the whole page down.
+        apart = NullIf(distance, Value(0.0))
 
         def angle(refraction):
             r = 6371000.0 / (1 - refraction)
-            beta = distance / Value(r)
+            beta = apart / Value(r)
             return ATan(
                 ((Value(r) + F('point__altitude')) * Cos(beta) - Value(r + altitude))
                 / ((Value(r) + F('point__altitude')) * Sin(beta))
@@ -260,7 +263,7 @@ class MountainDetailView(DetailView):
                     hhp_angle=angle(0.0),
                     hhp_angle_std=angle(0.14),
                 )
-                .annotate(slope=F('dh') / F('distance')))
+                .annotate(slope=F('dh') / NullIf(F('distance'), Value(0.0))))
 
     def get_context_data(self, object_list=None, **kwargs):
         context = super().get_context_data(object_list=object_list, **kwargs)

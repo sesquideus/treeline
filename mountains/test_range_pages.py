@@ -141,7 +141,8 @@ class RangeGeoJsonTests(RangePageTestCase):
         self.payload()
         before = data_version()
         self.zapadne.area = box(19.7, 49.2)
-        self.zapadne.save()
+        with self.captureOnCommitCallbacks(execute=True):      # the version moves at the commit
+            self.zapadne.save()
         self.assertNotEqual(data_version(), before)
         self.assertCountEqual([f['properties']['name'] for f in self.payload()['features']],
                               ['Tatry', 'Západné Tatry'])

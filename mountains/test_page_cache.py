@@ -127,28 +127,63 @@ class PageCacheTests(TestCase):
     def test_a_save_shows_on_the_next_request(self):
         self.queries('/')
         self.rysy.point.name = 'Rysy (new name)'
-        self.rysy.point.save()
+        with self.captureOnCommitCallbacks(execute=True):      # the version moves at the commit
+            self.rysy.point.save()
         response, rendering = self.queries('/')
         self.assertGreater(rendering, 0)
         self.assertContains(response, 'Rysy (new name)')
 
     def test_a_new_summit_shows_on_the_next_request(self):
         self.queries('/')
-        make_summit('Gerlach', 2655, 49.16, 20.13)
+        with self.captureOnCommitCallbacks(execute=True):
+            make_summit('Gerlach', 2655, 49.16, 20.13)
         self.assertContains(self.queries('/')[0], 'Gerlach')
 
     def test_a_delete_shows_on_the_next_request(self):
-        doomed = make_summit('Doomed peak', 1000, 49.0, 20.0)
+        with self.captureOnCommitCallbacks(execute=True):
+            doomed = make_summit('Doomed peak', 1000, 49.0, 20.0)
         self.assertContains(self.queries('/')[0], 'Doomed peak')
-        doomed.delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            doomed.delete()
         self.assertNotContains(self.queries('/')[0], 'Doomed peak')
 
     def test_a_country_added_to_a_point_invalidates(self):
         """A many-to-many edit is a write too; the admin saves it after the point itself."""
         slovakia = make_country('SK')     # a save of its own, so made before measuring
         before = data_version()
-        self.rysy.point.countries.add(slovakia)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.rysy.point.countries.add(slovakia)
         self.assertNotEqual(data_version(), before)
+
+    def test_a_transaction_bumps_once_at_its_commit(self):
+        """
+        Not at each write: a reader before the commit still sees the old data, and would cache
+        it under the new version for good. Two hundred thousand summits in one import are one
+        bump, and a transaction rolled back bumps nothing.
+        """
+        before = data_version()
+        with self.captureOnCommitCallbacks() as callbacks:
+            make_summit('Gerlach', 2655, 49.16, 20.13)
+            make_summit('Lomnica', 2634, 49.19, 20.21)
+            self.assertEqual(data_version(), before)
+        callbacks[0]()
+        after = data_version()
+        self.assertNotEqual(after, before)
+        for callback in callbacks[1:]:
+            callback()
+        self.assertEqual(data_version(), after)
+
+    def test_a_rolled_back_write_bumps_nothing(self):
+        from django.db import transaction
+        before = data_version()
+        with self.captureOnCommitCallbacks(execute=True):
+            try:
+                with transaction.atomic():
+                    make_summit('Gerlach', 2655, 49.16, 20.13)
+                    raise RuntimeError
+            except RuntimeError:
+                pass
+        self.assertEqual(data_version(), before)
 
     def test_each_query_string_is_its_own_page(self):
         make_summit('Gerlach', 2655, 49.16, 20.13)
