@@ -3,7 +3,7 @@ from django.contrib.gis.measure import D
 from django.db.models import F
 
 from mountains.forms.filter import SummitFilterForm
-from mountains.models import Summit
+from mountains.models import NamedPoint, Summit
 from mountains.views.cache import CachedPageMixin
 
 
@@ -66,8 +66,11 @@ class MountainListView(CachedPageMixin, OrderableListView):
 
         data = getattr(self.filter_form, 'cleaned_data', {})
         if countries := data.get('countries'):
-            # Filtering across the countries M2M join can duplicate summit rows
-            qs = qs.filter(point__countries__in=countries).distinct()
+            # As a subquery, not a join: the join through the countries table can repeat a
+            # row, and the DISTINCT that removed the repeats made Postgres compute every
+            # annotation for every match instead of for the one page shown (0.5 s per query,
+            # twice, for Slovakia's 8000 summits).
+            qs = qs.filter(point__in=NamedPoint.objects.filter(countries__in=countries))
         if name := data.get('name'):
             qs = qs.filter(point__name__icontains=name)
         if altitude := data.get('altitude'):

@@ -25,6 +25,7 @@
         </ul>
     </form>
 
+    {% include 'core/blocks/pagination.html' %}
     <table class="sortable alternating">
         <thead>
             <tr>
@@ -49,7 +50,7 @@
                 {% with minor=col.key_for %}
                     {% with major=minor.prominence_parent %}
                         <tr>
-                            <td class="number">{{ forloop.counter }}</td>
+                            <td class="number">{{ page_obj.start_index|add:forloop.counter0 }}</td>
                             <td>
                                 {% for country in col.point.countries.all %}
                                     {% flaglet country.code %}
@@ -72,4 +73,5 @@
             {% endfor %}
         </tbody>
     </table>
+    {% include 'core/blocks/pagination.html' %}
 {% endblock page_content %}
