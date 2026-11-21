@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- TreeLine: a peak above the forest, the tree line drawn where the green gives out. -->
+  <defs>
+    <clipPath id="mountain">
+      <polygon points="4,56 32,9 60,56"/>
+    </clipPath>
+  </defs>
+  <rect width="64" height="64" rx="13" fill="#25476d"/>
+  <polygon points="4,56 32,9 60,56" fill="#a3afbb"/>
+  <polygon points="32,9 22.5,25 26.5,23 29.5,27.5 33,22.5 36.5,26.5 41.5,25" fill="#ffffff"/>
+  <g clip-path="url(#mountain)">
+    <polygon fill="#2c6a3b" points="0,56 0,43 4,38.5 8,43 12,37.5 16,42 20,36.5 24,41 28,35.5 32,40 36,35.5 40,41 44,36.5 48,42 52,37.5 56,43 60,38.5 64,43 64,56"/>
+  </g>
+  <rect x="4" y="54" width="56" height="2.5" rx="1.2" fill="#1d3a2a"/>
+</svg>
