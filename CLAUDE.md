@@ -71,8 +71,8 @@ cd lidar && uv run --project .. --group lidar python parents.py --out OUT   # Tr
 LIDAR_DB=db.json uv run python manage.py shell < lidar/export_db.py
 cd lidar && uv run --project .. --group lidar python compare.py db.json OUT osm-peaks.json > cmp.json
 python3 lidar/report.py cmp.json report.html
-uv run --group lidar python lidar/changeset.py cmp.json db.json lidar/changesets/NEW.json
-uv run python manage.py apply_lidar_changeset lidar/changesets/NEW.json --dry-run   # then without, here and on amos
+uv run --group lidar python lidar/changeset.py cmp.json db.json NEW.json
+uv run python manage.py apply_lidar_changeset NEW.json --dry-run   # then without, here and on amos
 ```
 
 The exact way, which supersedes the pooled `prominence.py`/`parents.py` above: the catchment
@@ -93,6 +93,8 @@ Beyond the border, Copernicus GLO-30 fills in (a 30 m surface model, forest cano
 anything it decides is flagged less precise. Names come from an OpenStreetMap extract (what
 Freemap draws). `apply_lidar_changeset` is idempotent and checks each point's name before
 touching it, so a changeset can be applied locally, re-imported over, and applied on amos.
+Changesets are data, not code: they are not committed (`lidar/changesets/` ignores everything)
+but kept in `/mnt/media/treelines/products/` and copied to amos's `lidar/changesets/` with scp.
 
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,

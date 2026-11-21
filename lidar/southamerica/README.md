@@ -1,6 +1,6 @@
 # South America P600 (2026-11-19)
 
-How `lidar/changesets/2026-11-19-south-america-p600.json` (and its companions) were made. These are
+How `2026-11-19-south-america-p600.json` (and its companions; now in the products archive, not the repository) were made. These are
 the one-off scripts as they ran, kept so the import can be traced and redone, not a polished
 pipeline: each takes a working directory `D` holding its inputs.
 

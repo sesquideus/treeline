@@ -1,0 +1,3 @@
+# Changesets are data, not code: kept in the products archive and copied to amos with scp.
+*
+!.gitignore

@@ -2,8 +2,8 @@
 Apply a changeset written by `lidar/changeset.py`: P100s found in the lidar and missing from
 the database, Freemap names in languages a point has none in, and names for unnamed key cols.
 
-    uv run python manage.py apply_lidar_changeset lidar/changesets/2026-11-16-p100.json --dry-run
-    uv run python manage.py apply_lidar_changeset lidar/changesets/2026-11-16-p100.json
+    uv run python manage.py apply_lidar_changeset lidar/changesets/CHANGESET.json --dry-run
+    uv run python manage.py apply_lidar_changeset lidar/changesets/CHANGESET.json
 
 Plain JSON, no lidar tooling needed, so the same file goes on the server. Running it twice
 changes nothing the second time: a summit is skipped when one already stands within 30 m, a
