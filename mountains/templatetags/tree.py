@@ -105,6 +105,16 @@ def render_horizon_lineage_std(node, depth=0):
 
 
 @register.filter
+def is_highest(summit):
+    """Whether this is the highest summit there is: the one that ends every complete chain."""
+    from mountains.models import Summit
+    from mountains.views.cache import cached_json
+    top = cached_json('mountains:highest-summit-pk',
+                      lambda: Summit.objects.order_by('-point__altitude').values_list('pk', flat=True).first())
+    return summit is not None and summit.pk == top
+
+
+@register.filter
 def subtract(a, b):
     return a - b
 
@@ -135,7 +145,8 @@ def distance_to(p1: NamedPoint, p2: NamedPoint):
 
 @register.filter
 def distance(dist_m):
-    if not dist_m:
+    # `is None`, not falsiness: an isolation limit point on its higher neighbour is 0 m off.
+    if dist_m is None or dist_m == '':
         return "?"
     return f"{dist_m / 1000:.3f}"
 

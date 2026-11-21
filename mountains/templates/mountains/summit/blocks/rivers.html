@@ -1,15 +1,27 @@
 {% load cairn tree %}
 
-<div class="section">
-    <h3>
-        Rivers
-    </h3>
-    <table class="lineage">
-        {% for river in mountain.point.drains.all %}
-            <tr>
-                <td>{% object_link river 'river' attr='name' %}</td>
-                <td class="altitude">{{ river.source.altitude|altitude }}</td>
-            </tr>
-        {% endfor %}
-    </table>
-</div>
+{% comment %}
+    The rivers whose whole basin this summit tops (`River.watershed_high_point`), each with
+    the altitude of its source. Left out where it tops none.
+{% endcomment %}
+{% with rivers=mountain.point.drains.all %}
+    {% if rivers %}
+        <div class="section">
+            <h3>
+                Highest point of the basin of
+            </h3>
+            <table class="lineage">
+                <tr>
+                    <th>River</th>
+                    <th>Source</th>
+                </tr>
+                {% for river in rivers %}
+                    <tr>
+                        <td>{% object_link river 'river' attr='name' %}</td>
+                        <td class="altitude">{{ river.source.altitude|altitude }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </div>
+    {% endif %}
+{% endwith %}

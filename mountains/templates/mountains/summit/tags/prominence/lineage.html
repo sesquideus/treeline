@@ -36,5 +36,7 @@
 {% elif node.island_high_point %}
 
 {% else %}
-    (unknown) ({{ node.prominence|floatformat:1 }} m)
+    <tr{% if more %} class="more"{% endif %}>
+        <td colspan="99" class="empty">no data higher up the hierarchy</td>
+    </tr>
 {% endif %}

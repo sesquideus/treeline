@@ -148,7 +148,8 @@ class HorizonTreeView(SummitTreeView):
         return Summit.objects.select_related('horizon_parent__point', 'point')
 
 
-PARENT_LINKS = ('prominence_parent', 'slope_parent', 'horizon_parent', 'horizon_parent_std')
+PARENT_LINKS = ('prominence_parent', 'isolation_parent', 'slope_parent', 'horizon_parent',
+                'horizon_parent_std', 'line_parent')
 
 
 def prime_lineages(summit):
@@ -187,6 +188,50 @@ def prime_lineages(summit):
             if (parent := chain.get(parent_pk)) is not None:
                 setattr(obj, attr, parent)
     return summit
+
+
+def lineage_status(summit, attr, ends_well, steps=100000):
+    """
+    Where a summit's chain of `attr` parents ends, walked through the links `prime_lineages`
+    has loaded (no queries): {root, order, complete}. `ends_well(root)` says whether a chain
+    may end there, the root of its hierarchy, rather than at a gap in the data; `order` is
+    the number of steps to that root (the root itself is order 0).
+    """
+    node, order, seen = summit, 0, {summit.pk}
+    for _ in range(steps):
+        parent = getattr(node, attr)
+        if parent is None or parent.pk in seen:     # a cycle would also end the walk
+            break
+        seen.add(parent.pk)
+        node, order = parent, order + 1
+    return {'root': node, 'order': order, 'complete': ends_well(node)}
+
+
+def with_root_named(status, highest):
+    # Ending at the highest summit is what complete means for most hierarchies: naming it
+    # says nothing. A root anywhere else (a horizon's proved grandparent) is worth naming.
+    return status | {'name_root': status['root'].pk != highest, 'ordered': status.get('ordered', True)}
+
+
+def lineage_statuses(summit):
+    """
+    For each hierarchy, whether this summit's lineage is complete and its order in it.
+    - prominence: up to an island high point, whose key col is the sea (Everest for
+      Afro-Eurasia, Aconcagua for the Americas…);
+    - isolation and slope: up to the highest summit there is, which alone has no parent;
+    - horizon: up to a summit whose horizon was worked out and has nothing above it.
+    Isolation's parent is an attribution of ground, not a well-defined tree, so it gets no
+    order; the others do, when complete.
+    """
+    highest = Summit.objects.order_by('-point__altitude').values_list('pk', flat=True).first()
+    statuses = {
+        'prominence': lineage_status(summit, 'prominence_parent', lambda r: r.island_high_point),
+        'isolation': lineage_status(summit, 'isolation_parent', lambda r: r.pk == highest) | {'ordered': False},
+        'slope': lineage_status(summit, 'slope_parent', lambda r: r.pk == highest),
+        'horizon': lineage_status(summit, 'horizon_parent', lambda r: r.horizon_computed is not None),
+        'horizon_std': lineage_status(summit, 'horizon_parent_std', lambda r: r.horizon_std_computed is not None),
+    }
+    return {kind: with_root_named(status, highest) for kind, status in statuses.items()}
 
 
 #: How many summits the slope and horizon tables fold away below the parent.
@@ -272,6 +317,7 @@ class MountainDetailView(DetailView):
         # Descending, nulls last: Postgres sorts NULLs first on a descending order, and a
         # summit whose metric could not be computed would head the table.
         return context | {
+            'lineages': lineage_statuses(self.object),
             'by_slope': parent_first(ranked.order_by(F('slope').desc(nulls_last=True)),
                                      self.object.slope_parent_id),
             'by_horizon': parent_first(ranked.order_by(F('hhp_angle').desc(nulls_last=True)),

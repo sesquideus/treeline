@@ -13,7 +13,7 @@
             &rightarrow;
         </td>
         <td>
-            {% if node.isolation_name %}{{ node.isolation_name }} of{% endif %}
+            {% if node.isolation_name %}{{ node.isolation_name }}{% if node.isolation_name|slice:"-3:"|lower != " of" %} of{% endif %}{% endif %}
         </td>
         <td>
             {% object_link node.isolation_parent 'mountain' %}
@@ -38,16 +38,15 @@
         </td>
     </tr>
     {% if not last %}{% render_isolation_lineage node.isolation_parent depth|add:1 %}{% endif %}
-{% else %}
+{% elif not node|is_highest %}
+    {% comment %}The highest summit ends every complete chain and needs no row.{% endcomment %}
     <tr{% if more %} class="more"{% endif %}>
-        {% if node.isolation %}
-            <td colspan="99">
-                (unknown) ({{ node.isolation|multiply:0.001|floatformat:3 }})
-            </td>
-        {% else %}
-            <td colspan="99" class="empty">
-                isolation unknown
-            </td>
-        {% endif %}
+        <td colspan="99" class="empty">
+            {% if node.nearest_higher_point %}
+                nearest higher ground found ({{ node.compute_isolation.m|distance }} km); the summit it belongs to is not recorded yet
+            {% else %}
+                no data higher up the hierarchy
+            {% endif %}
+        </td>
     </tr>
 {% endif %}

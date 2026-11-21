@@ -1,0 +1,13 @@
+{% comment %}
+    Whether a lineage reaches the root of its hierarchy, and the summit's order there (the
+    root is order 0). `status` is one entry of `lineages` (views/summit/summit.py).
+{% endcomment %}
+{% load cairn %}
+{% if status.complete %}
+    <span class="lineage-status complete" title="Complete: the chain reaches the root of the hierarchy" aria-label="complete">&#x2713;</span>
+    {% if status.ordered %}<span class="lineage-order">{% if status.order %}order {{ status.order }}{% else %}root{% endif %}</span>{% endif %}
+    {% if status.order and status.name_root %}<span class="lineage-root">from {% object_link status.root 'mountain' attr='name' %}</span>{% endif %}
+{% else %}
+    <span class="lineage-status incomplete" title="Incomplete: the chain stops at a summit that has no parent recorded yet" aria-label="incomplete">?</span>
+    <span class="lineage-root">hierarchy incomplete{% if status.order %}: stops at {% object_link status.root 'mountain' attr='name' %}{% endif %}</span>
+{% endif %}

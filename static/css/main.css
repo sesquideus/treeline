@@ -924,3 +924,12 @@ div.section.downstream {
 div.section.downstream:hover {
     opacity: 1;
 }
+
+/* Whether a lineage reaches the root of its hierarchy (summit page, lineage headings). */
+span.lineage-status {
+    font-weight: bold;
+    cursor: help;
+}
+span.lineage-status.complete { color: #2e8b3a; }
+span.lineage-status.incomplete { color: #c62828; }
+span.lineage-order, span.lineage-root { font-size: 0.85em; color: #666; }
