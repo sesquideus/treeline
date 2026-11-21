@@ -6,14 +6,13 @@ no grid for: Taiwan's TWVD 2001 through the hybrid geoid TWGEOID18h, say.
 
 Writes NAME.gtx into PROJ's user data directory (~/.local/share/proj), where the other grids
 are; a VerticalDatum then names it in its CRS (`+geoidgrids=NAME.gtx`). GTX needs nothing but
-numpy, so the server needs no GDAL tooling for it.
+the standard library, so the server needs neither GDAL nor numpy for it.
 """
 import re
 import struct
 import urllib.request
 from pathlib import Path
 
-import numpy as np
 from django.core.management.base import BaseCommand, CommandError
 from pyproj.datadir import get_user_data_dir
 
@@ -31,7 +30,7 @@ def degrees(text):
 
 
 def parse_isg(text):
-    """ (header dict, grid N-to-S as float32) from an ISG 1.0/2.0 grid file. """
+    """ (header dict, rows N to S as lists of floats) from an ISG 1.0/2.0 grid file. """
     head, _, body = text.partition('end_of_head')
     head = head.split('begin_of_head')[-1]
     h = {}
@@ -46,10 +45,10 @@ def parse_isg(text):
     if h.get('data units', 'meters') != 'meters':
         raise CommandError(f'units {h["data units"]}, not metres')
     rows, cols = int(h['nrows']), int(h['ncols'])
-    z = np.array(body.split('\n', 1)[1].split(), dtype=np.float32)
-    if z.size != rows * cols:
-        raise CommandError(f'{z.size} values for {rows} × {cols}')
-    return h, z.reshape(rows, cols)
+    z = [float(v) for v in body.split('\n', 1)[1].split()]
+    if len(z) != rows * cols:
+        raise CommandError(f'{len(z)} values for {rows} × {cols}')
+    return h, [z[r * cols:(r + 1) * cols] for r in range(rows)]
 
 
 def gtx(h, z):
@@ -58,10 +57,12 @@ def gtx(h, z):
     columns, then the rows south to north. No data is -88.8888 there.
     """
     nodata = float(h.get('nodata', -9999))
-    z = np.where(z == nodata, np.float32(-88.8888), z)[::-1]
+    rows = [[-88.8888 if v == nodata else v for v in row] for row in reversed(z)]
     lat0, lon0 = degrees(h['lat min']), degrees(h['lon min'])
     dlat, dlon = degrees(h['delta lat']), degrees(h['delta lon'])
-    return struct.pack('>4d2i', lat0, lon0, dlat, dlon, *z.shape) + z.astype('>f4').tobytes()
+    cols = len(rows[0])
+    return struct.pack('>4d2i', lat0, lon0, dlat, dlon, len(rows), cols) + b''.join(
+        struct.pack(f'>{cols}f', *row) for row in rows)
 
 
 class Command(BaseCommand):
@@ -83,5 +84,6 @@ class Command(BaseCommand):
         tmp = out.with_suffix('.tmp')
         tmp.write_bytes(gtx(h, z))
         tmp.replace(out)
-        self.stdout.write(f'{h.get("model name", name)}: {z.shape[0]} × {z.shape[1]}, '
-                          f'{np.nanmin(z):.3f} … {np.nanmax(z):.3f} m -> {out}')
+        values = [v for row in z for v in row if v != float(h.get('nodata', -9999))]
+        self.stdout.write(f'{h.get("model name", name)}: {len(z)} × {len(z[0])}, '
+                          f'{min(values):.3f} … {max(values):.3f} m -> {out}')

@@ -133,15 +133,14 @@ class IsgGridTests(SimpleTestCase):
 
     def test_gtx_runs_south_to_north_from_the_south_west_node(self):
         import struct
-        import numpy as np
         from core.management.commands.install_isg_grid import gtx, parse_isg
         b = gtx(*parse_isg(ISG))
         lat0, lon0, dlat, dlon, rows, cols = struct.unpack('>4d2i', b[:40])
         self.assertEqual((lat0, lon0, rows, cols), (21.0, 118.0, 3, 2))
         self.assertAlmostEqual(dlat, 30 / 3600)
-        z = np.frombuffer(b[40:], '>f4').reshape(rows, cols)
-        self.assertEqual(z[0].tolist(), [1.0, 1.5])
-        self.assertAlmostEqual(float(z[1, 1]), -88.8888, places=3)
+        z = struct.unpack(f'>{rows * cols}f', b[40:])
+        self.assertEqual(z[:2], (1.0, 1.5))
+        self.assertAlmostEqual(z[3], -88.8888, places=3)
 
 
 class DefaultDatumTests(TestCase):
