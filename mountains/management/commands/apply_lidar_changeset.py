@@ -132,6 +132,12 @@ class Command(BaseCommand):
             if not Language.objects.filter(iso639_1=lang['iso639_1']).exists():
                 Language.objects.create(**lang)
                 self.stdout.write(f'  + language {lang["iso639_1"]} {lang["english_name"]}')
+        for datum in ref.get('datums', []):
+            # A height system the heights come in: {code, name, crs, kind, notes}. Where PROJ
+            # has no grid for it, EGM2008 heights stay null (core/functions/heights.py).
+            if not VerticalDatum.objects.filter(code=datum['code']).exists():
+                VerticalDatum.objects.create(**datum)
+                self.stdout.write(f'  + vertical datum {datum["code"]}')
 
     # ------------------------------------------------------------------ summits
 

@@ -35,8 +35,13 @@ def transformer(crs: str) -> Transformer | None:
     cache = _local.__dict__.setdefault('transformers', {})
     if crs not in cache:
         source = CRS(crs)
-        cache[crs] = None if source == CRS(TARGET) else Transformer.from_crs(
-            source, CRS(TARGET), always_xy=True, allow_ballpark=False)
+        try:
+            cache[crs] = None if source == CRS(TARGET) else Transformer.from_crs(
+                source, CRS(TARGET), always_xy=True, allow_ballpark=False)
+        except ProjError as error:  # no operation at all without the ballpark (TWVD 2001): remember why
+            cache[crs] = error
+    if isinstance(cache[crs], ProjError):
+        raise cache[crs]
     return cache[crs]
 
 
@@ -45,10 +50,10 @@ def to_egm2008(longitude: float, latitude: float, altitude: float, crs: str) -> 
     `altitude`, in the datum whose PROJ CRS is `crs`, as an EGM2008 height.
     Raises `HeightConversionError` rather than ever returning an unconverted number.
     """
-    t = transformer(crs)
-    if t is None:
-        return altitude
     try:
+        t = transformer(crs)
+        if t is None:
+            return altitude
         _, _, height = t.transform(longitude, latitude, altitude, errcheck=True)
     except ProjError as error:
         raise HeightConversionError(

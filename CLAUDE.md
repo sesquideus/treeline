@@ -52,12 +52,16 @@ for g in sk_gku_Slovakia_ETRS89h_to_Baltic1957 cz_cuzk_CR-2005 pl_gugik_geoid202
          pl_gugik_geoid2011-PL-KRON86-NH us_nga_egm08_25; do
     uv run pyproj sync --file $g --target-directory ~/.local/share/proj
 done
+# Taiwan's TWVD 2001 has no PROJ grid: the hybrid geoid TWGEOID18h (ISG, CC BY 4.0) as one
+uv run python manage.py install_isg_grid \
+    https://isgeoid.polimi.it/Geoid/Asia/Taiwan/public/Taiwan_2018_TWGEOID2018h_gravG_20201201.isg tw_isg_twgeoid18h
 uv run python manage.py recompute_altitudes
 ```
 
 Without a grid, a conversion stores null and logs a warning; it never stores the
-unconverted number (PROJ's "ballpark" fallback is refused). The grids must be readable by
-the user that uwsgi runs as.
+unconverted number (PROJ's "ballpark" fallback is refused). A datum EPSG cannot route to
+EGM2008 names its geoid grid in a PROJ string instead (`+geoidgrids=…`, as TWVD2001 does).
+The grids must be readable by the user that uwsgi runs as.
 
 ### Lidar (`lidar/`)
 

@@ -67,6 +67,83 @@ class ConversionTests(GridsMixin, SimpleTestCase):
             to_egm2008(*MONT_BLANC, BPV)
 
 
+class UnreachableDatumTests(SimpleTestCase):
+    def test_a_datum_proj_cannot_reach_is_an_error_every_time(self):
+        # TWVD 2001: PROJ has no operation to EGM2008 but the ballpark, which is refused.
+        for _ in range(2):              # the second from the cache
+            with self.assertRaises(HeightConversionError):
+                to_egm2008(121.0, 23.47, 3952.0, 'EPSG:3824+8904')
+
+
+TWVD2001 = ('+proj=longlat +ellps=GRS80 +towgs84=0,0,0 +geoidgrids=tw_isg_twgeoid18h.gtx +vunits=m '
+            '+no_defs +type=crs')
+
+
+class TaiwanTests(SimpleTestCase):
+    """ TWVD 2001 through TWGEOID18h, installed by `install_isg_grid` (CLAUDE.md). """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from pathlib import Path
+        from pyproj.datadir import get_user_data_dir
+        if not (Path(get_user_data_dir()) / 'tw_isg_twgeoid18h.gtx').exists():
+            raise cls.skipTest(cls, 'TWGEOID18h missing: see CLAUDE.md, "Vertical datums"')
+
+    def test_yushan_rises_by_most_of_a_metre(self):
+        self.assertAlmostEqual(to_egm2008(120.9573, 23.4699, 3947.46, TWVD2001) - 3947.46, 0.727, places=2)
+
+    def test_kinmen_is_inside_the_grid(self):
+        self.assertAlmostEqual(to_egm2008(118.40, 24.43, 0.0, TWVD2001), 0.686, places=2)
+
+    def test_outside_the_grid_is_an_error(self):
+        with self.assertRaises(HeightConversionError):
+            to_egm2008(139.7, 35.7, 0.0, TWVD2001)
+
+
+ISG = '\n'.join([
+    'These data are freely available',
+    'begin_of_head ================================================',
+    'model name     : test',
+    'data format    : grid',
+    'data units     : meters',
+    'data ordering  : N-to-S, W-to-E',
+    'lat min        =   21°00\'00"',
+    'lat max        =   21°01\'00"',
+    'lon min        =  118°00\'00"',
+    'lon max        =  118°00\'30"',
+    'delta lat      =         30"',
+    'delta lon      =         30"',
+    'nrows          =           3',
+    'ncols          =           2',
+    'nodata         =  -9999.0000',
+    'end_of_head ==================================================',
+    ' 3.0 3.5',
+    ' 2.0 -9999.0',
+    ' 1.0 1.5', ''])
+
+
+class IsgGridTests(SimpleTestCase):
+    def test_angles(self):
+        from core.management.commands.install_isg_grid import degrees
+        self.assertAlmostEqual(degrees('118°00\'30"'), 118 + 30 / 3600)
+        self.assertAlmostEqual(degrees('30"'), 30 / 3600)
+        self.assertAlmostEqual(degrees('-5°30\'00"'), -5.5)
+        self.assertEqual(degrees('21.25'), 21.25)
+
+    def test_gtx_runs_south_to_north_from_the_south_west_node(self):
+        import struct
+        import numpy as np
+        from core.management.commands.install_isg_grid import gtx, parse_isg
+        b = gtx(*parse_isg(ISG))
+        lat0, lon0, dlat, dlon, rows, cols = struct.unpack('>4d2i', b[:40])
+        self.assertEqual((lat0, lon0, rows, cols), (21.0, 118.0, 3, 2))
+        self.assertAlmostEqual(dlat, 30 / 3600)
+        z = np.frombuffer(b[40:], '>f4').reshape(rows, cols)
+        self.assertEqual(z[0].tolist(), [1.0, 1.5])
+        self.assertAlmostEqual(float(z[1, 1]), -88.8888, places=3)
+
+
 class DefaultDatumTests(TestCase):
     @classmethod
     def setUpTestData(cls):

@@ -274,3 +274,76 @@ class LineParentTests(unittest.TestCase):
                                 q = _far(z.reshape(h, w), h, w, tops, col, isle, cz, far, q)
                                 walked.append(q)
                             self.assertIn(l, walked)
+
+
+class CheckpointTests(unittest.TestCase):
+    """A run cut off anywhere and started again from its checkpoint gives the same result."""
+
+    class Cut(Exception):
+        pass
+
+    def plain(self, z, tile):
+        H, W = z.shape
+        rec, _ = run(lambda a, b, c, d: z[a:b, c:d], H, W, tile, 10.0)
+        return rec
+
+    def assertSame(self, a, b):
+        for k in ('top', 'col', 'hz', 'cz', 'far', 'border'):
+            np.testing.assert_array_equal(a[k], b[k], err_msg=k)
+
+    def test_cut_after_any_tile(self):
+        import tempfile
+        z = noise(37, 41, 3)
+        H, W = z.shape
+        want = self.plain(z, 9)
+        tiles = -(-H // 9) * -(-W // 9)
+        for cut in range(1, tiles):
+            with self.subTest(cut=cut), tempfile.TemporaryDirectory() as ckpt:
+                calls = [0]
+
+                def flaky(a, b, c, d):
+                    calls[0] += 1
+                    if calls[0] > cut:
+                        raise self.Cut
+                    return z[a:b, c:d]
+                with self.assertRaises(self.Cut):
+                    run(flaky, H, W, 9, 10.0, checkpoint=ckpt)
+                rec, _ = run(lambda a, b, c, d: z[a:b, c:d], H, W, 9, 10.0, checkpoint=ckpt)
+                self.assertSame(rec, want)
+
+    def test_cut_during_any_write(self):
+        import tempfile
+        import catchments
+        z = smooth_hills(48, 48, 2)
+        H, W = z.shape
+        want = self.plain(z, 8)
+        real = catchments.Checkpoint.save
+        for cut in range(1, 70):
+            with self.subTest(cut=cut), tempfile.TemporaryDirectory() as ckpt:
+                count = [0]
+
+                def save(store, *a, **k):
+                    count[0] += 1
+                    if count[0] == cut:
+                        raise self.Cut           # a power cut before this write lands
+                    return real(store, *a, **k)
+                catchments.Checkpoint.save = save
+                try:
+                    run(lambda a, b, c, d: z[a:b, c:d], H, W, 8, 10.0, checkpoint=ckpt)
+                    cut_happened = False
+                except self.Cut:
+                    cut_happened = True
+                finally:
+                    catchments.Checkpoint.save = real
+                if not cut_happened:
+                    break
+                rec, _ = run(lambda a, b, c, d: z[a:b, c:d], H, W, 8, 10.0, checkpoint=ckpt)
+                self.assertSame(rec, want)
+
+    def test_another_runs_directory_is_refused(self):
+        import tempfile
+        z = noise(20, 20, 1)
+        with tempfile.TemporaryDirectory() as ckpt:
+            run(lambda a, b, c, d: z[a:b, c:d], 20, 20, 7, 10.0, checkpoint=ckpt)
+            with self.assertRaises(ValueError):
+                run(lambda a, b, c, d: z[a:b, c:d], 20, 20, 5, 10.0, checkpoint=ckpt)

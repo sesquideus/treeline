@@ -565,6 +565,17 @@ class CopernicusTests(TestCase):
         self.assertEqual(ojos.key_col.point.altitude_datum.code, 'EGM2008')
         self.assertEqual(ojos.key_col.point.source.name, 'Copernicus GLO-30')
 
+    def test_a_height_system_the_database_lacks_comes_with_the_changeset(self):
+        data = self.data()
+        data['reference']['datums'] = [dict(code='TWVD2001', name='Taiwan Vertical Datum 2001',
+                                            crs='EPSG:3824+8904', kind='orthometric', notes='No grid to EGM2008.')]
+        data['summits'][0]['datum'] = 'TWVD2001'
+        ApplyTests.run_it(self, data)
+        point = Summit.objects.get(point__name='Mount Usborne').point
+        self.assertEqual(point.altitude_datum.code, 'TWVD2001')
+        self.assertIsNone(point.altitude_egm2008)      # no conversion, never the raw number
+        self.assertIn('0 summits', ApplyTests.run_it(self, data))
+
     def test_a_dry_run_leaves_no_countries_behind(self):
         ApplyTests.run_it(self, self.data(), '--dry-run')
         self.assertFalse(Summit.objects.filter(point__name='Mount Usborne').exists())

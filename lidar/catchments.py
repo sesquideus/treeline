@@ -695,57 +695,191 @@ def _tile_job(args):
     return flood_tile(_READ(*halo), b, W, H, thr, top_level=top)
 
 
-def run(read, H, W, tile, thr=THRESHOLD, log=None, jobs=1):
+class Checkpoint:
+    """
+    `run`'s finished blocks on disk (see its docstring): one file per block, `L_i_j.pkl`, with
+    its settled tops and forwarding, and the whole block while it waits for its siblings.
+    When a parent is merged its own file is written first and only then are its children's
+    cut down to their tops; a child still whole whose parent's file exists was merged, so a
+    run cut off at any moment resumes consistently. `run.json` records what the run is (grid,
+    tile, threshold): a directory left by another run is refused rather than mixed in.
+    """
+
+    def __init__(self, path, identity):
+        import pickle
+        self.pickle = pickle
+        self.path = path
+        os.makedirs(path, exist_ok=True)
+        meta = os.path.join(path, 'run.json')
+        identity = [int(v) if float(v).is_integer() else float(v) for v in identity]
+        if os.path.exists(meta):
+            with open(meta) as f:
+                held = json.load(f)
+            if held != identity:
+                raise ValueError(f'{path} holds another run ({held}, not {identity})')
+        else:
+            with open(meta, 'w') as f:
+                json.dump(identity, f)
+
+    def _file(self, level, k):
+        return os.path.join(self.path, f'{level}_{k[0]}_{k[1]}.pkl')
+
+    def exists(self, level, k):
+        return os.path.exists(self._file(level, k))
+
+    def save(self, level, k, block, whole=True):
+        tmp = self._file(level, k) + '.tmp'
+        with open(tmp, 'wb') as f:
+            self.pickle.dump(dict(records=block['records'], fwd=block['fwd'], block=block if whole else None),
+                             f, protocol=5)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, self._file(level, k))
+
+    def merged(self, level, k, block):
+        """Its parent is on disk: keep only the tops."""
+        self.save(level, k, block, whole=False)
+
+    def load(self):
+        """(level, key, records, fwd, block or None) for every block on disk."""
+        for name in os.listdir(self.path):
+            if not name.endswith('.pkl'):
+                continue
+            level, i, j = (int(v) for v in name[:-4].split('_'))
+            with open(os.path.join(self.path, name), 'rb') as f:
+                d = self.pickle.load(f)
+            yield level, (i, j), d['records'], d['fwd'], d['block']
+
+
+def run(read, H, W, tile, thr=THRESHOLD, log=None, jobs=1, checkpoint=None):
     """
     `read(r0, r1, c0, c1)` gives a window's heights. Returns the settled tops of P >= thr
     (sorted by top), the forwarding, and per-level statistics. With `jobs` > 1 the tiles are
     flooded in forked workers: `read` must then open its own file in each.
+
+    `checkpoint`: a directory where every finished tile and merged block is kept, so that a
+    run broken off (a crash, a power cut, ^C) resumes where it stopped when started again
+    with the same arguments: the settled tops of every block (small, kept), and the whole of
+    each block still waiting for its siblings (deleted once merged into its parent). Files
+    are written to a temporary name and renamed, so a cut-off write leaves nothing half-done.
     """
     global _READ
     ti, tj = -(-H // tile), -(-W // tile)
     top = ti == 1 and tj == 1
-    blocks = {}
     stats = {'tiles': [], 'levels': []}
     t0 = time.time()
-    keys = [(bi, bj) for bi in range(ti) for bj in range(tj)]
+    # Tiles go out in Z-order and each 2×2 block is merged the moment its last child arrives,
+    # and so on up: only the unfinished front is ever held. Collecting every tile first and
+    # merging afterwards held all of them at once, which for the world (33 800 tiles) did not
+    # fit in memory. The merges themselves are the same, so the result is too.
+    def levels_grid(level):
+        size = tile << level
+        return -(-H // size), -(-W // size)
+
+    depth = 0
+    while levels_grid(depth) != (1, 1):
+        depth += 1
+
+    def morton(k):
+        bi, bj = k
+        code = 0
+        for bit in range(32):
+            code |= ((bi >> bit) & 1) << (2 * bit + 1) | ((bj >> bit) & 1) << (2 * bit)
+        return code
+
+    keys = sorted(((bi, bj) for bi in range(ti) for bj in range(tj)), key=morton)
     args = [((bi * tile, min((bi + 1) * tile, H), bj * tile, min((bj + 1) * tile, W)), W, H, thr, top)
             for bi, bj in keys]
     _READ = read
-    if jobs > 1:
-        import multiprocessing
-        with multiprocessing.get_context('fork').Pool(jobs) as pool:
-            outs = pool.map(_tile_job, args, chunksize=1)
-    else:
-        outs = [_tile_job(a) for a in args]
-    for k, o in zip(keys, outs):
-        blocks[k] = o
-        stats['tiles'].append(o['stats'])
-    stats['tile_seconds'] = time.time() - t0
-    records = [b['records'] for b in blocks.values()]
-    fwds = [b['fwd'] for b in blocks.values()]
-    level = 0
-    size = tile
-    while len(blocks) > 1:
-        level += 1
-        size *= 2
+    records, fwds = [], []
+    pending = [dict() for _ in range(depth + 1)]       # per level: block key -> block
+    final = {}
+    store = Checkpoint(checkpoint, (H, W, tile, thr)) if checkpoint else None
+    done_tiles = set()
+    if store:
+        for level, k, recs, fwd, block in store.load():
+            records.append(recs)
+            fwds.append(fwd)
+            if level == 0:
+                done_tiles.add(k)
+            if level == depth:
+                final['block'] = block
+            elif block is not None and not store.exists(level + 1, (k[0] // 2, k[1] // 2)):
+                pending[level][k] = block
+    level_stats = [dict(level=lv, blocks=0, nodes=0, passes=0, seam=0, seconds=0.0) for lv in range(1, depth + 1)]
+
+    def children(level, bi, bj):
+        ni, nj = levels_grid(level)
+        return [(2 * bi + a, 2 * bj + b) for a in (0, 1) for b in (0, 1) if 2 * bi + a < ni and 2 * bj + b < nj]
+
+    def arrive(level, k, block):
+        """A finished block at `level`: merge its parent once all the parent's children are in."""
+        if level == depth:
+            final['block'] = block
+            return
+        pending[level][k] = block
+        merge_if_complete(level, (k[0] // 2, k[1] // 2))
+
+    def merge_if_complete(level, parent):
+        kids = children(level, *parent)
+        if not all(c in pending[level] for c in kids):
+            return
         t1 = time.time()
-        nxt = {}
-        ni, nj = -(-H // size), -(-W // size)
-        for bi in range(ni):
-            for bj in range(nj):
-                kids = [blocks[(2 * bi + a, 2 * bj + b)] for a in (0, 1) for b in (0, 1)
-                        if (2 * bi + a, 2 * bj + b) in blocks]
-                b = (bi * size, min((bi + 1) * size, H), bj * size, min((bj + 1) * size, W))
-                nxt[(bi, bj)] = merge(kids, b, W, H, thr, top_level=(ni == 1 and nj == 1))
-                records.append(nxt[(bi, bj)]['records'])
-                fwds.append(nxt[(bi, bj)]['fwd'])
-        blocks = nxt
-        lv = [b['stats'] for b in blocks.values()]
-        stats['levels'].append(dict(level=level, blocks=len(lv), nodes=sum(s['nodes'] for s in lv),
-                                    passes=sum(s['passes'] for s in lv), seam=sum(s['seam'] for s in lv),
-                                    seconds=round(time.time() - t1, 2)))
+        size = tile << (level + 1)
+        bi, bj = parent
+        b = (bi * size, min((bi + 1) * size, H), bj * size, min((bj + 1) * size, W))
+        kid_blocks = [pending[level].pop(c) for c in kids]
+        merged = merge(kid_blocks, b, W, H, thr, top_level=(level + 1 == depth))
+        records.append(merged['records'])
+        fwds.append(merged['fwd'])
+        if store:
+            # the parent first; only then are its children cut down to their tops
+            store.save(level + 1, parent, merged)
+            for c, kb in zip(kids, kid_blocks):
+                store.merged(level, c, kb)
+        st = level_stats[level]
+        ms = merged['stats']
+        st['blocks'] += 1
+        st['nodes'] += ms['nodes']
+        st['passes'] += ms['passes']
+        st['seam'] += ms['seam']
+        st['seconds'] = round(st['seconds'] + time.time() - t1, 2)
+        arrive(level + 1, parent, merged)
+
+    # A run cut off in the middle of a merge left all four children waiting: merge them now.
+    for level in range(depth):
+        for k in list(pending[level]):
+            if k in pending[level]:
+                merge_if_complete(level, (k[0] // 2, k[1] // 2))
+    todo = [(k, a) for k, a in zip(keys, args) if k not in done_tiles]
+    if store and done_tiles and log:
+        log(f'resuming: {len(done_tiles)} of {len(keys)} tiles already done')
+
+    def tiles():
+        if jobs > 1:
+            import multiprocessing
+            with multiprocessing.get_context('fork').Pool(jobs) as pool:
+                yield from pool.imap(_tile_job, [a for _, a in todo], chunksize=1)
+        else:
+            for _, a in todo:
+                yield _tile_job(a)
+
+    done = len(done_tiles)
+    for (k, _), o in zip(todo, tiles()):
+        stats['tiles'].append(o['stats'])
+        records.append(o['records'])
+        fwds.append(o['fwd'])
+        if store:
+            store.save(0, k, o)
+        arrive(0, k, o)
+        done += 1
+        if log and (done % 2000 == 0 or done == len(keys)):
+            log(f'{done} of {len(keys)} tiles, {time.time() - t0:.0f} s')
+    stats['tile_seconds'] = time.time() - t0
+    for st in level_stats:
+        stats['levels'].append(st)
         if log:
-            log(f'level {level}: {stats["levels"][-1]}')
+            log(f'level {st["level"]}: {st}')
     rec = {k: np.concatenate([r[k] for r in records]) for k in ('top', 'col', 'hz', 'cz', 'far', 'border')}
     key = np.concatenate([f['key'] for f in fwds])
     val = np.concatenate([f['val'] for f in fwds])
@@ -932,6 +1066,300 @@ def dmr5_reader(source, r0, c0):
     return read
 
 
+FABDEM = os.environ.get('TREELINE_FABDEM', '/mnt/media/treelines/fabdem/zip')
+ARC = 3600                     # cells a degree: FABDEM (and Copernicus GLO-30) at 1″
+
+
+def fabdem_tile(lat, lon):
+    """The GDAL path of FABDEM's 1° tile whose south-west corner is (lat, lon), read in its zip."""
+    ns = lambda v, w: f'{"N" if v >= 0 else "S"}{abs(v):0{w}d}'
+    ew = lambda v: f'{"E" if v >= 0 else "W"}{abs(v):03d}'
+    zlat, zlon = lat // 10 * 10, lon // 10 * 10
+    zipname = f'{ns(zlat, 2)}{ew(zlon)}-{ns(zlat + 10, 2)}{ew(zlon + 10)}_FABDEM_V1-2.zip'
+    return f'/vsizip/{FABDEM}/{zipname}/{ns(lat, 2)}{ew(lon)}_FABDEM_V1-2.tif'
+
+
+def fabdem_reader(north, west):
+    """
+    Windows of a 1″ grid whose cell (0, 0) is centred at (north, west), from FABDEM's 1° tiles
+    (pixel centres on whole arcseconds; a tile's first row is its north edge). The sea is 0
+    there and no data (z <= 0) to the engine, as is a tile FABDEM does not have.
+    """
+    import rasterio
+
+    def read(a, b, c, e):
+        z = np.zeros((b - a, e - c), np.float32)
+        for ty in range(a // ARC, (b - 1) // ARC + 1):
+            for tx in range(c // ARC, (e - 1) // ARC + 1):
+                lat, lon = north - ty - 1, west + tx
+                path = fabdem_tile(lat, lon)
+                cache = _DS.setdefault(os.getpid(), {})
+                if path not in cache and len(cache) >= 9:     # a window touches at most 4 tiles
+                    cache.pop(next(iter(cache)))
+                if path not in cache:
+                    try:
+                        cache[path] = rasterio.open(path).read(1)
+                    except rasterio.errors.RasterioIOError:
+                        cache[path] = None
+                t = cache[path]
+                if t is None:
+                    continue
+                r0, r1 = max(a, ty * ARC), min(b, (ty + 1) * ARC)
+                c0, c1 = max(c, tx * ARC), min(e, (tx + 1) * ARC)
+                z[r0 - a:r1 - a, c0 - c:c1 - c] = t[r0 - ty * ARC:r1 - ty * ARC, c0 - tx * ARC:c1 - tx * ARC]
+        z[~np.isfinite(z) | (z < -1000)] = 0
+        return z
+    return read
+
+
+COPERNICUS = os.environ.get('TREELINE_COPERNICUS', '/mnt/media/treelines/copernicus')
+#: GLO-90 (3″) for the few land tiles GLO-30 withholds (Armenia, Azerbaijan): coarser, but
+#: without it the Caucasus has a hole that cuts the routes through it.
+GLO90 = os.environ.get('TREELINE_GLO90', '/mnt/media/treelines/glo90')
+#: Added to every land cell, so that land below sea level (the Dead Sea, -430 m) stays above
+#: zero, which the engine reads as no data; only the ocean is 0. Taken off again in the output.
+LIFT = 1000.0
+#: Known summits burned in: {(lat0, lon0) of the 1° tile: [(row, col, height)]}, see `load_burns`.
+_BURN = {}
+
+
+def load_burns(path):
+    """
+    Surveyed summit heights to write into the world grid before flooding (`burn_match.py`):
+    each raises the cell at its position to its height where the model reads lower, so that
+    a sharp summit the 30 m model smooths away keeps its place among its neighbours.
+    """
+    burns = {}
+    for b in json.load(open(path))['burns']:
+        lat, lon = b['at']
+        gr, gc = round((90 - lat) * ARC), round((lon + 180) * ARC)
+        lat0, lon0 = 90 - gr // ARC - 1, gc // ARC - 180
+        burns.setdefault((lat0, (lon0 + 180) % 360 - 180), []).append((gr % ARC, gc % ARC, float(b['elev'])))
+    return burns
+
+
+def _glo_name(lat, lon, layer):
+    stem = (f'Copernicus_DSM_COG_10_{"N" if lat >= 0 else "S"}{abs(lat):02d}_00_'
+            f'{"E" if lon >= 0 else "W"}{abs(lon):03d}_00')
+    return (os.path.join(COPERNICUS, f'{stem}_DEM.tif') if layer == 'DEM'
+            else os.path.join(COPERNICUS, 'aux', f'{stem}_{layer}.tif'))
+
+
+def _glo90_name(lat, lon, layer):
+    stem = (f'Copernicus_DSM_COG_30_{"N" if lat >= 0 else "S"}{abs(lat):02d}_00_'
+            f'{"E" if lon >= 0 else "W"}{abs(lon):03d}_00')
+    return (os.path.join(GLO90, f'{stem}_DEM.tif') if layer == 'DEM'
+            else os.path.join(GLO90, 'aux', f'{stem}_{layer}.tif'))
+
+
+def _from_90(t):
+    """A 3″ tile repeated out to 1″, both ways (east–west first if stored coarser still)."""
+    t = t[:, (np.arange(ARC // 3) * t.shape[1]) // (ARC // 3)] if t.shape[1] != ARC // 3 else t
+    return np.repeat(np.repeat(t, 3, axis=0), 3, axis=1)
+
+
+def _to_arc(t):
+    """A tile stored coarser east-west (north of 50°) repeated out to 1″."""
+    return t if t.shape[1] == ARC else t[:, (np.arange(ARC) * t.shape[1]) // ARC]
+
+
+def world_tile(lat, lon):
+    """
+    The 1° tile whose south-west corner is (lat, lon) as the engine is to read it: FABDEM where
+    it has the tile, else Copernicus GLO-30 (Antarctica, north of 80°); the ocean (Copernicus's
+    water-body mask, class 1) 0, every other cell lifted by LIFT, lakes and rivers included, so
+    that a canal joins what it joins. None where Copernicus has no tile (the open ocean, and
+    the few land tiles it withholds: those read as no data, an edge).
+    """
+    import rasterio
+    lon = (lon + 180) % 360 - 180
+    coarse = not os.path.exists(_glo_name(lat, lon, 'DEM'))
+    if coarse and not os.path.exists(_glo90_name(lat, lon, 'DEM')):
+        return None
+    if coarse:
+        z = _from_90(rasterio.open(_glo90_name(lat, lon, 'DEM')).read(1))
+    else:
+        try:
+            z = rasterio.open(fabdem_tile(lat, lon)).read(1)
+        except rasterio.errors.RasterioIOError:
+            z = _to_arc(rasterio.open(_glo_name(lat, lon, 'DEM')).read(1))
+    z = np.where(np.isfinite(z) & (z > -1000), z + LIFT, 0).astype(np.float32)
+    try:
+        wbm = (_from_90(rasterio.open(_glo90_name(lat, lon, 'WBM')).read(1)) if coarse
+               else _to_arc(rasterio.open(_glo_name(lat, lon, 'WBM')).read(1)))
+        z[wbm == 1] = 0
+    except rasterio.errors.RasterioIOError:
+        pass
+    for r, c, h in _BURN.get((lat, lon), ()):
+        if z[r, c] > 0:
+            z[r, c] = max(z[r, c], h + LIFT)
+    return z
+
+
+def world_reader(north, west):
+    """Windows of the 1″ world grid whose cell (0, 0) is centred at (north, west); see `world_tile`."""
+
+    def read(a, b, c, e):
+        z = np.zeros((b - a, e - c), np.float32)
+        cache = _DS.setdefault(os.getpid(), {})
+        for ty in range(a // ARC, (b - 1) // ARC + 1):
+            for tx in range(c // ARC, (e - 1) // ARC + 1):
+                lat, lon = north - ty - 1, west + tx
+                if (lat, lon) not in cache:
+                    if len(cache) >= 9:            # a window touches at most 4 tiles
+                        cache.pop(next(iter(cache)))
+                    cache[(lat, lon)] = world_tile(lat, lon)
+                t = cache[(lat, lon)]
+                if t is None:
+                    continue
+                r0, r1 = max(a, ty * ARC), min(b, (ty + 1) * ARC)
+                c0, c1 = max(c, tx * ARC), min(e, (tx + 1) * ARC)
+                z[r0 - a:r1 - a, c0 - c:c1 - c] = t[r0 - ty * ARC:r1 - ty * ARC, c0 - tx * ARC:c1 - tx * ARC]
+        return z
+    return read
+
+
+def world(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=600.0, burn=None):
+    """
+    Every top of P >= thr within the box S,N,W,E (whole degrees; W may run past 180) of the
+    world grid (`world_reader`), as `fabdem` writes it, heights back below the lift (EGM2008).
+    """
+    global _BURN
+    s, n, w, e = bbox
+    H, W = (n - s) * ARC, (e - w) * ARC
+    _BURN = load_burns(burn) if burn else {}
+    print(f'{H} × {W} cells ({H * W / 1e9:.1f} G), tiles of {tile}, {jobs} workers, '
+          f'{sum(len(v) for v in _BURN.values())} summits burned in', flush=True)
+    t0 = time.time()
+    rec, stats = run(world_reader(n, w), H, W, tile, thr, log=lambda m: print(m, flush=True), jobs=jobs,
+                     checkpoint=os.path.splitext(out)[0] + '.ckpt')
+    par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
+    line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], line_cutoff)
+    print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {thr:g}; {len(ta)} ties', flush=True)
+    np.savez_compressed(os.path.splitext(out)[0] + '.npz', **{k: v for k, v in rec.items() if isinstance(v, np.ndarray)},
+                        north=n, west=w, H=H, W=W, threshold=thr, lift=LIFT)
+
+    def ll(g):
+        r, c = divmod(int(g), W)
+        return [round(n - r / ARC, 7), round((w + c / ARC + 180) % 360 - 180, 7)]
+
+    island = rec['col'] < 0
+    prom = np.where(island, rec['hz'] - LIFT, rec['hz'] - rec['cz'])
+    res = []
+    for i in range(len(rec['top'])):
+        x = dict(top=ll(rec['top'][i]), h=round(float(rec['hz'][i]) - LIFT, 2), prom=round(float(prom[i]), 2),
+                 border=bool(rec['border'][i]))
+        if not island[i]:
+            x.update(col=ll(rec['col'][i]), col_h=round(float(rec['cz'][i]) - LIFT, 2))
+        if par[i] >= 0:
+            x['parent'] = ll(par[i])
+        if line[i] >= 0:
+            x['line'] = ll(line[i])
+        res.append(x)
+    st = {k: v for k, v in stats.items() if k != 'tiles'}
+    st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(a), ll(b)] for a, b in zip(ta, tb)],
+              line_cutoff=line_cutoff, source='FABDEM V1-2, Copernicus GLO-30 where FABDEM has no tile')
+    json.dump(dict(stats=st, summits=res), open(out, 'w'))
+    print(f'-> {out}', flush=True)
+
+
+def fabdem(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=100.0):
+    """
+    Every top of P >= thr in FABDEM within the box S,N,W,E (whole degrees), with its key col,
+    parent, line parent at `line_cutoff`, and whether its ground reaches the edge of the data
+    (the sea included, so on an island that flag says little). Heights EGM2008, as FABDEM's.
+    """
+    s, n, w, e = bbox
+    H, W = (n - s) * ARC, (e - w) * ARC
+    print(f'{H} × {W} cells ({H * W / 1e9:.2f} G), tiles of {tile}, {jobs} workers', flush=True)
+    t0 = time.time()
+    rec, stats = run(fabdem_reader(n, w), H, W, tile, thr, log=lambda m: print(m, flush=True), jobs=jobs,
+                     checkpoint=os.path.splitext(out)[0] + '.ckpt')
+    par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
+    line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], line_cutoff)
+    print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {thr:g}; {len(ta)} ties', flush=True)
+    np.savez_compressed(os.path.splitext(out)[0] + '.npz', **{k: v for k, v in rec.items() if isinstance(v, np.ndarray)},
+                        north=n, west=w, H=H, W=W, threshold=thr)
+
+    def ll(g):
+        r, c = divmod(int(g), W)
+        return [round(n - r / ARC, 7), round(w + c / ARC, 7)]
+
+    prom = np.where(rec['col'] >= 0, rec['hz'] - rec['cz'], rec['hz'])
+    res = []
+    for i in range(len(rec['top'])):
+        x = dict(top=ll(rec['top'][i]), h=float(rec['hz'][i]), prom=float(prom[i]), border=bool(rec['border'][i]))
+        if rec['col'][i] >= 0:
+            x.update(col=ll(rec['col'][i]), col_h=float(rec['cz'][i]))
+        if par[i] >= 0:
+            x['parent'] = ll(par[i])
+        if line[i] >= 0:
+            x['line'] = ll(line[i])
+        res.append(x)
+    st = {k: v for k, v in stats.items() if k != 'tiles'}
+    st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(a), ll(b)] for a, b in zip(ta, tb)],
+              line_cutoff=line_cutoff, source='FABDEM V1-2')
+    json.dump(dict(stats=st, summits=res), open(out, 'w'))
+    print(f'-> {out}', flush=True)
+
+
+def raster_reader(path):
+    """Windows of one raster, no data and the sea (z <= 0, or the file's nodata) as no data."""
+    import rasterio
+    from rasterio.windows import Window
+
+    def read(a, b, c, e):
+        ds = _DS.get(os.getpid()) or _DS.setdefault(os.getpid(), rasterio.open(path))
+        z = ds.read(1, window=Window(c, a, e - c, b - a), boundless=True, fill_value=ds.nodata or 0)
+        z = z.astype(np.float32)
+        z[~np.isfinite(z) | (z < -1000) | (z > 1e30)] = 0
+        return z
+    return read
+
+
+def raster(path, out, crs=None, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=100.0):
+    """
+    Every top of P >= thr in one raster of any projection (`crs` overrides the file's own when
+    its metadata is wrong), as `fabdem` writes it. Heights as the raster has them.
+    """
+    import rasterio
+    from pyproj import Transformer
+    d = rasterio.open(path)
+    H, W = d.height, d.width
+    back = Transformer.from_crs(crs or d.crs, 'EPSG:4326', always_xy=True)
+    print(f'{H} × {W} cells ({H * W / 1e9:.2f} G) of {d.res[0]:g} m, tiles of {tile}, {jobs} workers', flush=True)
+    t0 = time.time()
+    rec, stats = run(raster_reader(path), H, W, tile, thr, log=lambda m: print(m, flush=True), jobs=jobs,
+                     checkpoint=os.path.splitext(out)[0] + '.ckpt')
+    par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
+    line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], line_cutoff)
+    print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {thr:g}; {len(ta)} ties', flush=True)
+
+    def ll(g):
+        r, c = divmod(int(g), W)
+        x, y = d.transform * (c + 0.5, r + 0.5)
+        lo, la = back.transform(x, y)
+        return [round(la, 7), round(lo, 7)]
+
+    prom = np.where(rec['col'] >= 0, rec['hz'] - rec['cz'], rec['hz'])
+    res = []
+    for i in range(len(rec['top'])):
+        x = dict(top=ll(rec['top'][i]), h=round(float(rec['hz'][i]), 2), prom=round(float(prom[i]), 2),
+                 border=bool(rec['border'][i]))
+        if rec['col'][i] >= 0:
+            x.update(col=ll(rec['col'][i]), col_h=round(float(rec['cz'][i]), 2))
+        if par[i] >= 0:
+            x['parent'] = ll(par[i])
+        if line[i] >= 0:
+            x['line'] = ll(line[i])
+        res.append(x)
+    st = {k: v for k, v in stats.items() if k != 'tiles'}
+    st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(a), ll(b)] for a, b in zip(ta, tb)],
+              line_cutoff=line_cutoff, source=os.path.basename(path))
+    json.dump(dict(stats=st, summits=res), open(out, 'w'))
+    print(f'-> {out}', flush=True)
+
+
 def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=30.0):
     """
     Every top of P >= thr in DMR 5.0 (all of it, or the box S,N,W,E), with its key col, its
@@ -955,7 +1383,8 @@ def dmr5(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=30.0):
     H, W = r1 - r0, c1 - c0
     print(f'{H} × {W} cells ({H * W / 1e9:.1f} G), tiles of {tile}, {jobs} workers', flush=True)
     t0 = time.time()
-    rec, stats = run(dmr5_reader(SOURCE, r0, c0), H, W, tile, thr, log=lambda s: print(s, flush=True), jobs=jobs)
+    rec, stats = run(dmr5_reader(SOURCE, r0, c0), H, W, tile, thr, log=lambda s: print(s, flush=True), jobs=jobs,
+                     checkpoint=os.path.splitext(out)[0] + '.ckpt')
     par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
     line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], line_cutoff)
     print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {thr:g}; {len(ta)} ties', flush=True)
@@ -1010,6 +1439,29 @@ def main():
     p.add_argument('--threshold', type=float, default=THRESHOLD)
     p.add_argument('--out', default='catchments.json')
     p.add_argument('--no-check', action='store_true')
+    p = sub.add_parser('raster', help='one raster of any projection: every top of P >= threshold')
+    p.add_argument('path')
+    p.add_argument('--crs', help="the raster's real CRS where its metadata is wrong")
+    p.add_argument('--tile', type=int, default=5000)
+    p.add_argument('--threshold', type=float, default=THRESHOLD)
+    p.add_argument('--jobs', type=int, default=10)
+    p.add_argument('--line-cutoff', type=float, default=100.0)
+    p.add_argument('--out', required=True)
+    p = sub.add_parser('world', help='a box of the world grid (FABDEM, else Copernicus; whole degrees)')
+    p.add_argument('--bbox', required=True, help='S,N,W,E in whole degrees (W may run past 180)')
+    p.add_argument('--tile', type=int, default=5000)
+    p.add_argument('--threshold', type=float, default=THRESHOLD)
+    p.add_argument('--jobs', type=int, default=10)
+    p.add_argument('--line-cutoff', type=float, default=600.0)
+    p.add_argument('--burn', help='summits to burn in (burn_match.py output)')
+    p.add_argument('--out', required=True)
+    p = sub.add_parser('fabdem', help='a box of FABDEM (whole degrees): every top of P >= threshold')
+    p.add_argument('--bbox', required=True, help='S,N,W,E in whole degrees')
+    p.add_argument('--tile', type=int, default=5000)
+    p.add_argument('--threshold', type=float, default=THRESHOLD)
+    p.add_argument('--jobs', type=int, default=10)
+    p.add_argument('--line-cutoff', type=float, default=100.0)
+    p.add_argument('--out', required=True)
     p = sub.add_parser('dmr5', help='all of DMR 5.0, or a box of it: every top of P >= threshold')
     p.add_argument('--bbox', help='S,N,W,E (default: the whole raster)')
     p.add_argument('--tile', type=int, default=5000)
@@ -1019,6 +1471,12 @@ def main():
                    help='prominence of the least summit a line parent may be (default 30: what the database holds)')
     p.add_argument('--out', required=True)
     a = ap.parse_args()
+    if a.cmd == 'raster':
+        raster(a.path, a.out, a.crs, a.tile, a.threshold, a.jobs, a.line_cutoff)
+    if a.cmd == 'world':
+        world([int(v) for v in a.bbox.split(',')], a.out, a.tile, a.threshold, a.jobs, a.line_cutoff, a.burn)
+    if a.cmd == 'fabdem':
+        fabdem([int(v) for v in a.bbox.split(',')], a.out, a.tile, a.threshold, a.jobs, a.line_cutoff)
     if a.cmd == 'dmr5':
         dmr5([float(v) for v in a.bbox.split(',')] if a.bbox else None, a.out, a.tile, a.threshold, a.jobs,
              a.line_cutoff)
