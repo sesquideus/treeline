@@ -3,13 +3,13 @@ from django.contrib.gis.db.models import PointField
 from django.contrib.gis.geos import Point
 from django.db import transaction
 from django.template.response import TemplateResponse
-from django.utils import timezone
 from django.utils.html import format_html_join
 
 from cairn.admin import ModelAdmin
 from cairn.admin.modeladmin import NA, admin_action
 
 from core.fields import PointFormField
+from mountains.slope_horizon import compute as compute_parents
 from mountains import models
 from mountains.forms.range import AssignRangeForm
 from mountains.models import NamedPoint, Summit, SummitRange, Col
@@ -128,97 +128,24 @@ class SummitAdmin(ModelAdmin):
     def flags(self, obj):
         return obj.point.flags()
 
+    # Every summit is a candidate parent, the selection says whose parents are worked out; by
+    # branch and bound (mountains/slope_horizon.py), seconds even for all of them.
+    def _compute(self, kind, queryset):
+        changed = compute_parents(kind, queryset)
+        yield from (self.model.objects.filter(pk__in=changed).select_related('point')
+                    .values_list('point__name', flat=True))
+
     @admin_action(description='Compute slope')
     def compute_slope_parent(self, request, queryset):
-        all_summits = list(
-            self.model.objects.select_related('point')
-            .exclude(point__isnull=True)
-            #            .filter(Q(slope_source__isnull=True) | Q(slope_source=source))
-        )
-        # The parent has to be higher, so the highest summit of all can have none. That used
-        # to be a check on the name 'Mount Everest'; it is the altitude that matters.
-        highest = max((s.point.altitude for s in all_summits if s.point.altitude is not None),
-                      default=None)
-
-        for summit in queryset.select_related('point'):
-            # `slope_computed` is stamped either way: a null parent then means "looked, found
-            # nothing" rather than "never looked", which is a distinction the map draws.
-            fields = ['slope_computed']
-            summit.slope_computed = timezone.now()
-
-            if summit.point.altitude != highest:
-                best = max(
-                    [s for s in all_summits if s.pk != summit.pk],
-                    key=lambda x: summit.point.slope_to(x.point),
-                )
-                if summit.slope_parent_id != best.pk and summit.point.altitude < best.point.altitude:
-                    summit.slope_parent = best
-                    fields.append('slope_parent')
-
-            summit.save(update_fields=fields)
-            if 'slope_parent' in fields:
-                yield summit.point.name
-
-    def _compute_horizon_parent(self, all_summits, summit, refraction: float = 0.0):
-        all_summits = list(
-            self.model.objects.select_related('point').exclude(point__isnull=True)
-        )
-
-        best = max(
-            [s for s in all_summits if s.pk != summit.pk],
-            key=lambda x: summit.point.angle_to(x.point, refraction),
-        )
-
-        if summit.horizon_parent_id != best.pk and summit.point.angle_to(best.point, refraction) > 0:
-            summit.horizon_parent = best
-            summit.save(update_fields=['horizon_parent'])
-            yield summit.point.nam
+        yield from self._compute('slope', queryset)
 
     @admin_action(description='Compute horizon parent')
     def compute_horizon_parent(self, request, queryset):
-        all_summits = list(
-            self.model.objects.select_related('point').exclude(point__isnull=True)
-        )
-
-        for summit in queryset.select_related('point'):
-            # Stamped either way; see compute_slope_parent().
-            fields = ['horizon_computed']
-            summit.horizon_computed = timezone.now()
-
-            best = max(
-                [s for s in all_summits if s.pk != summit.pk],
-                key=lambda x: summit.point.angle_to(x.point),
-            )
-            if summit.horizon_parent_id != best.pk and summit.point.angle_to(best.point) > 0:
-                summit.horizon_parent = best
-                fields.append('horizon_parent')
-
-            summit.save(update_fields=fields)
-            if 'horizon_parent' in fields:
-                yield summit.point.name
+        yield from self._compute('horizon', queryset)
 
     @admin_action(description='Compute horizon parent (std)')
     def compute_horizon_parent_std(self, request, queryset):
-        all_summits = list(
-            self.model.objects.select_related('point').exclude(point__isnull=True)
-        )
-
-        for summit in queryset.select_related('point'):
-            # Stamped either way; see compute_slope_parent().
-            fields = ['horizon_std_computed']
-            summit.horizon_std_computed = timezone.now()
-
-            best = max(
-                [s for s in all_summits if s.pk != summit.pk],
-                key=lambda x: summit.point.angle_to(x.point, refraction=0.14),
-            )
-            if summit.horizon_parent_std_id != best.pk and summit.point.angle_to(best.point, refraction=0.14) > 0:
-                summit.horizon_parent_std = best
-                fields.append('horizon_parent_std')
-
-            summit.save(update_fields=fields)
-            if 'horizon_parent_std' in fields:
-                yield summit.point.name
+        yield from self._compute('horizon_std', queryset)
 
     @admin.display(description="Location", ordering="point__location")
     def location_display(self, obj):
