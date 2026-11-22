@@ -47,6 +47,8 @@ class NamedPoint(AdminModel):
     """
     class Meta:
         ordering = ('-altitude',)
+        # The location also has a flat index, on it cast to plain geometry, for the map's
+        # lon/lat rectangles (`mountains.views.viewport.in_bbox`): migration 0047.
 
     name = models.CharField(max_length=64, null=True, blank=True, unique=True)
 

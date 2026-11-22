@@ -98,3 +98,6 @@ class DetailJsonView(ColTreeView, ViewportDetailView):
     a col popup shows.
     """
     ordering = (F('depth').desc(nulls_last=True),)
+
+    def rank_queryset(self):
+        return Col.objects.annotate(depth=F('key_for__point__altitude') - F('point__altitude'))

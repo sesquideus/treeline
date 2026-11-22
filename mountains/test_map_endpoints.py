@@ -233,11 +233,55 @@ class ViewportTests(MapDataTestCase):
         self.assertEqual(list(payload), [str(self.distant.pk)])
 
     def test_malformed_parameters_are_refused(self):
-        for params in ({'bbox': '1,2,3'}, {'bbox': 'a,b,c,d'}, {'bbox': '200,0,300,10'},
+        for params in ({'bbox': '1,2,3'}, {'bbox': 'a,b,c,d'}, {'bbox': '10,0,5,10'}, {'bbox': '0,-95,10,10'},
+                       {'bbox': 'nan,0,1,1'},
                        {'limit': 'x'}, {'pks': '1;2'}):
             with self.subTest(params=params):
                 response = self.client.get(reverse('summits-detail-json'), params)
                 self.assertEqual(response.status_code, 400)
+
+
+class AntimeridianTests(TestCase):
+    """A view across 180° (Fiji): its longitudes run past ±180, and both sides are in it."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.east = make_summit('Koro', 522.0, -17.3, 179.4)       # just west of the antimeridian
+        cls.west = make_summit('Lakeba', 215.0, -18.2, -178.8)     # just east of it
+        cls.far = make_summit('Far', 1000.0, -18.0, 170.0)
+
+    def names(self, bbox):
+        r = self.client.get(reverse('summits-detail-json'), {'bbox': bbox})
+        self.assertEqual(r.status_code, 200, bbox)
+        by_pk = {str(s.pk): s.point.name for s in (self.east, self.west, self.far)}
+        return sorted(by_pk[k] for k in r.json() if k in by_pk)
+
+    def test_a_view_past_180_takes_both_sides(self):
+        self.assertEqual(self.names('179,-19,181.5,-17'), ['Koro', 'Lakeba'])
+
+    def test_a_view_past_minus_180_takes_both_sides(self):
+        self.assertEqual(self.names('-181,-19,-178.5,-17'), ['Koro', 'Lakeba'])
+
+    def test_a_view_a_whole_turn_round_is_the_same(self):
+        self.assertEqual(self.names('539,-19,541.5,-17'), ['Koro', 'Lakeba'])
+
+    def test_wider_than_the_world_is_the_world(self):
+        self.assertEqual(self.names('-300,-19,400,-17'), ['Far', 'Koro', 'Lakeba'])
+
+    def test_a_wide_box_keeps_its_edges_on_the_parallels(self):
+        # with great-circle edges, the south edge of 0..80°E at 40°N would bow north to about 47°
+        near_edge = make_summit('Near the edge', 900.0, 40.2, 40.0)
+        r = self.client.get(reverse('summits-detail-json'), {'bbox': '0,40,80,41'})
+        self.assertIn(str(near_edge.pk), r.json())
+
+    def test_the_map_features_take_both_sides(self):
+        from mountains.map_zooms import refresh_map_zooms
+        refresh_map_zooms()
+        r = self.client.get(reverse('map-features'), {'bbox': '179,-19,181.5,-17', 'zoom': 18, 'mode': 'none'})
+        self.assertEqual(r.status_code, 200)
+        names = sorted(f['properties'].get('name') or '' for f in r.json()['summits']['features'])
+        self.assertIn('Koro', names)
+        self.assertIn('Lakeba', names)
 
 
 class CacheTests(MapDataTestCase):

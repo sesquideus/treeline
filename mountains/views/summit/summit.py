@@ -13,6 +13,7 @@ from django.views.generic.edit import FormMixin
 
 from mountains.forms.summit import CompareForm
 from mountains.models import Summit, Col, NamedPoint
+from mountains.models.summit.model import prominence_expression
 from mountains.views.cache import CachedPageMixin
 from mountains.views.detail_map import collection, summit_features, summit_map_queryset
 from mountains.views.drainage import drainage_context
@@ -551,3 +552,6 @@ class DetailJsonView(ViewportDetailView):
         # distance, slope and angle in Python, per summit — and with_slope_parent() /
         # with_horizon_parent() also join the two parents whose sections it serializes.
         return Summit.objects.with_popup()
+
+    def rank_queryset(self):
+        return Summit.objects.annotate(prominence=prominence_expression())

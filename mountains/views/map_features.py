@@ -32,7 +32,7 @@ from mountains.models.col import COL_SKELETON_FIELDS, col_skeleton_feature
 from mountains.models.summit import MAP_MODES
 from mountains.models.summit.model import SUMMIT_SKELETON_FIELDS, summit_skeleton_feature
 from mountains.views.cache import cached_json
-from mountains.views.viewport import parse_bbox
+from mountains.views.viewport import in_bbox, parse_bbox
 
 MODES = (*MAP_MODES, 'none')
 ZOOM_FIELDS = ('map_zoom__z', *(f'map_zoom__vz_{mode}' for mode in MAP_MODES))
@@ -50,6 +50,19 @@ def parse_mode(raw):
     if raw not in MODES:
         raise SuspiciousOperation(f'mode must be one of {", ".join(MODES)}')
     return raw
+
+
+def clamp_lat(box, limit=85.0511):
+    """ `box` with its latitudes within Web Mercator's (which has no ±90°). """
+    from django.contrib.gis.geos import MultiPolygon, Polygon
+    polys = list(box) if box.geom_type == 'MultiPolygon' else [box]
+    out = []
+    for p in polys:
+        x0, y0, x1, y1 = p.extent
+        out.append(Polygon.from_bbox((x0, max(y0, -limit), x1, min(y1, limit))))
+    clamped = out[0] if len(out) == 1 else MultiPolygon(*out)
+    clamped.srid = box.srid
+    return clamped
 
 
 def highest_altitude():
@@ -96,11 +109,10 @@ class MapFeaturesView(View):
         ensure_map_zooms()
 
         shown = {'map_zoom__z__lte' if mode == 'none' else f'map_zoom__vz_{mode}__lte': zoom}
-        pks = set(Summit.objects.filter(point__location__intersects=bbox, **shown)
-                  .values_list('pk', flat=True))
+        pks = set(in_bbox(Summit.objects.filter(**shown), 'point__location', bbox).values_list('pk', flat=True))
         if mode != 'none':
             # Edges crossing the view, asked in the projection they are drawn in.
-            mercator = bbox.transform(3857, clone=True)
+            mercator = clamp_lat(bbox).transform(3857, clone=True)
             pks |= set(SummitMapZoom.objects.filter(**{f'vz_{mode}__lte': zoom,
                                                        f'edge_{mode}__intersects': mercator})
                        .values_list('summit_id', flat=True))
@@ -110,7 +122,9 @@ class MapFeaturesView(View):
 
         summits = summit_collection(pks)
         key_cols = {f['properties']['kc'] for f in summits['features'] if f['properties']['kc']}
-        cols = col_collection(
-            Col.objects.filter(pk__in=key_cols)
-            | Col.objects.filter(key_for__isnull=True, point__location__intersects=bbox))
+        # The cols that are nobody's key col, asked apart: OR-ed with the key cols into one
+        # query, the bbox could not use the spatial index (0.1 s per tile, now a millisecond)
+        free = set(in_bbox(Col.objects.filter(key_for__isnull=True), 'point__location', bbox)
+                   .values_list('pk', flat=True))
+        cols = col_collection(Col.objects.filter(pk__in=key_cols | free))
         return JsonResponse({'summits': summits, 'cols': cols})
