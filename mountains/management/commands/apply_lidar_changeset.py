@@ -176,7 +176,7 @@ class Command(BaseCommand):
         point.countries.set([self.countries[c] for c in d['countries'] if c in self.countries])
         for n in d['names']:
             self.add_name(point, n['lang'], n['name'], local=n.get('local', False),
-                          historical=n.get('historical', False))
+                          historical=n.get('historical', False), source=n.get('source'))
         for text in d.get('notes', []):
             Note.objects.create(point=point, text=text, author=self.author)
         return point
@@ -186,6 +186,10 @@ class Command(BaseCommand):
         old = Summit.objects.filter(point__location__dwithin=(here, SAME_PLACE)).select_related('point').first()
         if old:
             self.rename(old.point, s['name'], 'the summit')
+            # names a later changeset found: added (one it already has is not added twice)
+            for n in s.get('names', []):
+                self.add_name(old.point, n['lang'], n['name'], local=n.get('local', False),
+                              historical=n.get('historical', False), source=n.get('source'))
             if old.key_col and old.key_col.point and s.get('col'):
                 self.rename(old.key_col.point, s['col'].get('name'), 'its key col')
             self.stdout.write(f'  = {s["name"] or s["key"]}: already there as {old}')
@@ -239,7 +243,7 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ names
 
-    def add_name(self, point, lang, name, local=False, historical=False):
+    def add_name(self, point, lang, name, local=False, historical=False, source=None):
         language = self.languages.get(lang)
         if language is None:
             self.stdout.write(f'  ! no language "{lang}" in the database: "{name}" for {point} left out')
@@ -248,8 +252,9 @@ class Command(BaseCommand):
         if PointName.objects.filter(point=point, language=language, name=name).exists():
             self.counts['skipped'] += 1
             return False
+        source = Source.objects.get_or_create(name=source)[0] if source else self.osm
         PointName.objects.create(point=point, language=language, name=name, local=local,
-                                 historical=historical, source=self.osm)
+                                 historical=historical, source=source)
         self.counts['names'] += 1
         return True
 

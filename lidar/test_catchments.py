@@ -347,3 +347,95 @@ class CheckpointTests(unittest.TestCase):
             run(lambda a, b, c, d: z[a:b, c:d], 20, 20, 7, 10.0, checkpoint=ckpt)
             with self.assertRaises(ValueError):
                 run(lambda a, b, c, d: z[a:b, c:d], 20, 20, 5, 10.0, checkpoint=ckpt)
+
+
+class ResettleTests(unittest.TestCase):
+    """
+    `recap.resettle`: lowering tops after the flood, against flooding the lowered ground again.
+    Each top lowered keeps its own cell and stays above the rest of its ground (above its key
+    col), so the second flood sees the same cols and the same top cells, only lower.
+    """
+
+    def lowered(self, z, rec, s, thr):
+        """ Top s's cell lowered to just above the rest of the ground it stands on (or its key col
+        plus the threshold), or None when that would not lower it. """
+        H, W = z.shape
+        r0, c0 = divmod(int(rec['top'][s]), W)
+        level = rec['cz'][s] if rec['col'][s] >= 0 else 0.0
+        seen, todo, rest = {(r0, c0)}, [(r0, c0)], -np.inf
+        while todo:
+            r, c = todo.pop()
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    rr, cc = r + dr, c + dc
+                    if 0 <= rr < H and 0 <= cc < W and (rr, cc) not in seen and z[rr, cc] > level:
+                        seen.add((rr, cc))
+                        todo.append((rr, cc))
+                        rest = max(rest, z[rr, cc])
+        new = np.float32(max(rest, level + thr) + 0.25)
+        return new if new < z[r0, c0] else None
+
+    def test_lowered_tops_as_a_new_flood_has_them(self):
+        from recap import resettle
+        thr, done = 10.0, 0
+        for seed in range(12):
+            z = smooth_hills(40, 44, seed)
+            H, W = z.shape
+            rec, _ = run(lambda a, b, c, d: z[a:b, c:d], H, W, 11, thr)
+            z2, hz = z.copy(), rec['hz'].copy()
+            order = np.argsort(-rec['hz'])
+            for s in order[1:4]:              # three of the highest: the swaps that matter
+                new = self.lowered(z, rec, s, thr)
+                if new is None:
+                    continue
+                r, c = divmod(int(rec['top'][s]), W)
+                z2[r, c] = new
+                hz[s] = new
+            if np.array_equal(hz, rec['hz']):
+                continue
+            col, cz, far = resettle(rec['top'], rec['col'], hz, rec['cz'], rec['far'])
+            rec2, _ = run(lambda a, b, c, d: z2[a:b, c:d], H, W, 11, thr)
+            with self.subTest(seed=seed):
+                self.assertEqual(rec2['top'].tolist(), rec['top'].tolist())
+                np.testing.assert_array_equal(rec2['hz'], hz)
+                self.assertEqual(col.tolist(), rec2['col'].tolist(), 'the same key cols')
+                self.assertEqual(far.tolist(), rec2['far'].tolist(), 'the same tops across them')
+                p1, _, _ = walk(rec2['top'], col, hz, cz, far)
+                p2, _, _ = walk(rec2['top'], rec2['col'], rec2['hz'], rec2['cz'], rec2['far'])
+                self.assertEqual(p1.tolist(), p2.tolist(), 'the same parents')
+                done += 1
+        self.assertGreater(done, 5)
+
+    def test_a_spike_capped_hands_the_key_col_over(self):
+        # Vinson and Tyree: two hills nearly level, the lesser one read high by a spike on its top;
+        # capped, it becomes the lesser, and the key col changes hands
+        from recap import resettle
+        swaps = 0
+        for seed in range(8):
+            rng = np.random.default_rng(seed)
+            H, W = 40, 44
+            yy, xx = np.mgrid[0:H, 0:W].astype(np.float64)
+            z = 40 + 0.1 * xx + rng.random((H, W)) * 3
+            for cy, cx, a in ((10, 10, 90), (28, 32, 95), (rng.random() * H, rng.random() * W, 60)):
+                z += a * np.exp(-((yy - cy) ** 2 + (xx - cx) ** 2) / (2 * 5 ** 2))
+            z = z.astype(np.float32)
+            r, c = np.unravel_index(np.argmax(np.where(np.hypot(yy - 10, xx - 10) < 4, z, 0)), z.shape)
+            z[r, c] += 20                     # the spike
+            rec, _ = run(lambda a, b, c_, d: z[a:b, c_:d], H, W, 11, 10.0)
+            s = int(np.flatnonzero(rec['top'] == r * W + c)[0])
+            z2 = z.copy()
+            z2[r, c] = np.float32(max(z[max(r - 1, 0):r + 2, max(c - 1, 0):c + 2].ravel().tolist()
+                                      [:4] + z[max(r - 1, 0):r + 2, max(c - 1, 0):c + 2].ravel().tolist()[5:]) + 0.25)
+            hz = rec['hz'].copy()
+            hz[s] = z2[r, c]
+            col, cz, far = resettle(rec['top'], rec['col'], hz, rec['cz'], rec['far'])
+            rec2, _ = run(lambda a, b, c_, d: z2[a:b, c_:d], H, W, 11, 10.0)
+            with self.subTest(seed=seed):
+                self.assertEqual(rec2['top'].tolist(), rec['top'].tolist())
+                self.assertEqual(col.tolist(), rec2['col'].tolist(), 'the same key cols')
+                self.assertEqual(far.tolist(), rec2['far'].tolist(), 'the same tops across them')
+                p1, _, _ = walk(rec2['top'], col, hz, cz, far)
+                p2, _, _ = walk(rec2['top'], rec2['col'], rec2['hz'], rec2['cz'], rec2['far'])
+                self.assertEqual(p1.tolist(), p2.tolist(), 'the same parents')
+            swaps += int((col != rec['col']).any())
+        self.assertGreaterEqual(swaps, 3, 'the key col changed hands')

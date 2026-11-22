@@ -525,6 +525,47 @@ class RenameTests(TestCase):
         self.assertIn('0 renamed', ApplyTests.run_it(self, self.data()))
 
 
+class LaterNameTests(TestCase):
+    """A summit an earlier changeset left unnamed, named by a later one: its names come too."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_language('en', 30)
+        cls.s = make_summit(None, 3445.7, 19.7939, 18.5522)
+
+    def data(self):
+        return dict(sources=dict(lidar='FABDEM V1-2', names='Wikidata'), summits=[dict(
+            key='fab:19.793900,18.552200', lat=19.7939, lon=18.5522, name='Emi Koussi',
+            names=[dict(lang='en', name='Emi Koussi', local=False)], altitude=3445.7, datum='EGM2008',
+            countries=[], island=True, prominence=3445.7, parent=None, notes=[])])
+
+    def test_named_with_its_names(self):
+        ApplyTests.run_it(self, self.data())
+        self.s.point.refresh_from_db()
+        self.assertEqual(self.s.point.name, 'Emi Koussi')
+        name = PointName.objects.get(point=self.s.point)
+        self.assertEqual((name.name, name.language.iso639_1, name.source.name), ('Emi Koussi', 'en', 'Wikidata'))
+        self.assertEqual(Summit.objects.count(), 1)
+
+    def test_a_named_summit_keeps_its_name_and_gains_the_names(self):
+        self.s.point.name = 'Emi Kussi'
+        self.s.point.save()
+        ApplyTests.run_it(self, self.data())
+        self.s.point.refresh_from_db()
+        self.assertEqual(self.s.point.name, 'Emi Kussi')
+        self.assertEqual(list(PointName.objects.filter(point=self.s.point).values_list('name', flat=True)), ['Emi Koussi'])
+
+    def test_each_name_its_own_source(self):
+        make_language('fr', 40)
+        data = self.data()
+        data['summits'][0]['names'].append(dict(lang='fr', name='Emi Koussi', local=False, source='GeoNames'))
+        ApplyTests.run_it(self, data)
+        self.assertEqual(sorted(PointName.objects.filter(point=self.s.point).values_list('language__iso639_1', 'source__name')),
+                         [('en', 'Wikidata'), ('fr', 'GeoNames')])
+        self.assertIn('0 names', ApplyTests.run_it(self, data))      # a second run adds none
+
+
 class CopernicusTests(TestCase):
     """South America from Copernicus: countries the database lacks, islands, heights from a list."""
 
