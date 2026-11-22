@@ -33,3 +33,33 @@ class ComputeTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         compute('horizon_std')
         self.assertEqual(compute('horizon_std'), [])
+
+
+class CommandProgressTests(TestCase):
+    """`manage.py compute_slope_horizon` says where it is: the phases, then the search to 100 %."""
+
+    @classmethod
+    def setUpTestData(cls):
+        for i in range(5):
+            make_summit(f'S{i}', 1000.0 + 100 * i, 49.0 + 0.01 * i, 20.0)
+
+    def test_it_reports_the_search_and_the_storing(self):
+        import io
+        from unittest import mock
+        from django.core.management import call_command
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch('sys.stderr', err):
+            call_command('compute_slope_horizon', '--kind', 'slope', stdout=out)
+        bars = err.getvalue()
+        self.assertIn('slope searching', bars)
+        self.assertIn('slope storing', bars)
+        self.assertIn('100.0 %', bars)
+        self.assertIn('5/5', bars)
+        self.assertIn('slope: 4 changed in', out.getvalue())   # the highest has no parent before or after
+
+    def test_progress_comes_every_thousand_summits_and_at_the_end(self):
+        from core.functions.parents import slope_parents
+        rows = [(i, 49.0 + i * 1e-4, 20.0, 1000.0 + i) for i in range(2500)]
+        seen = []
+        slope_parents(rows, progress=lambda done, total: seen.append((done, total)))
+        self.assertEqual(seen, [(1000, 2500), (2000, 2500), (2500, 2500)])

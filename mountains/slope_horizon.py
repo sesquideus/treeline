@@ -15,21 +15,28 @@ from mountains.views.cache import bump_data_version
 
 #: kind: (parent field, stamp field, how to compute)
 KINDS = {
-    'slope': ('slope_parent', 'slope_computed', lambda rows, keys: slope_parents(rows, keys)),
-    'horizon': ('horizon_parent', 'horizon_computed', lambda rows, keys: horizon_parents(rows, keys, 0.0)),
+    'slope': ('slope_parent', 'slope_computed', lambda rows, keys, p: slope_parents(rows, keys, p)),
+    'horizon': ('horizon_parent', 'horizon_computed', lambda rows, keys, p: horizon_parents(rows, keys, 0.0, p)),
     'horizon_std': ('horizon_parent_std', 'horizon_std_computed',
-                    lambda rows, keys: horizon_parents(rows, keys, 0.14)),
+                    lambda rows, keys, p: horizon_parents(rows, keys, 0.14, p)),
 }
 
 
-def compute(kind, summits=None):
-    """Work out and store one kind of parent for `summits` (default: all). Returns the pks that changed."""
+def compute(kind, summits=None, progress=None, say=None):
+    """
+    Work out and store one kind of parent for `summits` (default: all). Returns the pks that
+    changed. `progress(stage, done, total)` is called as the search and then the storing go
+    ('search', 'store'), `say(text)` at each phase.
+    """
+    say = say or (lambda text: None)
+    progress = progress or (lambda stage, done, total: None)
     parent_field, stamp_field, method = KINDS[kind]
     rows = [(pk, loc.y, loc.x, alt) for pk, loc, alt in
             Summit.objects.filter(point__location__isnull=False)
             .values_list('pk', 'point__location', 'point__altitude')]
     keys = None if summits is None else list(summits.values_list('pk', flat=True))
-    result = method(rows, keys)
+    say(f'{len(rows)} summits loaded; building the tree')
+    result = method(rows, keys, lambda done, total: progress('search', done, total))
     now = timezone.now()
     targets = Summit.objects.filter(pk__in=list(result)).only('pk', parent_field, stamp_field)
     changed, todo = [], []
@@ -41,7 +48,11 @@ def compute(kind, summits=None):
         setattr(summit, stamp_field, now)
         todo.append(summit)
     with transaction.atomic():
-        Summit.objects.bulk_update(todo, [parent_field, stamp_field], batch_size=2000)
+        chunk = 10000
+        progress('store', 0, len(todo))
+        for at in range(0, len(todo), chunk):
+            Summit.objects.bulk_update(todo[at:at + chunk], [parent_field, stamp_field], batch_size=2000)
+            progress('store', min(at + chunk, len(todo)), len(todo))
         # bulk_update sends no save signals: the cached pages and the map are told here.
         transaction.on_commit(bump_data_version)
     return changed

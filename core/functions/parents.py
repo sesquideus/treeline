@@ -136,19 +136,21 @@ def angle(refraction):
     return score
 
 
-def slope_parents(summits, keys=None):
+def slope_parents(summits, keys=None, progress=None):
     """{key: (parent key or None, slope)} for `keys` (default: all) among `summits`."""
-    return _parents(summits, keys, slope, positive=False)
+    return _parents(summits, keys, slope, positive=False, progress=progress)
 
 
-def horizon_parents(summits, keys=None, refraction=0.0):
+def horizon_parents(summits, keys=None, refraction=0.0, progress=None):
     """{key: (parent key or None, angle)}; a parent only where the angle is positive."""
-    return _parents(summits, keys, angle(refraction), positive=True)
+    return _parents(summits, keys, angle(refraction), positive=True, progress=progress)
 
 
-def _parents(summits, keys, score, positive):
+def _parents(summits, keys, score, positive, progress=None):
+    """`progress(done, total)`, if given, is called as the search goes (every 1,000 summits) and at its end."""
     tree = SummitTree(summits)
     wanted = None if keys is None else set(keys)
+    total = len(tree.items) if wanted is None else sum(1 for item in tree.items if item[0] in wanted)
     out = {}
     for i, item in enumerate(tree.items):
         if wanted is not None and item[0] not in wanted:
@@ -157,4 +159,8 @@ def _parents(summits, keys, score, positive):
         if positive and value is not None and value <= 0:
             parent, value = None, None
         out[item[0]] = (parent, value)
+        if progress and len(out) % 1000 == 0:
+            progress(len(out), total)
+    if progress:
+        progress(len(out), total)
     return out
