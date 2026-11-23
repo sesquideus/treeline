@@ -41,11 +41,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from catchments import ARC, THRESHOLD, despike, fabdem_tile, heights, run, walk, walk_line  # noqa: E402
 
 CRS = 'EPSG:3035'
-SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
-CZ = os.environ.get('TREELINE_DMR5G', '/mnt/data/treeline/DMR5G_CZ/raster1m')
+SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5_cm/dmr5_etrs89.tif')   # compact.py copies: int cm
+CZ = os.environ.get('TREELINE_DMR5G', '/mnt/data/treeline/DMR5G_CZ_cm')
 PL = os.environ.get('TREELINE_NMT_PL', '/mnt/data/treeline/NMT_PL/tiles')
 PLE = os.environ.get('TREELINE_NMT_PL_EVRF', '/mnt/data/treeline/NMT_PL_EVRF')
-AT = os.environ.get('TREELINE_ALS_AT', '/mnt/data/treeline/ALS_AT/tiles')
+AT = os.environ.get('TREELINE_ALS_AT', '/mnt/data/treeline/ALS_AT_cm')
 #: each source's height system, as PROJ knows it (heights relative to these become EGM2008)
 HEIGHTS = {'SK': 'EPSG:4937', 'CZ': 'EPSG:4258+8357', 'PL': 'EPSG:4258+9650',   # PL: Baltic 1986 (KRON86)
            'PLE': 'EPSG:4258+9651',                                               # PLE: EVRF2007-PL

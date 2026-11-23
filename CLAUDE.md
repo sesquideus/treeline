@@ -65,9 +65,18 @@ The grids must be readable by the user that uwsgi runs as.
 
 ### Lidar (`lidar/`)
 
-Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m, one 156 GB
-GeoTIFF in `/mnt/data/treeline/DTM5`, or wherever `TREELINE_DMR5` points) against the database. The server needs none of it — only the
-changesets it writes.
+Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m) against the
+database. The server needs none of it — only the changesets it writes.
+
+The lidar is kept as `lidar/compact.py` copies: integer centimetres (the GDAL scale says 0.01),
+3–4× smaller than the float32 the agencies ship, every cell within 5 mm, checked as written. They
+sit beside the originals in `/mnt/data/treeline/`: `DTM5_cm/dmr5_etrs89.tif` (SK, 46 GB),
+`ALS_AT_cm/` (AT), `DMR5G_CZ_cm/` (CZ), the paths `joint.py` reads by default (`TREELINE_DMR5`,
+`TREELINE_ALS_AT`, `TREELINE_DMR5G` override them). Readers take heights through
+`catchments.heights()`, which applies the scale; the older tools that read raw values
+(`prominence.py` and what imports its `SOURCE`) read `DTM5_cm/dmr5_etrs89_m.vrt`, the Slovak copy
+as float metres. `lidar/joint_grid.py` builds the joint terrain once into 4 km blocks for runs
+(`joint.py --grid DIR`) and extends a built grid with more sources (`extend`).
 
 ```bash
 uv run --group lidar python lidar/prominence.py --out OUT   # every P100, blind: ~12 min, cached in ~/.cache/treeline/lidar

@@ -16,6 +16,9 @@ data and nothing else becomes it; then the finished file is read back whole and 
 what was meant to be written, block by block, before it takes its final name. A file whose
 final name exists is done and skipped, so an interrupted run resumes.
 
+A single file also gets `<name>_m.vrt` beside it (`float_view`): the copy as float32 metres
+with the original's no-data value, for the older tools that read raw values.
+
 Measured (2000 × 2000 windows, cm): SK 0.57, AT 0.92, CZ 0.72 MB/km² against 2.7–3.9 as shipped.
 The digits dropped are interpolation output: AT and our CZ rasters are continuous, SK is on a
 0.1 mm grid, PL and the Czech LAZ points are whole cm, and airborne lidar is good to centimetres.
@@ -63,6 +66,22 @@ def quantize(z, unit, nodata):
     return q, stats
 
 
+def same_place(s, d, tol=1e-11):
+    """ Whether two rasters' CRSs put them in the same place: 9 points over the extent, through
+    each CRS to lon/lat, agree within `tol` degrees (about a micrometre). Their texts may differ:
+    GDAL writes a recognised CRS by its EPSG definition (DMR 5.0's ESRI text has the flattening as
+    298.257222101004 and the axes the other way round; EPSG:3046 is the same projection). """
+    import numpy as np
+    from pyproj import Transformer
+    if s.crs == d.crs:
+        return True
+    b = s.bounds
+    xs, ys = np.meshgrid(np.linspace(b.left, b.right, 3), np.linspace(b.bottom, b.top, 3))
+    a = Transformer.from_crs(s.crs, 'EPSG:4326', always_xy=True).transform(xs.ravel(), ys.ravel())
+    c = Transformer.from_crs(d.crs, 'EPSG:4326', always_xy=True).transform(xs.ravel(), ys.ravel())
+    return bool(np.all(np.abs(np.array(a) - np.array(c)) <= tol))
+
+
 def convert(src, dst, unit, extra_nodata, threads):
     """ One file; returns its stats. Writes `dst` + '.part', verifies, renames. """
     import rasterio
@@ -107,7 +126,7 @@ def convert(src, dst, unit, extra_nodata, threads):
         if d.scales[0] != unit or d.nodata != NODATA or d.dtypes[0] != 'int32':
             raise AssertionError(f'{part}: metadata {d.scales} {d.nodata} {d.dtypes}')
         with rasterio.open(src) as s:
-            if d.crs != s.crs or d.transform != s.transform or (d.height, d.width) != (s.height, s.width):
+            if d.transform != s.transform or (d.height, d.width) != (s.height, s.width) or not same_place(s, d):
                 raise AssertionError(f'{part}: georeferencing differs from {src}')
         for (r, c), want in crc.items():
             w, h = min(STEP, d.width - c), min(STEP, d.height - r)
@@ -117,6 +136,39 @@ def convert(src, dst, unit, extra_nodata, threads):
     total.update(src=src, bytes_in=os.path.getsize(src), bytes_out=os.path.getsize(dst),
                  seconds=time.time() - t0)
     return total
+
+
+def float_view(path, nodata):
+    """
+    Beside an integer copy, `<name>_m.vrt`: the same raster as float32 metres with the original's
+    no-data value, for tools that read raw values (the pooled prominence pipeline, altitudes.py,
+    isolation.py, ...). A few hundred bytes of XML; `catchments.heights` readers take the copy
+    itself, which is faster.
+    """
+    import rasterio
+    vrt = os.path.splitext(path)[0] + '_m.vrt'
+    with rasterio.open(path) as d:
+        t = d.transform
+        xml = f'''<VRTDataset rasterXSize="{d.width}" rasterYSize="{d.height}">
+  <SRS>{d.crs.to_wkt()}</SRS>
+  <GeoTransform>{t.c!r}, {t.a!r}, {t.b!r}, {t.f!r}, {t.d!r}, {t.e!r}</GeoTransform>
+  <VRTRasterBand dataType="Float32" band="1">
+    <NoDataValue>{nodata!r}</NoDataValue>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="1">{os.path.basename(path)}</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SrcRect xOff="0" yOff="0" xSize="{d.width}" ySize="{d.height}"/>
+      <DstRect xOff="0" yOff="0" xSize="{d.width}" ySize="{d.height}"/>
+      <NODATA>{d.nodata}</NODATA>
+      <ScaleOffset>{d.offsets[0]!r}</ScaleOffset>
+      <ScaleRatio>{d.scales[0]!r}</ScaleRatio>
+    </ComplexSource>
+  </VRTRasterBand>
+</VRTDataset>
+'''
+    with open(vrt, 'w') as f:
+        f.write(xml)
+    return vrt
 
 
 def _job(a):
@@ -133,6 +185,11 @@ def main():
     ap.add_argument('--jobs', type=int, default=16)
     a = ap.parse_args()
 
+    # writes only beside the source, never into it (and never over it)
+    s_, d_ = os.path.realpath(a.src), os.path.realpath(a.dst)
+    s_dir = s_ if os.path.isdir(s_) else os.path.dirname(s_)
+    if d_ == s_ or d_.startswith(s_dir + os.sep) or d_ == s_dir or s_dir.startswith(d_ + os.sep):
+        ap.error(f'{a.dst} overlaps the source {a.src}: write the copy beside it, not into it')
     if os.path.isfile(a.src):
         pairs = [(a.src, a.dst if a.dst.endswith('.tif') else os.path.join(a.dst, os.path.basename(a.src)))]
     else:
@@ -156,6 +213,11 @@ def main():
     t0 = time.time()
     if len(todo) == 1:                              # one big file: GDAL's threads compress
         add(convert(*todo[0], a.unit, a.nodata, a.jobs))
+    if len(pairs) == 1 and os.path.exists(pairs[0][1]):
+        import rasterio
+        with rasterio.open(pairs[0][0]) as s:
+            nd = s.nodata if s.nodata is not None else -9999.0
+        print(f'float view: {float_view(pairs[0][1], nd)}', flush=True)
     elif todo:
         import multiprocessing
         from tqdm import tqdm
