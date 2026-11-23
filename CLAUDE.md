@@ -66,7 +66,7 @@ The grids must be readable by the user that uwsgi runs as.
 ### Lidar (`lidar/`)
 
 Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m, one 156 GB
-GeoTIFF in `/mnt/media/treeline/DTM5`, or wherever `TREELINE_DMR5` points) against the database. The server needs none of it — only the
+GeoTIFF in `/mnt/data/treeline/DTM5`, or wherever `TREELINE_DMR5` points) against the database. The server needs none of it — only the
 changesets it writes.
 
 ```bash
@@ -98,7 +98,7 @@ anything it decides is flagged less precise. Names come from an OpenStreetMap ex
 Freemap draws). `apply_lidar_changeset` is idempotent and checks each point's name before
 touching it, so a changeset can be applied locally, re-imported over, and applied on amos.
 Changesets are data, not code: they are not committed (`lidar/changesets/` ignores everything)
-but kept in `/mnt/media/treelines/products/` and copied to amos's `lidar/changesets/` with scp.
+but kept in `/mnt/data/treeline/products/` and copied to amos's `lidar/changesets/` with scp.
 
 `.env` (not committed) must define: `SECRET_KEY`, `DB_PASSWORD`, `DEBUG`, `ALLOWED_HOSTS`,
 `INTERNAL_IPS`, `EMAIL_PASSWORD`. The database is PostGIS, name `treeline`, user `kvik`,

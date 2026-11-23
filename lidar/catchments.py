@@ -864,7 +864,13 @@ def run(read, H, W, tile, thr=THRESHOLD, log=None, jobs=1, checkpoint=None):
             for _, a in todo:
                 yield _tile_job(a)
 
-    done = len(done_tiles)
+    bar = None
+    if log:
+        # a line on stdout after every tile: done, rate, time left, the tops found so far
+        from tqdm import tqdm
+        bar = tqdm(total=len(keys), initial=len(done_tiles), unit='tile', file=sys.stdout, mininterval=0,
+                   smoothing=0.05, dynamic_ncols=True)
+    tops = 0
     for (k, _), o in zip(todo, tiles()):
         stats['tiles'].append(o['stats'])
         records.append(o['records'])
@@ -872,9 +878,12 @@ def run(read, H, W, tile, thr=THRESHOLD, log=None, jobs=1, checkpoint=None):
         if store:
             store.save(0, k, o)
         arrive(0, k, o)
-        done += 1
-        if log and (done % 2000 == 0 or done == len(keys)):
-            log(f'{done} of {len(keys)} tiles, {time.time() - t0:.0f} s')
+        if bar:
+            tops += len(o['records']['top'])
+            bar.set_postfix_str(f'{tops} tops settled', refresh=False)
+            bar.update(1)
+    if bar:
+        bar.close()
     stats['tile_seconds'] = time.time() - t0
     for st in level_stats:
         stats['levels'].append(st)
@@ -1066,7 +1075,7 @@ def dmr5_reader(source, r0, c0):
     return read
 
 
-FABDEM = os.environ.get('TREELINE_FABDEM', '/mnt/media/treelines/fabdem/zip')
+FABDEM = os.environ.get('TREELINE_FABDEM', '/mnt/data/treeline/fabdem/zip')
 ARC = 3600                     # cells a degree: FABDEM (and Copernicus GLO-30) at 1″
 
 
@@ -1112,10 +1121,10 @@ def fabdem_reader(north, west):
     return read
 
 
-COPERNICUS = os.environ.get('TREELINE_COPERNICUS', '/mnt/media/treelines/copernicus')
+COPERNICUS = os.environ.get('TREELINE_COPERNICUS', '/mnt/data/treeline/copernicus')
 #: GLO-90 (3″) for the few land tiles GLO-30 withholds (Armenia, Azerbaijan): coarser, but
 #: without it the Caucasus has a hole that cuts the routes through it.
-GLO90 = os.environ.get('TREELINE_GLO90', '/mnt/media/treelines/glo90')
+GLO90 = os.environ.get('TREELINE_GLO90', '/mnt/data/treeline/glo90')
 #: Added to every land cell, so that land below sea level (the Dead Sea, -430 m) stays above
 #: zero, which the engine reads as no data; only the ocean is 0. Taken off again in the output.
 LIFT = 1000.0

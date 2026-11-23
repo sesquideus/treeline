@@ -4,7 +4,10 @@ on one grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), FABDEM whe
 has data (beyond the four, and Polish sheets not yet downloaded).
 
     cd lidar && uv run --project .. --group lidar python joint.py S,N,W,E OUT.json [--res 1] [--threshold 30]
-        [--jobs 12] [--tile 5000] [--line-cutoff 100]
+        [--jobs 12] [--tile 5000] [--line-cutoff 100] [--sources SK,CZ,PLE,PL,AT,FABDEM]
+
+`--sources` reads only those (all by default). Without FABDEM, everything the others lack is no
+data, and a top whose ground reaches it stays open (`border`), as at the window's edge.
 
 Sources, the first with data wins a cell:
   Slovakia  DMR 5.0, 1 m, ETRS89 / UTM 34N, ellipsoidal heights (ETRS89-h); spikes filtered
@@ -35,18 +38,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from catchments import ARC, THRESHOLD, despike, fabdem_tile, run, walk, walk_line  # noqa: E402
 
 CRS = 'EPSG:3035'
-SK = os.environ.get('TREELINE_DMR5', '/mnt/media/treeline/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
-CZ = os.environ.get('TREELINE_DMR5G', '/mnt/media/treeline/DMR5G_CZ/raster1m')
-PL = os.environ.get('TREELINE_NMT_PL', '/mnt/media/treeline/NMT_PL/tiles')
-PLE = os.environ.get('TREELINE_NMT_PL_EVRF', '/mnt/media/treeline/NMT_PL_EVRF')
+SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
+CZ = os.environ.get('TREELINE_DMR5G', '/mnt/data/treeline/DMR5G_CZ/raster1m')
+PL = os.environ.get('TREELINE_NMT_PL', '/mnt/data/treeline/NMT_PL/tiles')
+PLE = os.environ.get('TREELINE_NMT_PL_EVRF', '/mnt/data/treeline/NMT_PL_EVRF')
 AT = os.environ.get('TREELINE_ALS_AT', '/mnt/data/treeline/ALS_AT/tiles')
 #: each source's height system, as PROJ knows it (heights relative to these become EGM2008)
 HEIGHTS = {'SK': 'EPSG:4937', 'CZ': 'EPSG:4258+8357', 'PL': 'EPSG:4258+9650',   # PL: Baltic 1986 (KRON86)
            'PLE': 'EPSG:4258+9651',                                               # PLE: EVRF2007-PL
            'AT': 'EPSG:4258+9274'}                                                # AT: EVRF2000 Austria
-NAMES = {1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: 'FABDEM', 5: 'NMT EVRF2007 (PL)',
+NAMES = {0: 'no data', 1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: 'FABDEM', 5: 'NMT EVRF2007 (PL)',
          6: 'ALS-DGM (AT)'}
 AT_TILE = 50000
+ALL_SOURCES = ('SK', 'CZ', 'PLE', 'PL', 'AT', 'FABDEM')
+SOURCES = set(ALL_SOURCES)      # what the reader uses (set by main before the workers fork)
+#: islands of data smaller than this (cells) are dropped: slivers at the edge of a source's data,
+#: which without FABDEM around them would each be a top of its own. A window is read this many
+#: cells wider all round to judge them, so every window decides each island alike.
+ISLAND = 200
 
 
 def at_name(e, n):
@@ -126,6 +135,23 @@ def _warp(src_ds, dst, dst_transform, resampling, nodata=None):
     return tmp
 
 
+def drop_islands(z, size=None):
+    """ Set to NaN, in place, every island of data (8-connected) of fewer than `size` cells that
+    does not touch the window's edge. """
+    from scipy import ndimage
+    size = ISLAND if size is None else size
+    lab, n = ndimage.label(np.isfinite(z), structure=np.ones((3, 3), bool))
+    if not n:
+        return 0
+    count = np.bincount(lab.ravel(), minlength=n + 1)
+    edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+    small = count < size
+    small[0] = False
+    small[edge] = False
+    z[small[lab]] = np.nan
+    return int(small.sum())
+
+
 def reader(x0, y0, res):
     """ `read(a, b, c, e)` for the grid with top-left corner (x0, y0) and `res` m cells. """
 
@@ -134,8 +160,9 @@ def reader(x0, y0, res):
         from rasterio.enums import Resampling
         from rasterio.transform import Affine
         st = _state()
-        # a cell wider all round, for the spike filter
-        a1, b1, c1, e1 = a - 1, b + 1, c - 1, e + 1
+        # a cell wider all round for the spike filter, and ISLAND more to judge the islands of data
+        m = 1 + ISLAND
+        a1, b1, c1, e1 = a - m, b + m, c - m, e + m
         h, w = b1 - a1, e1 - c1
         wx0, wy0 = x0 + c1 * res, y0 - a1 * res
         tr = Affine(res, 0, wx0, 0, -res, wy0)
@@ -154,9 +181,10 @@ def reader(x0, y0, res):
             src[new] = code
 
         # Slovakia: one big raster
-        fill(_warp(st['sk'], z, tr, Resampling.nearest), 1, 'SK')
+        if 'SK' in SOURCES:
+            fill(_warp(st['sk'], z, tr, Resampling.nearest), 1, 'SK')
         # Czechia: 2 km tiles named by their south-west corner in km (EPSG:3045)
-        if np.isnan(z).any() and os.path.isdir(CZ):
+        if 'CZ' in SOURCES and np.isnan(z).any() and os.path.isdir(CZ):
             ex, ny_ = st['to_cz'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
                                             [bounds[1], bounds[1], bounds[3], bounds[3]])
             part = np.full((h, w), np.nan, np.float32)
@@ -169,7 +197,7 @@ def reader(x0, y0, res):
                         part = np.where(np.isnan(part), t, part)
             fill(part, 2, 'CZ')
         # Poland, the surveys of 2018 on (EVRF2007): 1:5000 sheets, found by their bounds
-        if np.isnan(z).any() and st['evrf']:
+        if 'PLE' in SOURCES and np.isnan(z).any() and st['evrf']:
             ex, ny_ = st['to_pl'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
                                             [bounds[1], bounds[1], bounds[3], bounds[3]])
             we0, we1, wn0, wn1 = min(ex), max(ex), min(ny_), max(ny_)
@@ -186,7 +214,7 @@ def reader(x0, y0, res):
                         part = np.where(np.isnan(part), t, part)
             fill(part, 5, 'PLE')
         # Poland, the older coverage (KRON86): 10 km tiles, n{northing km}_e{easting km} (EPSG:2180), zeros beyond Poland
-        if np.isnan(z).any() and os.path.isdir(PL):
+        if 'PL' in SOURCES and np.isnan(z).any() and os.path.isdir(PL):
             ex, ny_ = st['to_pl'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
                                             [bounds[1], bounds[1], bounds[3], bounds[3]])
             part = np.full((h, w), np.nan, np.float32)
@@ -199,7 +227,7 @@ def reader(x0, y0, res):
                         part = np.where(np.isnan(part), t, part)
             fill(part, 3, 'PL')
         # Austria: 50 km tiles in the target CRS, named by their south-west corner, no data beyond Austria
-        if np.isnan(z).any() and os.path.isdir(AT):
+        if 'AT' in SOURCES and np.isnan(z).any() and os.path.isdir(AT):
             part = np.full((h, w), np.nan, np.float32)
             for ek in range(int(bounds[0] // AT_TILE) * AT_TILE, int(bounds[2] // AT_TILE) * AT_TILE + 1, AT_TILE):
                 for nk in range(int(bounds[1] // AT_TILE) * AT_TILE, int(bounds[3] // AT_TILE) * AT_TILE + 1, AT_TILE):
@@ -210,7 +238,7 @@ def reader(x0, y0, res):
                         part = np.where(np.isnan(part), t, part)
             fill(part, 6, 'AT')
         # FABDEM wherever none of them has data
-        if np.isnan(z).any():
+        if 'FABDEM' in SOURCES and np.isnan(z).any():
             lon, lat = st['to_ll'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
                                              [bounds[1], bounds[1], bounds[3], bounds[3]])
             part = np.full((h, w), np.nan, np.float32)
@@ -223,6 +251,8 @@ def reader(x0, y0, res):
                         continue
                     part = np.where(np.isnan(part), t, part)
             fill(part, 4, None)
+        drop_islands(z)
+        z = z[ISLAND:-ISLAND, ISLAND:-ISLAND]
         z[np.isnan(z)] = 0
         z, n = despike(z)
         return np.ascontiguousarray(z[1:-1, 1:-1])
@@ -232,7 +262,8 @@ def reader(x0, y0, res):
 def sources_at(xs, ys):
     """
     Which source each point of the target grid (xs, ys: cell centres) takes its height from, as
-    the reader decides it: the first of Slovakia, Czechia, Poland, Austria with data there, else FABDEM.
+    the reader decides it: the first of Slovakia, Czechia, Poland, Austria with data there, else FABDEM (0: no data,
+    when FABDEM is not read). Only the sources in SOURCES count.
     One batch per source: sampled at the points, not read again window by window.
     """
     import rasterio
@@ -246,17 +277,20 @@ def sources_at(xs, ys):
         good = np.isfinite(v) & (v > -100) & (v < 1e4)
         return good & (v != nodata) if nodata is not None else good
 
-    with rasterio.open(SK) as d:
-        px, py = Transformer.from_crs(CRS, d.crs, always_xy=True).transform(xs, ys)
-        v = np.array([t[0] for t in d.sample(zip(px, py), masked=False)])
-        hit = ok(v, d.nodata)
-        out[hit & todo] = 1
-        todo &= ~hit
+    if 'FABDEM' not in SOURCES:
+        out[:] = 0
+    if 'SK' in SOURCES:
+        with rasterio.open(SK) as d:
+            px, py = Transformer.from_crs(CRS, d.crs, always_xy=True).transform(xs, ys)
+            v = np.array([t[0] for t in d.sample(zip(px, py), masked=False)])
+            hit = ok(v, d.nodata)
+            out[hit] = 1
+            todo &= ~hit
     for code, folder, crs, size, name in ((2, CZ, 'EPSG:3045', 2000, lambda e, n: f'{e:03d}_{n:04d}.tif'),
                                           (5, None, 'EPSG:2180', None, None),
                                           (3, PL, 'EPSG:2180', 10000, lambda e, n: f'n{n:04d}_e{e:04d}.tif'),
                                           (6, AT, CRS, AT_TILE, lambda e, n: at_name(e * 1000, n * 1000))):
-        if not todo.any():
+        if not todo.any() or {2: 'CZ', 5: 'PLE', 3: 'PL', 6: 'AT'}[code] not in SOURCES:
             continue
         if code == 5:
             cells = evrf_sheets()
@@ -313,7 +347,12 @@ def main():
     ap.add_argument('--jobs', type=int, default=12)
     ap.add_argument('--tile', type=int, default=5000)
     ap.add_argument('--line-cutoff', type=float, default=100.0)
+    ap.add_argument('--sources', default=','.join(ALL_SOURCES), help='which to read, comma-separated')
     a = ap.parse_args()
+    SOURCES.clear()
+    SOURCES.update(v.strip() for v in a.sources.split(','))
+    if SOURCES - set(ALL_SOURCES):
+        ap.error(f'unknown sources: {SOURCES - set(ALL_SOURCES)}')
     s, n, w, e = (float(v) for v in a.bbox.split(','))
     x0, y0, H, W = grid(s, n, w, e, a.res)
     print(f'{H} × {W} cells ({H * W / 1e9:.1f} G) of {a.res:g} m in {CRS}, tiles of {a.tile}, {a.jobs} workers',
@@ -356,6 +395,7 @@ def main():
     st = {k: v for k, v in stats.items() if k != 'tiles'}
     st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(p), ll(q)] for p, q in zip(ta, tb)],
               line_cutoff=a.line_cutoff, crs=CRS, res=a.res,
+              sources=sorted(SOURCES),
               source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), FABDEM V1-2 beyond them; heights EGM2008')
     json.dump(dict(stats=st, summits=res), open(a.out, 'w'))
     print(f'-> {a.out}', flush=True)
