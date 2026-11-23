@@ -498,6 +498,35 @@ class MergeTwinTests(TestCase):
         self.assertIn('0 merged', ApplyTests.run_it(self, self.data()))
 
 
+class MapZoomRefreshTests(TestCase):
+    """ The map's zoom table is rebuilt at the end only when asked: it takes half a minute. """
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        make_language('en', 30)
+        make_summit('Somewhere', 1000.0, 49.0, 20.0)
+
+    def data(self):
+        return dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), summits=[dict(
+            key='x:49.1,20.1', lat=49.1, lon=20.1, name='Elsewhere', names=[], altitude=900.0, datum=None,
+            countries=[], island=True, prominence=900.0, parent=None, notes=[])])
+
+    def test_not_rebuilt_unless_asked(self):
+        from mountains.map_zooms import built_for
+        out = ApplyTests.run_it(self, self.data())
+        self.assertIn('refresh_map_zooms', out)
+        self.assertIsNone(built_for())
+
+    def test_rebuilt_when_asked(self):
+        from mountains.map_zooms import built_for
+        from mountains.views.cache import data_version
+        with self.captureOnCommitCallbacks(execute=True):
+            out = ApplyTests.run_it(self, self.data(), '--refresh-map')
+        self.assertIn('map zoom table rebuilt', out)
+        self.assertIsNotNone(built_for())
+
+
 class RenameTests(TestCase):
     """A summit named after a sign beside it gets its own name; the sign's goes."""
 

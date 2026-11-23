@@ -54,8 +54,11 @@ class Command(BaseCommand):
         parser.add_argument('path')
         parser.add_argument('--dry-run', action='store_true', help='do everything, then roll back')
         parser.add_argument('--author', help='username the notes are written by (default: the first superuser)')
+        parser.add_argument('--refresh-map', action='store_true',
+                            help='rebuild the map zoom table at the end (about 25 s); otherwise run '
+                                 '`manage.py refresh_map_zooms` once after the last changeset')
 
-    def handle(self, path, dry_run=False, author=None, **options):
+    def handle(self, path, dry_run=False, author=None, refresh_map=False, **options):
         data = json.load(open(path))
         self.lidar = Source.objects.get_or_create(name=data['sources']['lidar'])[0]
         self.osm = Source.objects.get_or_create(name=data['sources']['names'])[0]
@@ -107,9 +110,14 @@ class Command(BaseCommand):
         except DryRun:
             self.stdout.write(self.style.WARNING('dry run: rolled back'))
         else:
-            # Now rather than on the first map request after the import: with a large
-            # changeset, that would be one reader waiting half a minute.
-            refresh_and_record_map_zooms()
+            # The map's zoom table is rebuilt whole (about 25 s at 240 000 summits, minutes at
+            # millions), so only when asked: after a batch of changesets, once. Until then the map
+            # shows the table as last built.
+            if refresh_map:
+                refresh_and_record_map_zooms()
+                self.stdout.write('map zoom table rebuilt')
+            else:
+                self.stdout.write('map zoom table not rebuilt: run `manage.py refresh_map_zooms` after the last changeset')
         c = self.counts
         self.stdout.write(self.style.SUCCESS(
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '

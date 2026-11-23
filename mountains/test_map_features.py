@@ -129,22 +129,32 @@ class MapZoomRefreshTests(TestCase):
     def request(self):
         return self.client.get(reverse('map-features'), {'bbox': VIEW, 'zoom': 18, 'mode': 'prominence'})
 
-    def test_the_first_request_builds_them(self):
-        self.request()
-        self.assertEqual(SummitMapZoom.objects.count(), 2)
-        self.assertIsNotNone(SummitMapZoom.objects.get(summit=self.low).edge_prominence)
+    def refresh(self):
+        call_command('refresh_map_zooms', stdout=open('/dev/null', 'w'))
 
-    def test_an_edit_makes_the_next_request_rebuild(self):
-        self.request()
-        SummitMapZoom.objects.all().delete()        # a derived table: no edit, no rebuild
-        self.request()
+    def test_a_request_never_builds_them(self):
+        # a rebuild takes minutes at millions of summits: never inside a request
+        self.assertEqual(self.request().status_code, 200)
         self.assertEqual(SummitMapZoom.objects.count(), 0)
         bump_data_version()
         self.request()
+        self.assertEqual(SummitMapZoom.objects.count(), 0)
+
+    def test_the_command_builds_them(self):
+        self.refresh()
         self.assertEqual(SummitMapZoom.objects.count(), 2)
+        self.assertIsNotNone(SummitMapZoom.objects.get(summit=self.low).edge_prominence)
+
+    def test_an_edit_waits_for_the_command(self):
+        self.refresh()
+        newer = make_summit('Newer', 1500, 49.1, 20.1)
+        self.request()
+        self.assertFalse(SummitMapZoom.objects.filter(summit=newer).exists())
+        self.refresh()
+        self.assertTrue(SummitMapZoom.objects.filter(summit=newer).exists())
 
     def test_a_parent_shows_as_early_as_its_child(self):
-        self.request()
+        self.refresh()
         top, low = (SummitMapZoom.objects.get(summit=s) for s in (self.top, self.low))
         self.assertLessEqual(top.vz_prominence, low.vz_prominence)
 

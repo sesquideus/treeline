@@ -5,10 +5,11 @@ The map asks for one view at a time (`mountains.views.map_features`), so which s
 which zoom cannot be worked out per request: it depends on every summit around, and in each
 hierarchy on every descendant. It is worked out here, for all summits at once, and stored.
 
-`ensure_map_zooms()` is what a request calls: it rebuilds when the data has changed since the
-last rebuild (the data version, `mountains.views.cache`), and otherwise costs one small query.
-`refresh_map_zooms()` rebuilds unconditionally; `manage.py refresh_map_zooms` and the end of
-`apply_lidar_changeset` call it, so that after a large import no reader waits for it.
+Only explicitly: `manage.py refresh_map_zooms` (or `apply_lidar_changeset --refresh-map`), after an
+import or a batch of them, after edits, and after `migrate` on a deploy. A map request never
+rebuilds: it reads the table as last built, so summits added or changed since show once the
+command has run. A rebuild is global, ~25 s at 240 000 summits and minutes at millions, far longer
+than a request may take. `built_for()` says which data version the table was last built for.
 """
 from django.db import connection, transaction
 
@@ -108,7 +109,7 @@ def refresh_map_zooms():
     with transaction.atomic(), connection.cursor() as cursor:
         # Two rebuilds at once would each delete what the other has not committed yet and
         # then insert the same rows twice. Waits for one under way; a request does not get
-        # here while one is (`ensure_map_zooms`), and the lock is reentrant for it.
+        # here while one is, and the lock is reentrant for it.
         cursor.execute('SELECT pg_advisory_xact_lock(%s)', [LOCK])
         cursor.execute(f'DELETE FROM {TABLE}')
         # ST_MakeLine drops a point repeating the one before: a nearest higher point recorded
@@ -136,27 +137,3 @@ def refresh_and_record_map_zooms():
         record(version)
     return n
 
-
-def ensure_map_zooms():
-    """
-    Rebuild if the data changed since the last rebuild. Returns whether it rebuilt.
-
-    Only one request rebuilds at a time. Any other that finds a rebuild under way is answered
-    from the table as it stands, a moment out of date, rather than queued behind it: at
-    200 000 summits a rebuild takes half a minute, and a screenful of tiles queued one after
-    another would take many times that.
-    """
-    version = data_version()
-    if built_for() == version:
-        return False
-    with transaction.atomic():
-        with connection.cursor() as cursor:
-            cursor.execute('SELECT pg_try_advisory_xact_lock(%s)', [LOCK])
-            if not cursor.fetchone()[0]:
-                return False
-        # Another request may have rebuilt it just before this one took the lock.
-        if built_for() == version:
-            return False
-        refresh_map_zooms()
-        record(version)
-    return True

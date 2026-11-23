@@ -1,6 +1,8 @@
 """
-Rebuild the global map's zooms and edges now (`mountains.map_zooms`), rather than on the first
-map request after a change: run it after a large import, and after `migrate` on a deploy.
+Rebuild the global map's zooms and edges (`mountains.map_zooms`): the only way they are rebuilt.
+Run it after an import or a batch of them (`apply_lidar_changeset` does not, unless given
+--refresh-map), after edits, and after `migrate` on a deploy; until then the map shows the table
+as last built.
 """
 import time
 

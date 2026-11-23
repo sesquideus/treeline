@@ -23,7 +23,7 @@ uv run python manage.py test                       # all tests
 uv run python manage.py test mountains             # one app
 uv run python manage.py test mountains.tests.Foo   # one test case/method
 ./db_import.sh                       # dump on amos (via ssh), then DROP + recreate `treeline` here from it
-uv run python manage.py refresh_map_zooms   # after migrate on a deploy, and after big imports (see below)
+uv run python manage.py refresh_map_zooms   # the map's zoom table: after imports, edits, and migrate (see below)
 ```
 
 Running the tests builds a throwaway `test_treeline` database, which needs two one-time
@@ -49,7 +49,7 @@ per machine (laptop and amos), then fill the column:
 ```bash
 mkdir -p ~/.local/share/proj
 for g in sk_gku_Slovakia_ETRS89h_to_Baltic1957 cz_cuzk_CR-2005 pl_gugik_geoid2021-PL-EVRF2007-NH \
-         pl_gugik_geoid2011-PL-KRON86-NH us_nga_egm08_25; do
+         pl_gugik_geoid2011-PL-KRON86-NH at_bev_GEOID_GRS80_Oesterreich us_nga_egm08_25; do
     uv run pyproj sync --file $g --target-directory ~/.local/share/proj
 done
 # Taiwan's TWVD 2001 has no PROJ grid: the hybrid geoid TWGEOID18h (ISG, CC BY 4.0) as one
@@ -136,10 +136,12 @@ and geodesic helpers (`core/functions/world.py`); `users` supplies the custom
 The map fetches summits and cols tile by tile from `map/features.json`
 (`mountains/views/map_features.py`), never the whole database. Which summit shows from which
 zoom (spacing 48 px, `core/functions/declutter.py`) and each summit's edge to its parent in every
-hierarchy are stored in `SummitMapZoom`, rebuilt whole by `mountains/map_zooms.py`: on the first
-map request after a data change, or at once by `refresh_map_zooms` and at the end of
-`apply_lidar_changeset`. The data version (`mountains/views/cache.py`) moves once per committed
-transaction, never at each write inside one.
+hierarchy are stored in `SummitMapZoom`, rebuilt whole by `mountains/map_zooms.py`, and only
+explicitly: `refresh_map_zooms` after an import or a batch of them, after edits, and after
+`migrate` on a deploy (`apply_lidar_changeset` rebuilds only with `--refresh-map`). A map request
+never rebuilds: a rebuild is global, ~25 s at 240 000 summits and minutes at millions, so the map
+shows the table as last built until the command runs. The data version (`mountains/views/cache.py`)
+moves once per committed transaction, never at each write inside one.
 
 ## Key patterns to follow
 

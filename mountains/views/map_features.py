@@ -26,7 +26,6 @@ from django.http import JsonResponse
 from django.views import View
 
 from core.functions.declutter import MAX_ZOOM
-from mountains.map_zooms import ensure_map_zooms
 from mountains.models import Col, Summit, SummitMapZoom
 from mountains.models.col import COL_SKELETON_FIELDS, col_skeleton_feature
 from mountains.models.summit import MAP_MODES
@@ -106,7 +105,6 @@ class MapFeaturesView(View):
         bbox.srid = 4326
         zoom = parse_zoom(request.GET.get('zoom'))
         mode = parse_mode(request.GET.get('mode', 'prominence'))
-        ensure_map_zooms()
 
         shown = {'map_zoom__z__lte' if mode == 'none' else f'map_zoom__vz_{mode}__lte': zoom}
         pks = set(in_bbox(Summit.objects.filter(**shown), 'point__location', bbox).values_list('pk', flat=True))
