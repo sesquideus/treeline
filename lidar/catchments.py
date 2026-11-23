@@ -1003,10 +1003,10 @@ def window(center, size, tile, thr, out, check):
         x, y = Transformer.from_crs('EPSG:4326', d.crs, always_xy=True).transform(lon, lat)
         row, colm = d.index(x, y)
         r0, c0 = row - size // 2, colm - size // 2
-        z = d.read(1, window=Window(c0, r0, size, size), boundless=True, fill_value=d.nodata)
+        z = heights(d, d.read(1, window=Window(c0, r0, size, size), boundless=True, fill_value=d.nodata))
         transform = d.window_transform(Window(c0, r0, size, size))
         crs = d.crs
-    z[~np.isfinite(z) | (z > 1e30)] = 0
+    z[np.isnan(z)] = 0
     H, W = z.shape
     print(f'window {H}×{W} at row {r0}, col {c0}; no data: {(z <= 0).sum()} cells', flush=True)
     t0 = time.time()
@@ -1057,6 +1057,25 @@ def window(center, size, tile, thr, out, check):
 _DS = {}
 
 
+def heights(ds, v, nodata=None):
+    """
+    Stored values of `ds` as metres, float32, NaN for no data. The integer copies `compact.py`
+    writes carry their unit as the GDAL scale and their own nodata, which wins over `nodata`
+    (the float originals' no-data value where their file does not declare it).
+    """
+    v = np.asarray(v)
+    if np.issubdtype(v.dtype, np.integer):
+        out = v.astype(np.float64) * ds.scales[0] + ds.offsets[0]
+        out[v == ds.nodata] = np.nan
+        return out.astype(np.float32)
+    out = v.astype(np.float32)
+    for nd in (ds.nodata, nodata):
+        if nd is not None:
+            out[out == nd] = np.nan
+    out[~np.isfinite(out) | (out > 1e30)] = np.nan
+    return out
+
+
 def dmr5_reader(source, r0, c0):
     """Windows of the raster from (r0, c0), spikes filtered: each forked worker opens its own file."""
     import rasterio
@@ -1065,9 +1084,9 @@ def dmr5_reader(source, r0, c0):
     def read(a, b, c, e):
         ds = _DS.get(os.getpid()) or _DS.setdefault(os.getpid(), rasterio.open(source))
         # a cell wider all round for the spike filter, then trimmed
-        z = ds.read(1, window=Window(c0 + c - 1, r0 + a - 1, e - c + 2, b - a + 2), boundless=True,
-                    fill_value=ds.nodata)
-        z[~np.isfinite(z) | (z > 1e30)] = 0
+        z = heights(ds, ds.read(1, window=Window(c0 + c - 1, r0 + a - 1, e - c + 2, b - a + 2),
+                                boundless=True, fill_value=ds.nodata))
+        z[np.isnan(z)] = 0
         z, n = despike(z)
         if n:
             print(f'  {n} spikes in rows {a}-{b}, cols {c}-{e}', flush=True)
@@ -1319,9 +1338,9 @@ def raster_reader(path):
 
     def read(a, b, c, e):
         ds = _DS.get(os.getpid()) or _DS.setdefault(os.getpid(), rasterio.open(path))
-        z = ds.read(1, window=Window(c, a, e - c, b - a), boundless=True, fill_value=ds.nodata or 0)
-        z = z.astype(np.float32)
-        z[~np.isfinite(z) | (z < -1000) | (z > 1e30)] = 0
+        z = heights(ds, ds.read(1, window=Window(c, a, e - c, b - a), boundless=True,
+                                fill_value=ds.nodata if ds.nodata is not None else 0))
+        z[np.isnan(z) | (z < -1000)] = 0
         return z
     return read
 

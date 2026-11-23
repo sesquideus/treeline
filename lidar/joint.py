@@ -4,7 +4,10 @@ on one grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), FABDEM whe
 has data (beyond the four, and Polish sheets not yet downloaded).
 
     cd lidar && uv run --project .. --group lidar python joint.py S,N,W,E OUT.json [--res 1] [--threshold 30]
-        [--jobs 12] [--tile 5000] [--line-cutoff 100] [--sources SK,CZ,PLE,PL,AT,FABDEM]
+        [--jobs 12] [--tile 5000] [--line-cutoff 100] [--sources SK,CZ,PLE,PL,AT,FABDEM] [--grid DIR]
+
+`--grid DIR` reads the terrain `joint_grid.py` built once (with its sources) instead of deriving
+it from the sources in every tile: faster, and every cell has one value whichever tile reads it.
 
 `--sources` reads only those (all by default). Without FABDEM, everything the others lack is no
 data, and a top whose ground reaches it stays open (`border`), as at the window's edge.
@@ -35,7 +38,7 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from catchments import ARC, THRESHOLD, despike, fabdem_tile, run, walk, walk_line  # noqa: E402
+from catchments import ARC, THRESHOLD, despike, fabdem_tile, heights, run, walk, walk_line  # noqa: E402
 
 CRS = 'EPSG:3035'
 SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5/DTM5_0_etrs89-tm34_h/dtm5_0/dmr5_etrs89.tif')
@@ -125,13 +128,20 @@ def correction(st, source, x0, y0, res, h, w, step=500.0):
 
 
 def _warp(src_ds, dst, dst_transform, resampling, nodata=None):
-    """ `src_ds` resampled onto the window `dst` (shape) of the target grid; NaN where it has nothing. """
+    """ `src_ds` resampled onto the window `dst` (shape) of the target grid, in metres; NaN where it
+    has nothing. `nodata` is the float originals' no-data value where their file does not declare
+    it; an integer copy (`compact.py`) declares its own and carries its unit as the GDAL scale. """
     import rasterio
     from rasterio.warp import reproject
+    scaled = np.issubdtype(np.dtype(src_ds.dtypes[0]), np.integer)
+    if scaled:
+        nodata = src_ds.nodata
     tmp = np.full(dst.shape, np.nan, np.float32)
     reproject(source=rasterio.band(src_ds, 1), destination=tmp, src_transform=src_ds.transform,
               src_crs=src_ds.crs, src_nodata=nodata if nodata is not None else src_ds.nodata,
               dst_transform=dst_transform, dst_crs=CRS, dst_nodata=np.nan, resampling=resampling)
+    if scaled:
+        tmp = tmp * np.float32(src_ds.scales[0]) + np.float32(src_ds.offsets[0])
     return tmp
 
 
@@ -155,7 +165,7 @@ def drop_islands(z, size=None):
 def reader(x0, y0, res):
     """ `read(a, b, c, e)` for the grid with top-left corner (x0, y0) and `res` m cells. """
 
-    def read(a, b, c, e):
+    def read(a, b, c, e, with_src=False):
         import rasterio
         from rasterio.enums import Resampling
         from rasterio.transform import Affine
@@ -255,7 +265,13 @@ def reader(x0, y0, res):
         z = z[ISLAND:-ISLAND, ISLAND:-ISLAND]
         z[np.isnan(z)] = 0
         z, n = despike(z)
-        return np.ascontiguousarray(z[1:-1, 1:-1])
+        z = np.ascontiguousarray(z[1:-1, 1:-1])
+        if not with_src:
+            return z
+        # which source each cell came from, 0 where the islands or the spike filter left none
+        s = np.ascontiguousarray(src[m:-m, m:-m])
+        s[z <= 0] = 0
+        return z, s
     return read
 
 
@@ -282,8 +298,8 @@ def sources_at(xs, ys):
     if 'SK' in SOURCES:
         with rasterio.open(SK) as d:
             px, py = Transformer.from_crs(CRS, d.crs, always_xy=True).transform(xs, ys)
-            v = np.array([t[0] for t in d.sample(zip(px, py), masked=False)])
-            hit = ok(v, d.nodata)
+            v = heights(d, np.array([t[0] for t in d.sample(zip(px, py), masked=False)]))
+            hit = ok(v, None)
             out[hit] = 1
             todo &= ~hit
     for code, folder, crs, size, name in ((2, CZ, 'EPSG:3045', 2000, lambda e, n: f'{e:03d}_{n:04d}.tif'),
@@ -299,8 +315,8 @@ def sources_at(xs, ys):
                 for e0, n0, e1, n1, f in cells.get((int(px[i] // 10000), int(py[i] // 10000)), ()):
                     if e0 <= px[i] <= e1 and n0 <= py[i] <= n1:
                         with rasterio.open(f) as d:
-                            v = next(d.sample([(px[i], py[i])], masked=False))[0]
-                        if ok(np.array([v]), -9999)[0]:
+                            v = heights(d, next(d.sample([(px[i], py[i])], masked=False)), -9999)
+                        if ok(v, None)[0]:
                             out[i] = 5
                             todo[i] = False
                             break
@@ -317,8 +333,9 @@ def sources_at(xs, ys):
             if not os.path.exists(f):
                 continue
             with rasterio.open(f) as d:
-                v = np.array([t[0] for t in d.sample([(px[i], py[i]) for i in idx], masked=False)])
-                hit = ok(v, 0 if code == 3 else d.nodata)
+                v = heights(d, np.array([t[0] for t in d.sample([(px[i], py[i]) for i in idx], masked=False)]),
+                            0 if code == 3 else None)
+                hit = ok(v, None)
             for i, h in zip(idx, hit):
                 if h:
                     out[i] = code
@@ -348,6 +365,7 @@ def main():
     ap.add_argument('--tile', type=int, default=5000)
     ap.add_argument('--line-cutoff', type=float, default=100.0)
     ap.add_argument('--sources', default=','.join(ALL_SOURCES), help='which to read, comma-separated')
+    ap.add_argument('--grid', help='read the terrain built by joint_grid.py in this folder (its sources)')
     a = ap.parse_args()
     SOURCES.clear()
     SOURCES.update(v.strip() for v in a.sources.split(','))
@@ -355,10 +373,20 @@ def main():
         ap.error(f'unknown sources: {SOURCES - set(ALL_SOURCES)}')
     s, n, w, e = (float(v) for v in a.bbox.split(','))
     x0, y0, H, W = grid(s, n, w, e, a.res)
+    if a.grid:
+        import joint_grid
+        meta = joint_grid.describe(a.grid)
+        if a.res != meta['res']:
+            ap.error(f'the grid is at {meta["res"]} m')
+        if x0 < meta['x0'] or y0 > meta['y0'] or x0 + W > meta['x0'] + meta['W'] or y0 - H < meta['y0'] - meta['H']:
+            ap.error(f'the box reaches beyond the grid built for {meta["bbox"]}')
+        SOURCES.clear()
+        SOURCES.update(meta['sources'])
+        print(f'reading the grid in {a.grid}: {",".join(meta["sources"])}', flush=True)
     print(f'{H} × {W} cells ({H * W / 1e9:.1f} G) of {a.res:g} m in {CRS}, tiles of {a.tile}, {a.jobs} workers',
           flush=True)
     t0 = time.time()
-    read = reader(x0, y0, a.res)
+    read = joint_grid.grid_reader(a.grid, x0, y0) if a.grid else reader(x0, y0, a.res)
     rec, stats = run(read, H, W, a.tile, a.threshold, log=lambda m: print(m, flush=True), jobs=a.jobs,
                      checkpoint=os.path.splitext(a.out)[0] + '.ckpt')
     par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
@@ -377,7 +405,8 @@ def main():
     # which source each top and col stands on
     cells = np.concatenate([rec['top'], rec['col'][rec['col'] >= 0]])
     rr, cc = np.divmod(cells, W)
-    codes = sources_at(x0 + (cc + 0.5) * a.res, y0 - (rr + 0.5) * a.res)
+    xs, ys = x0 + (cc + 0.5) * a.res, y0 - (rr + 0.5) * a.res
+    codes = joint_grid.sources_at(a.grid, xs, ys) if a.grid else sources_at(xs, ys)
     src_code = dict(zip(cells.tolist(), codes.tolist()))
     src_of = lambda g: NAMES[src_code[int(g)]]
     prom = np.where(rec['col'] >= 0, rec['hz'] - rec['cz'], rec['hz'])
@@ -395,7 +424,7 @@ def main():
     st = {k: v for k, v in stats.items() if k != 'tiles'}
     st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(p), ll(q)] for p, q in zip(ta, tb)],
               line_cutoff=a.line_cutoff, crs=CRS, res=a.res,
-              sources=sorted(SOURCES),
+              sources=sorted(SOURCES), grid=a.grid,
               source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), FABDEM V1-2 beyond them; heights EGM2008')
     json.dump(dict(stats=st, summits=res), open(a.out, 'w'))
     print(f'-> {a.out}', flush=True)
