@@ -1,7 +1,7 @@
 """
-Slovakia, Czechia and Poland as one terrain for the catchment engine: each country's lidar on one
-grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), FABDEM wherever none of them has
-data (beyond the three, and Polish tiles not yet downloaded).
+Slovakia, Czechia, Poland and Austria as one terrain for the catchment engine: each country's lidar
+on one grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), FABDEM wherever none of them
+has data (beyond the four, and Polish sheets not yet downloaded).
 
     cd lidar && uv run --project .. --group lidar python joint.py S,N,W,E OUT.json [--res 1] [--threshold 30]
         [--jobs 12] [--tile 5000] [--line-cutoff 100]
@@ -12,6 +12,8 @@ Sources, the first with data wins a cell:
   Poland    GUGiK NMT in PL-EVRF2007-NH, the surveys of 2018 on, 1 m 1:5000 sheets (EPSG:2180)
             from `NMT_PL_EVRF/download.py`; where none, the older coverage in PL-KRON86-NH,
             1 m in 10 km tiles (EPSG:2180)
+  Austria   BEV ALS-DGM, 1 m, 50 km tiles in EPSG:3035 (edition 2025-09-15, CC BY 4.0), EVRF2000
+            Austria heights (EPSG:9274); from `ALS_AT/download.sh`
   FABDEM    1″ (about 30 m), EGM2008, bilinear: what a top resting on it reports is flagged
 
 The lidar is resampled by its nearest cell, so a summit keeps its height. Each country's heights are
@@ -37,10 +39,19 @@ SK = os.environ.get('TREELINE_DMR5', '/mnt/media/treeline/DTM5/DTM5_0_etrs89-tm3
 CZ = os.environ.get('TREELINE_DMR5G', '/mnt/media/treeline/DMR5G_CZ/raster1m')
 PL = os.environ.get('TREELINE_NMT_PL', '/mnt/media/treeline/NMT_PL/tiles')
 PLE = os.environ.get('TREELINE_NMT_PL_EVRF', '/mnt/media/treeline/NMT_PL_EVRF')
+AT = os.environ.get('TREELINE_ALS_AT', '/mnt/data/treeline/ALS_AT/tiles')
 #: each source's height system, as PROJ knows it (heights relative to these become EGM2008)
 HEIGHTS = {'SK': 'EPSG:4937', 'CZ': 'EPSG:4258+8357', 'PL': 'EPSG:4258+9650',   # PL: Baltic 1986 (KRON86)
-           'PLE': 'EPSG:4258+9651'}                                               # PLE: EVRF2007-PL
-NAMES = {1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: 'FABDEM', 5: 'NMT EVRF2007 (PL)'}
+           'PLE': 'EPSG:4258+9651',                                               # PLE: EVRF2007-PL
+           'AT': 'EPSG:4258+9274'}                                                # AT: EVRF2000 Austria
+NAMES = {1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: 'FABDEM', 5: 'NMT EVRF2007 (PL)',
+         6: 'ALS-DGM (AT)'}
+AT_TILE = 50000
+
+
+def at_name(e, n):
+    """ The Austrian tile whose south-west corner is (e, n), in metres of EPSG:3035. """
+    return f'ALS_DTM_CRS3035RES{AT_TILE}mN{n}E{e}.tif'
 
 
 def evrf_sheets():
@@ -187,6 +198,17 @@ def reader(x0, y0, res):
                             t = _warp(d, part, tr, Resampling.nearest, nodata=0)
                         part = np.where(np.isnan(part), t, part)
             fill(part, 3, 'PL')
+        # Austria: 50 km tiles in the target CRS, named by their south-west corner, no data beyond Austria
+        if np.isnan(z).any() and os.path.isdir(AT):
+            part = np.full((h, w), np.nan, np.float32)
+            for ek in range(int(bounds[0] // AT_TILE) * AT_TILE, int(bounds[2] // AT_TILE) * AT_TILE + 1, AT_TILE):
+                for nk in range(int(bounds[1] // AT_TILE) * AT_TILE, int(bounds[3] // AT_TILE) * AT_TILE + 1, AT_TILE):
+                    f = os.path.join(AT, at_name(ek, nk))
+                    if os.path.exists(f):
+                        with rasterio.open(f) as d:
+                            t = _warp(d, part, tr, Resampling.nearest)
+                        part = np.where(np.isnan(part), t, part)
+            fill(part, 6, 'AT')
         # FABDEM wherever none of them has data
         if np.isnan(z).any():
             lon, lat = st['to_ll'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
@@ -210,7 +232,7 @@ def reader(x0, y0, res):
 def sources_at(xs, ys):
     """
     Which source each point of the target grid (xs, ys: cell centres) takes its height from, as
-    the reader decides it: the first of Slovakia, Czechia, Poland that has data there, else FABDEM.
+    the reader decides it: the first of Slovakia, Czechia, Poland, Austria with data there, else FABDEM.
     One batch per source: sampled at the points, not read again window by window.
     """
     import rasterio
@@ -232,7 +254,8 @@ def sources_at(xs, ys):
         todo &= ~hit
     for code, folder, crs, size, name in ((2, CZ, 'EPSG:3045', 2000, lambda e, n: f'{e:03d}_{n:04d}.tif'),
                                           (5, None, 'EPSG:2180', None, None),
-                                          (3, PL, 'EPSG:2180', 10000, lambda e, n: f'n{n:04d}_e{e:04d}.tif')):
+                                          (3, PL, 'EPSG:2180', 10000, lambda e, n: f'n{n:04d}_e{e:04d}.tif'),
+                                          (6, AT, CRS, AT_TILE, lambda e, n: at_name(e * 1000, n * 1000))):
         if not todo.any():
             continue
         if code == 5:
@@ -333,7 +356,7 @@ def main():
     st = {k: v for k, v in stats.items() if k != 'tiles'}
     st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(p), ll(q)] for p, q in zip(ta, tb)],
               line_cutoff=a.line_cutoff, crs=CRS, res=a.res,
-              source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), FABDEM V1-2 beyond them; heights EGM2008')
+              source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), FABDEM V1-2 beyond them; heights EGM2008')
     json.dump(dict(stats=st, summits=res), open(a.out, 'w'))
     print(f'-> {a.out}', flush=True)
 
