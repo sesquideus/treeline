@@ -202,29 +202,21 @@ def checkbox_states():
 
 
 def control_ids():
-    """
-    `CONTROL_IDS` is read rather than run: it lives inside `initGlobalMap`'s closure, where
-    it belongs — it is the only part of the state handling that touches the DOM.
-    """
-    with open(MAP_JS, encoding='utf-8') as handle:
-        block = handle.read().split('const CONTROL_IDS = {')[1].split('};')[0]
-    return dict(re.findall(r"(\w+): '([^']+)'", block))
+    """Each toggle's name in the fragment, and the id of its checkbox."""
+    return {name: toggle['id'] for name, toggle in evaluate('MAP_TOGGLES').items()}
 
 
 class ControlVocabularyTests(SimpleTestCase):
     """
-    A toggle is spelled in four places — the checkbox, `CONTROL_IDS`, `MAP_TOGGLES` and
-    `MAP_DEFAULTS` — and each omission fails silently in its own way: a box nobody reads, a
-    name with no element, a state never written to the fragment, a default nothing compares
-    against. So all four are compared.
+    A toggle is spelled in two places — the checkbox in the template and its row in
+    `MAP_TOGGLES`, from which `MAP_DEFAULTS` is derived — and the two must agree.
     """
 
     def test_every_checkbox_in_the_panel_is_one_the_map_knows_about(self):
         self.assertEqual(sorted(checkbox_states()), sorted(control_ids().values()))
 
-    def test_every_toggle_has_an_element_and_a_default(self):
+    def test_every_toggle_has_a_default(self):
         names = sorted(control_ids())
-        self.assertEqual(names, sorted(evaluate('MAP_TOGGLES')))
         self.assertEqual(names, sorted(name for name in evaluate('MAP_DEFAULTS')
                                        if name not in ('mode', 'opacity', 'base')))
 
@@ -292,13 +284,38 @@ class WiringTests(SimpleTestCase):
         self.assertIn("map.on('moveend', rememberMapState)", self.source())
 
     def test_every_control_records_it_too(self):
-        """A setting that is not written on change is lost on the next reload."""
+        """
+        A setting that is not written on change is lost on the next reload: every control
+        goes through `bindControl`, which records after applying.
+        """
         source = self.source()
-        self.assertIn("r.addEventListener('change', rememberMapState)", source)
-        self.assertIn("box.addEventListener('change', rememberMapState)", source)
+        binder = source.split('function bindControl(')[1].split('\n    }\n')[0]
+        self.assertIn('rememberMapState()', binder)
         # `input`, not `change`: a slider that only recorded on release would lose the
         # setting of anyone who drags and then reloads.
-        self.assertIn("opacityControl.addEventListener('input', rememberMapState)", source)
+        self.assertIn("[document.getElementById('map-opacity')], 'input'", source)
+
+    def test_every_control_is_applied_when_bound_not_only_on_change(self):
+        """
+        Controls are restored without events, so a binding that only listened would leave
+        a link's `rivers=0` with an unticked box and the rivers drawn.
+        """
+        binder = self.source().split('function bindControl(')[1].split('\n    }\n')[0]
+        self.assertLess(binder.index('apply(read(), true)'), binder.index('addEventListener'))
+
+    def test_every_toggle_and_control_is_bound(self):
+        source = self.source()
+        for name in ('summits', 'ranges', 'rivers', 'cols'):
+            with self.subTest(toggle=name):
+                self.assertIn(f"bindToggle('{name}'", source)
+        self.assertIn('MAP_TOGGLES.routing.id', source)
+        self.assertIn("[document.getElementById('map-base')], 'change'", source)
+
+    def test_no_control_is_read_around_the_readers(self):
+        """One reader per control, with its default where a page leaves it out."""
+        source = self.source()
+        self.assertEqual(source.count('input[name="tree"]:checked'), 1)
+        self.assertNotIn("getElementById('toggle-", source)   # only through MAP_TOGGLES
 
     def test_it_replaces_rather_than_pushes_history(self):
         """
@@ -338,13 +355,6 @@ class WiringTests(SimpleTestCase):
         hidden peak cannot be hovered or clicked open — which is what makes the checkbox a
         real decluttering rather than a coat of paint.
         """
-        source = self.source()
-        self.assertIn('summitLayer.setVisible(!summitsToggle || summitsToggle.checked)',
-                      source)
-        listener = source.split("summitsToggle.addEventListener('change'")[1].split('});')[0]
-        self.assertIn('summitLayer.setVisible(this.checked)', listener)
-        self.assertIn('clearHighlight()', listener)
-
-    def test_the_opacity_slider_is_applied_on_load(self):
-        """Nothing else does it: the tile layer's opacity is only set by the input listener."""
-        self.assertIn('tileLayer.setOpacity(resumed.opacity / 100)', self.source())
+        binding = self.source().split("bindToggle('summits'")[1].split('});')[0]
+        self.assertIn('summitLayer.setVisible(on)', binding)
+        self.assertIn('clearHighlight()', binding)

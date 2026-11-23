@@ -31,17 +31,21 @@ const HOME_EXTENT = [16.83, 47.73, 22.57, 49.61];   // lon/lat, Slovakia
 // Only what differs from the defaults is written, so the common case stays short and a
 // reader who has changed nothing gets a clean "#map=..." rather than a wall of settings.
 const MAP_MODES = ['none', 'prominence', 'isolation', 'slope', 'horizon', 'line'];
-const MAP_TOGGLES = ['summits', 'rivers', 'ranges', 'routing', 'cols'];
-const MAP_DEFAULTS = {
-    mode: 'prominence',
-    summits: true,       // #toggle-summits
-    rivers: true,        // #toggle-rivers
-    ranges: false,       // #toggle-ranges
-    routing: true,       // #toggle-routing
-    cols: false,         // #toggle-col-confluence
+//
+// Each checkbox is spelled once, here: its name in the fragment, its element in
+// core/controls.html, and whether it starts ticked (which the template must agree with).
+const MAP_TOGGLES = {
+    summits: { id: 'toggle-summits', on: true },
+    rivers:  { id: 'toggle-rivers', on: true },
+    ranges:  { id: 'toggle-ranges', on: false },
+    routing: { id: 'toggle-routing', on: true },
+    cols:    { id: 'toggle-col-confluence', on: false },
+};
+const MAP_DEFAULTS = Object.assign({
+    mode: 'prominence',  // input[name="tree"]
     opacity: 40,         // #map-opacity, per cent
     base: 'freemap',     // #map-base, a key of BASE_MAPS
-};
+}, Object.fromEntries(Object.entries(MAP_TOGGLES).map(([name, t]) => [name, t.on])));
 
 // The background maps on offer, all drawn from OpenStreetMap. Freemap's outdoor map is the
 // default and the best in the Carpathians; outside Europe it thins out, and OpenTopoMap (with
@@ -229,7 +233,7 @@ function parseMapState(hash) {
 
     state.position = parseMapPosition(params.map);
     if (MAP_MODES.indexOf(params.mode) >= 0) state.mode = params.mode;
-    for (const name of MAP_TOGGLES) {
+    for (const name of Object.keys(MAP_TOGGLES)) {
         if (params[name] === '0' || params[name] === '1') state[name] = params[name] === '1';
     }
     if (Object.prototype.hasOwnProperty.call(BASE_MAPS, params.base)) state.base = params.base;
@@ -248,7 +252,7 @@ function formatMapState(state) {
         parts.push(`map=${formatMapPosition(zoom, lat, lon)}`);
     }
     if (state.mode !== MAP_DEFAULTS.mode) parts.push(`mode=${state.mode}`);
-    for (const name of MAP_TOGGLES) {
+    for (const name of Object.keys(MAP_TOGGLES)) {
         if (state[name] !== MAP_DEFAULTS[name]) parts.push(`${name}=${state[name] ? 1 : 0}`);
     }
     if (state.opacity !== MAP_DEFAULTS.opacity) parts.push(`opacity=${state.opacity}`);
@@ -1321,8 +1325,6 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
     const summitsData = { type: 'FeatureCollection', features: [] };
     const colsData = { type: 'FeatureCollection', features: [] };
 
-    const routeToggle = document.getElementById('toggle-routing');
-
     let keyColLayer = null;
     let isolationPointLayer = null;
     let keyColFeatureByPk = {};
@@ -1382,10 +1384,9 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
 
         // The parent of the hierarchy currently drawn, not always the prominence one: lighting up
         // a prominence parent while the map shows isolation lineage would contradict the lines.
-        const mode = document.querySelector('input[name="tree"]:checked');
-        const modeName = (mode && mode.value) || MAP_DEFAULTS.mode;
+        const modeName = currentModeName();
         const parentAttr = lineageParentAttr(modeName);
-        const useRouting = routeToggle && routeToggle.checked;
+        const useRouting = toggled('routing');
 
         // Whatever the lineage routes through gets a ring: the key col in prominence mode,
         // the nearest higher point in isolation mode when one is recorded, nothing in the
@@ -1499,59 +1500,39 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
     // The DOM half of the fragment handling; the parsing and formatting above are pure so
     // that the tests can run them.
 
-    const CONTROL_IDS = {
-        summits: 'toggle-summits',
-        rivers: 'toggle-rivers',
-        ranges: 'toggle-ranges',
-        routing: 'toggle-routing',
-        cols: 'toggle-col-confluence',
-    };
-
     function readMapState() {
         const [lon, lat] = ol.proj.toLonLat(map.getView().getCenter());
-        const mode = document.querySelector('input[name="tree"]:checked');
-        const opacity = document.getElementById('map-opacity');
-        const base = document.getElementById('map-base');
         const state = {
             position: { zoom: map.getView().getZoom(), lat: lat, lon: lon },
-            mode: mode ? mode.value : MAP_DEFAULTS.mode,
-            opacity: opacity ? Number(opacity.value) : MAP_DEFAULTS.opacity,
-            base: base ? base.value : MAP_DEFAULTS.base,
+            mode: currentModeName(),
+            opacity: opacityValue(),
+            base: baseValue(),
         };
-        for (const name of MAP_TOGGLES) {
-            const box = document.getElementById(CONTROL_IDS[name]);
-            state[name] = box ? box.checked : MAP_DEFAULTS[name];
-        }
+        for (const name of Object.keys(MAP_TOGGLES)) state[name] = toggled(name);
         return state;
     }
 
-    // `notify` dispatches the same events a click would, so the listeners already wired to
-    // these controls do the actual work — the alternative is a second implementation of
-    // every toggle that would drift from the first. Off while the map is still being built,
-    // because the layers read the controls directly as they are constructed.
+    // Sets one control, and with `notify` dispatches the event a click would, so the
+    // listeners bound to it (`bindControl`) do the actual work rather than a second
+    // implementation of every control that would drift from the first.
+    function setControl(element, property, value, event, notify) {
+        if (!element || element[property] === value) return;
+        element[property] = value;
+        if (notify) element.dispatchEvent(new Event(event, { bubbles: true }));
+    }
+
+    // Without `notify` while the map is still being built: the bindings apply every control
+    // as they are made, so setting the controls first is enough.
     function applyMapControls(state, notify) {
-        const radio = document.querySelector(`input[name="tree"][value="${state.mode}"]`);
-        if (radio && !radio.checked) {
-            radio.checked = true;
-            if (notify) radio.dispatchEvent(new Event('change', { bubbles: true }));
+        setControl(document.querySelector(`input[name="tree"][value="${state.mode}"]`),
+                   'checked', true, 'change', notify);
+        for (const name of Object.keys(MAP_TOGGLES)) {
+            setControl(document.getElementById(MAP_TOGGLES[name].id),
+                       'checked', state[name], 'change', notify);
         }
-        for (const name of MAP_TOGGLES) {
-            const box = document.getElementById(CONTROL_IDS[name]);
-            if (box && box.checked !== state[name]) {
-                box.checked = state[name];
-                if (notify) box.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-        const opacity = document.getElementById('map-opacity');
-        if (opacity && Number(opacity.value) !== state.opacity) {
-            opacity.value = state.opacity;
-            if (notify) opacity.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        const base = document.getElementById('map-base');
-        if (base && base.value !== state.base) {
-            base.value = state.base;
-            if (notify) base.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        setControl(document.getElementById('map-opacity'),
+                   'value', String(state.opacity), 'input', notify);
+        setControl(document.getElementById('map-base'), 'value', state.base, 'change', notify);
     }
 
     function applyMapPosition(position) {
@@ -1710,8 +1691,8 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
             isolationPointLayer = null;
         }
 
-        const mode = document.querySelector('input[name="tree"]:checked').value;
-        const useRouting = routeToggle && routeToggle.checked;
+        const mode = currentModeName();
+        const useRouting = toggled('routing');
 
         // Ringed where the lines run through them: prominence and line both leave through it.
         if ((mode === 'prominence' || mode === 'line') && useRouting) {
@@ -1743,9 +1724,43 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
     let colConfluenceLayer = null;
     let loadGeneration = 0;                 // a reset makes answers to older requests stale
 
+    // What each control says, or its default where a page leaves the control out. Everything
+    // that needs a setting asks these, never the element itself.
     function currentModeName() {
         const mode = document.querySelector('input[name="tree"]:checked');
         return (mode && mode.value) || MAP_DEFAULTS.mode;
+    }
+
+    function toggled(name) {
+        const box = document.getElementById(MAP_TOGGLES[name].id);
+        return box ? box.checked : MAP_TOGGLES[name].on;
+    }
+
+    function opacityValue() {
+        const slider = document.getElementById('map-opacity');
+        return slider ? Number(slider.value) : MAP_DEFAULTS.opacity;
+    }
+
+    function baseValue() {
+        const select = document.getElementById('map-base');
+        return select ? select.value : storedBaseMap();
+    }
+
+    // A control wired to what it drives: `apply(setting, initial)` runs at once, and again on
+    // every `event` from any of `elements`, after which the state is written to the fragment.
+    // Load and click take this one path, so a control restored without events (a link, a
+    // reload) can never leave its layer disagreeing with it.
+    function bindControl(elements, event, read, apply) {
+        apply(read(), true);
+        elements.filter(Boolean).forEach(element => element.addEventListener(event, () => {
+            apply(read(), false);
+            rememberMapState();
+        }));
+    }
+
+    function bindToggle(name, apply) {
+        bindControl([document.getElementById(MAP_TOGGLES[name].id)], 'change',
+                    () => toggled(name), apply);
     }
 
     function indexNew(added) {
@@ -1832,13 +1847,12 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
     // from that summit's zoom; a col nobody's key col shows always.
     function rebuildConfluence() {
         if (!map) return;
-        const colToggle = document.getElementById('toggle-col-confluence');
         const zoomOfCol = {};
         summitsData.features.forEach(f => {
             if (f.properties.kc != null) zoomOfCol[f.properties.kc] = f.properties.z;
         });
         if (colConfluenceLayer) map.removeLayer(colConfluenceLayer);
-        colConfluenceLayer = buildConfluenceLayer(colsData, Boolean(colToggle && colToggle.checked), zoomOfCol);
+        colConfluenceLayer = buildConfluenceLayer(colsData, toggled('cols'), zoomOfCol);
         colConfluenceLayer.set('name', 'col_confluence');
         colConfluenceLayer.setZIndex(Z_CONFLUENCE);
         map.addLayer(colConfluenceLayer);
@@ -1846,8 +1860,8 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
 
     function rebuildLineage() {
         if (!map) return;
-        currentMode = document.querySelector('input[name="tree"]:checked').value;
-        const useRouting = routeToggle && routeToggle.checked;
+        currentMode = currentModeName();
+        const useRouting = toggled('routing');
         if (lineageLayer) map.removeLayer(lineageLayer);
 
         // Which summits show from which zoom depends on the hierarchy: every parent at least
@@ -1941,24 +1955,22 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
         confluencePointLayer.set('name', 'highlight-confluence-marks');
         map.addLayer(confluencePointLayer);
 
-        const baseSelect = document.getElementById('map-base');
-        if (baseSelect) {
-            tileLayer.setSource(baseSource(baseSelect.value));
-            baseSelect.addEventListener('change', function() {
-                tileLayer.setSource(baseSource(this.value));
-                storeBaseMap(this.value);
-            });
-        }
-
-        const opacitySlider = document.getElementById('map-opacity');
-        if (opacitySlider) {
-            opacitySlider.addEventListener('input', function() {
-                tileLayer.setOpacity(this.value / 100);
-            });
-        }
+        // --- the controls ---------------------------------------------------------------
+        //
+        // Each bound once (`bindControl`): applied now, from what `applyMapControls` restored
+        // above, and again on every change, which also writes the fragment. The opacity
+        // slider reports `input` rather than `change`: a slider that only recorded on release
+        // would lose the setting of anyone who drags and then reloads.
+        bindControl([document.getElementById('map-base')], 'change', baseValue, (key, initial) => {
+            tileLayer.setSource(baseSource(key));
+            if (!initial) storeBaseMap(key);
+        });
+        bindControl([document.getElementById('map-opacity')], 'input', opacityValue,
+                    value => tileLayer.setOpacity(value / 100));
 
         // Denser or sparser: every layer's style reads `densityShift` (`hiddenAt`), so a
-        // redraw shows the change at once, and the tiles for the new density follow.
+        // redraw shows the change at once, and the tiles for the new density follow. Not
+        // part of the fragment, so not a `bindControl`: the reader's own, kept in storage.
         const densitySlider = document.getElementById('map-density');
         densityShift = storedDensity();
         if (densitySlider) {
@@ -1971,86 +1983,44 @@ function initGlobalMap(featuresUrl, riversUrl, summitsDetailUrl, colsDetailUrl, 
             });
         }
 
-        // The peaks themselves. Orthogonal to the radios above them: those choose which
-        // hierarchy joins the markers, this says whether the markers are drawn at all, and
-        // the two together give the skeleton of a tree with no peaks or the peaks with no
-        // tree. An invisible layer is not hit-tested either, so nothing can be hovered or
-        // clicked open while it is off — which is what makes this a real decluttering and
-        // not just a coat of paint.
-        const summitsToggle = document.getElementById('toggle-summits');
-        summitLayer.setVisible(!summitsToggle || summitsToggle.checked);
-        if (summitsToggle) {
-            summitsToggle.addEventListener('change', function() {
-                summitLayer.setVisible(this.checked);
-                clearHighlight();   // nothing to hover, so nothing may stay lit
-            });
-        }
+        // The peaks themselves. Orthogonal to the radios: those choose which hierarchy joins
+        // the markers, this says whether the markers are drawn at all, and the two together
+        // give the skeleton of a tree with no peaks or the peaks with no tree. An invisible
+        // layer is not hit-tested either, so nothing can be hovered or clicked open while it
+        // is off — which is what makes this a real decluttering and not a coat of paint.
+        bindToggle('summits', on => {
+            summitLayer.setVisible(on);
+            clearHighlight();   // nothing to hover, so nothing may stay lit
+        });
 
         // Added before the rivers so it sits at the bottom of the stack even if a browser
         // ever disagreed about equal zIndexes; off by default, because the boundaries are
         // context and the map is about peaks.
         const rangesLayer = buildRangesLayer(ranges);
-        const rangesToggle = document.getElementById('toggle-ranges');
-        rangesLayer.setVisible(Boolean(rangesToggle && rangesToggle.checked));
         map.addLayer(rangesLayer);
-
-        if (rangesToggle) {
-            rangesToggle.addEventListener('change', function() {
-                rangesLayer.setVisible(this.checked);
-            });
-        }
+        bindToggle('ranges', on => rangesLayer.setVisible(on));
 
         const riversLayer = buildRiversLayer(rivers);
         riversLayer.set('name', 'rivers');
         riversLayer.setZIndex(Z_RIVERS);
         map.addLayer(riversLayer);
+        bindToggle('rivers', on => riversLayer.setVisible(on));
 
-        const riversToggle = document.getElementById('toggle-rivers');
-        if (riversToggle) {
-            riversToggle.addEventListener('change', function() {
-                riversLayer.setVisible(this.checked);
-            });
-        }
-
-        const colToggle = document.getElementById('toggle-col-confluence');
-        if (colToggle) {
-            colToggle.addEventListener('change', function() {
-                if (colConfluenceLayer) colConfluenceLayer.setVisible(this.checked);
-            });
-        }
+        // Rebuilt as views load, each time reading the box itself.
         rebuildConfluence();
-
-        rebuildLineage();
-        // Nothing else applies the slider on load: the tile layer's opacity is only ever set
-        // by the `input` listener, which has not fired yet.
-        tileLayer.setOpacity(resumed.opacity / 100);
+        bindToggle('cols', on => colConfluenceLayer.setVisible(on));
 
         map.on('moveend', loadView);
         map.on('moveend', scheduleViewportDetail);
         map.on('moveend', rememberMapState);
-        loadView();                    // the peaks the reader starts out looking at
 
-        // A new mode lowers different parents: re-read the zooms of what is loaded at once,
-        // then fetch what that hierarchy shows here and the other did not.
-        document.querySelectorAll('input[name="tree"]').forEach(r =>
-            r.addEventListener('change', () => { rebuildLineage(); loadView(); })
-        );
-        if (routeToggle) routeToggle.addEventListener('change', rebuildLineage);
-
-        // Every control writes the fragment. One listener per control rather than one
-        // delegated to the container: the opacity slider reports `input` and the rest
-        // `change`, and a slider that only recorded on release would lose the setting of
-        // anyone who drags and then reloads.
-        document.querySelectorAll('input[name="tree"]').forEach(r =>
-            r.addEventListener('change', rememberMapState)
-        );
-        for (const id of Object.values(CONTROL_IDS)) {
-            const box = document.getElementById(id);
-            if (box) box.addEventListener('change', rememberMapState);
-        }
-        const opacityControl = document.getElementById('map-opacity');
-        if (opacityControl) opacityControl.addEventListener('input', rememberMapState);
-        if (baseSelect) baseSelect.addEventListener('change', rememberMapState);
+        // The lineage: which hierarchy, and whether its lines route through the col or the
+        // nearest higher point. A new mode lowers different parents: the zooms of what is
+        // loaded are re-read at once, then what that hierarchy shows here and the other did
+        // not is fetched. Applied now, this is the first lineage and the first load.
+        bindControl([...document.querySelectorAll('input[name="tree"]'),
+                     document.getElementById(MAP_TOGGLES.routing.id)],
+                    'change', () => null, () => { rebuildLineage(); loadView(); });
 
         // Somebody pasted a link into the address bar of a tab that is already open, or used
         // the back button onto a fragment we did not write. `replaceState` fires no
