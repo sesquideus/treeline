@@ -150,11 +150,12 @@ def label_tile(z, w, h, r0, c0, W, H):
 
 
 @njit(cache=True)
-def tile_passes(z, ptr, lab, node_of, nnodes, w, h, r0, c0, W):
+def tile_passes(z, ptr, lab, labg, node_of, nnodes, w, h, r0, c0, W):
     """
     The passes: for every pair of neighbouring catchments the highest cell at which they meet,
-    with, for each, the catchments of its higher neighbours in the scan order (node, top's gid),
-    its own node if it is a top, and the top its steepest higher neighbour climbs to.
+    with, for each, the catchments of its higher neighbours in the scan order (node, label: `labg`,
+    the gid its climb leads to), its own node if it is a top, and the label of its steepest
+    higher neighbour.
     """
     n = w * h
     best = Dict.empty(key_type=types.int64, value_type=types.int64)
@@ -237,9 +238,8 @@ def tile_passes(z, ptr, lab, node_of, nnodes, w, h, r0, c0, W):
                 gq = (r0 + yy) * W + c0 + xx
                 if z[q] <= 0 or not _above(z[q], gq, z[v], gv):
                     continue
-                t = lab[q]
-                p_nb[i, j] = node_of[t]
-                p_lab[i, j] = (r0 + t // w) * W + c0 + t % w
+                p_nb[i, j] = node_of[lab[q]]
+                p_lab[i, j] = labg[q]
                 if sb < 0 or _above(z[q], gq, z[sb], gsb):
                     sb = q
                     gsb = gq
@@ -276,10 +276,14 @@ def reduce_core(node_gid, node_z, node_open, node_bz, node_bg, order, p_gid, p_z
     r_cz = np.empty(nn, np.float32)
     r_far = np.empty(nn, np.int64)
     r_bord = np.empty(nn, np.bool_)
+    r_cont = np.zeros(nn, np.bool_)    # another higher ground at the col reached the edge of the data
     nr = 0
     f_key = np.empty(nn, np.int64)
     f_val = np.empty(nn, np.int64)
     nf = 0
+    w_key = np.empty(nn, np.int64)      # the weak forwarding: tops below the threshold whose ground
+    w_val = np.empty(nn, np.int64)      # reached the edge of the data before their col
+    nw = 0
     roots = np.empty(9, np.int64)
     vias = np.empty(9, np.int64)
     for k in order:
@@ -320,15 +324,28 @@ def reduce_core(node_gid, node_z, node_open, node_bz, node_bg, order, p_gid, p_z
                 if r != best and r != ownroot and copen[r]:
                     final = False
         across = p_lab[k, vias[bj]]
+        # which of the higher grounds the label across is read from: beyond the edge of the data,
+        # a ground that reached it may yet turn out higher than `best`, or one with it
+        ntouch = 0
+        for i in range(m):
+            r = roots[i]
+            if r != best and r != ownroot and _above(cbz[r], cbg[r], p_z[k], p_gid[k]):
+                ntouch += 1
         for i in range(m):
             r = roots[i]
             if r == best:
                 continue
             t = rtop[r]
+            touched = r != ownroot and _above(cbz[r], cbg[r], p_z[k], p_gid[k])
+            contested = ntouch - (1 if touched else 0) > 0
             if r == ownroot:
                 # an edge cell that is no top: it climbs on, as its steepest neighbour does
                 if p_edge[k]:
                     carried[t] = True
+                elif not _above(p_z[k], p_gid[k], cbz[r], cbg[r]):
+                    w_key[nw] = node_gid[t]        # beside no data: its climb may go elsewhere
+                    w_val[nw] = p_steep[k]
+                    nw += 1
                 else:
                     f_key[nf] = node_gid[t]
                     f_val[nf] = p_steep[k]
@@ -341,8 +358,13 @@ def reduce_core(node_gid, node_z, node_open, node_bz, node_bg, order, p_gid, p_z
                     r_hz[nr] = node_z[t]
                     r_cz[nr] = p_z[k]
                     r_far[nr] = across
-                    r_bord[nr] = _above(cbz[r], cbg[r], p_z[k], p_gid[k])
+                    r_bord[nr] = touched
+                    r_cont[nr] = contested
                     nr += 1
+                elif touched or contested:
+                    w_key[nw] = node_gid[t]
+                    w_val[nw] = across
+                    nw += 1
                 else:
                     f_key[nf] = node_gid[t]
                     f_val[nf] = across
@@ -374,12 +396,16 @@ def reduce_core(node_gid, node_z, node_open, node_bz, node_bg, order, p_gid, p_z
             r_far[nr] = -1
             r_bord[nr] = cbz[i] > -np.inf
             nr += 1
+        elif cbz[i] > -np.inf:
+            w_key[nw] = node_gid[t]
+            w_val[nw] = -1
+            nw += 1
         else:
             f_key[nf] = node_gid[t]
             f_val[nf] = -1
             nf += 1
     return (r_top[:nr], r_col[:nr], r_hz[:nr], r_cz[:nr], r_far[:nr], r_bord[:nr],
-            f_key[:nf], f_val[:nf], carried, up, uz, ug)
+            f_key[:nf], f_val[:nf], carried, up, uz, ug, w_key[:nw], w_val[:nw], r_cont[:nr])
 
 
 @njit(cache=True)
@@ -503,7 +529,7 @@ def in_ring(gid, bounds, W, depth=2):
     return (r < r0 + depth) | (r >= r1 - depth) | (c < c0 + depth) | (c >= c1 - depth)
 
 
-def reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist):
+def reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist, weak=None):
     """
     Flood a block's graph and hand up what is left. `nodes`: gid (sorted), z, and when its ground
     first reaches the window's edge (bz, bg: a pass's height and gid).
@@ -513,12 +539,15 @@ def reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist):
     node_open = is_edge(nodes['gid'], bounds, W, H)
     p_edge = is_edge(passes['gid'], bounds, W, H)
     order = pass_order(passes['z'], passes['gid'])
-    (r_top, r_col, r_hz, r_cz, r_far, r_bord, f_key, f_val, carried, up, uz, ug) = reduce_core(
+    (r_top, r_col, r_hz, r_cz, r_far, r_bord, f_key, f_val, carried, up, uz, ug, w_key, w_val, r_cont) = reduce_core(
         nodes['gid'], nodes['z'], node_open, nodes['bz'], nodes['bg'], order, passes['gid'], passes['z'], p_edge,
         passes['own'], passes['nb'], passes['lab'], passes['steep'], np.float32(thr), top_level)
     srt = np.argsort(f_key)
     f_key, f_val = f_key[srt], f_val[srt]
     f_val = resolve(f_val, f_key, f_val)
+    if weak is not None:
+        w_key, w_val = np.concatenate([w_key, weak[0]]), np.concatenate([w_val, weak[1]])
+    w_val = resolve(w_val, f_key, f_val)       # a tile's own forwarding is not kept
     rep = representatives(carried, up)
     kept = np.flatnonzero(carried)
     newidx = np.full(len(carried), -1, np.int64)
@@ -544,9 +573,53 @@ def reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist):
     sel = in_ring(ring['gid'], bounds, W)
     out_ring = dict(gid=ring['gid'][sel], z=ring['z'][sel], rep=remap(ring['rep'][sel]),
                     lab=resolve(ring['lab'][sel], f_key, f_val), edge_node=is_edge(ring['gid'][sel], bounds, W, H))
-    records = dict(top=r_top, col=r_col, hz=r_hz, cz=r_cz, far=resolve(r_far, f_key, f_val), border=r_bord)
+    records = dict(top=r_top, col=r_col, hz=r_hz, cz=r_cz, far=resolve(r_far, f_key, f_val), border=r_bord,
+                   contested=r_cont)
+    # a tile's forwarding is used up within it; the weak forwarding is applied only at the end,
+    # so that a walk can tell where it went through ground the data does not settle
     fwd = dict(key=f_key, val=f_val) if persist else dict(key=f_key[:0], val=f_val[:0])
+    fwd.update(wkey=w_key, wval=w_val)
     return dict(nodes=out_nodes, passes=out_passes, ring=out_ring, records=records, fwd=fwd, bounds=bounds)
+
+
+@njit(cache=True)
+def fragile_labels(ptr, near, gid):
+    """
+    Each cell's label, as a gid: the top its climb reaches, unless on the way it passes a cell
+    next to no data (`near`) that is no top — there it stops, at that cell, whose steepest climb
+    data beyond the edge may yet change. Those cells are forwarded on to their climb's label as
+    weak forwarding (keys, values), which `resolve_weak` reports a label went through.
+    """
+    n = len(ptr)
+    labg = np.full(n, -1, np.int64)
+    stack = np.empty(n, np.int64)
+    for v in range(n):
+        if ptr[v] == -2 or labg[v] >= 0:
+            continue
+        sp = 0
+        p = v
+        while labg[p] < 0:
+            if ptr[p] == p or near[p]:
+                labg[p] = gid[p]
+                break
+            stack[sp] = p
+            sp += 1
+            p = ptr[p]
+        for i in range(sp):
+            labg[stack[i]] = labg[p]
+    k = 0
+    for v in range(n):
+        if ptr[v] >= 0 and ptr[v] != v and near[v]:
+            k += 1
+    wk = np.empty(k, np.int64)
+    wv = np.empty(k, np.int64)
+    k = 0
+    for v in range(n):
+        if ptr[v] >= 0 and ptr[v] != v and near[v]:
+            wk[k] = gid[v]
+            wv[k] = labg[ptr[v]]
+            k += 1
+    return labg, wk, wv
 
 
 def flood_tile(zp, bounds, W, H, thr, top_level=False):
@@ -584,13 +657,15 @@ def flood_tile(zp, bounds, W, H, thr, top_level=False):
     bz[nd] = zf[sel[first]]
     bg[nd] = gid[sel[first]]
     nodes = dict(gid=gid[tops], z=zf[tops], bz=bz, bg=bg)
-    cells, p_gid, p_own, p_nb, p_lab, p_steep = tile_passes(zf, ptr, lab, node_of, max(len(tops), 1), w, h, r0, c0, W)
+    labg, wk, wv = fragile_labels(ptr, near.ravel(), gid)
+    cells, p_gid, p_own, p_nb, p_lab, p_steep = tile_passes(zf, ptr, lab, labg, node_of, max(len(tops), 1), w, h,
+                                                            r0, c0, W)
     passes = dict(gid=p_gid, z=zf[cells], own=p_own, nb=p_nb, lab=p_lab, steep=p_steep)
     rsel = np.flatnonzero(in_ring(gid, bounds, W))
     rl = lab[rsel]
     ring = dict(gid=gid[rsel], z=zf[rsel], rep=np.where(rl >= 0, node_of[np.maximum(rl, 0)], -1),
-                lab=np.where(rl >= 0, gid[np.maximum(rl, 0)], -1), edge_node=edge[rsel])
-    out = reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist=False)
+                lab=labg[rsel], edge_node=edge[rsel])
+    out = reduce_block(nodes, passes, ring, bounds, W, H, thr, top_level, persist=False, weak=(wk, wv))
     out['stats'] = dict(cells=int(len(zf)), tops=int(len(tops) - edge.sum()), edge_nodes=int(edge.sum()),
                         passes=int(len(cells)))
     return out
@@ -889,15 +964,299 @@ def run(read, H, W, tile, thr=THRESHOLD, log=None, jobs=1, checkpoint=None):
         stats['levels'].append(st)
         if log:
             log(f'level {st["level"]}: {st}')
-    rec = {k: np.concatenate([r[k] for r in records]) for k in ('top', 'col', 'hz', 'cz', 'far', 'border')}
-    key = np.concatenate([f['key'] for f in fwds])
-    val = np.concatenate([f['val'] for f in fwds])
+    rec, stats['forward'] = _gather(records, fwds)
+    return rec, stats
+
+
+def _gather(records, fwds):
+    """ Every block's settled tops as one record, sorted by top, each label across a col
+    resolved through the forwarding to the top it leads to; and how many were forwarded. """
+    keys = ('top', 'col', 'hz', 'cz', 'far', 'border', 'contested')
+    if not records:
+        records = [dict(top=np.empty(0, np.int64), col=np.empty(0, np.int64), hz=np.empty(0, np.float32),
+                        cz=np.empty(0, np.float32), far=np.empty(0, np.int64), border=np.empty(0, np.bool_),
+                        contested=np.empty(0, np.bool_))]
+    rec = {k: np.concatenate([r[k] for r in records]) for k in keys}
+    cat = lambda name: np.concatenate([f[name] for f in fwds if name in f] or [np.empty(0, np.int64)])
+    key, wkey = cat('key'), cat('wkey')
+    weak = np.concatenate([np.zeros(len(key), np.bool_), np.ones(len(wkey), np.bool_)])
+    key, val = np.concatenate([key, wkey]), np.concatenate([cat('val'), cat('wval')])
     srt = np.argsort(key)
-    key, val = key[srt], val[srt]
-    stats['forward'] = int(len(key))
-    rec['far'] = resolve(rec['far'], key, val)
+    key, val, weak = key[srt], val[srt], weak[srt]
+    rec['far'], rec['weak'] = resolve_weak(rec['far'], key, val, weak)
+    rec['weak'] |= rec.pop('contested')
     srt = np.argsort(rec['top'])
-    rec = {k: v[srt] for k, v in rec.items()}
+    return {k: v[srt] for k, v in rec.items()}, int(len(key))
+
+
+# ------------------------------------------------------------------ kept blocks: runs that grow
+
+class Store:
+    """
+    `run_store`'s blocks, each named by a hash of everything that decides it: a tile's of the
+    engine's code, the grid, the threshold, its place and the reader's fingerprint of its data; a
+    merged block's of its children's hashes. A block whose hash is here is not computed again,
+    so a run with more data (another country, a bigger box) floods only the tiles the new data
+    reaches and merges only the blocks above them. Two files a block, zlib-compressed pickles:
+    `.blk`, what is left open, which its parent merges; `.rec`, its settled tops, forwarding and
+    statistics. Each is written to a temporary name and renamed, the `.rec` last: a block is
+    either here whole or not at all, so a run cut off anywhere resumes. `runs/` holds each run's
+    list of the blocks it used (`gc` keeps those and deletes the rest).
+    """
+
+    def __init__(self, root):
+        self.root = root
+        os.makedirs(root, exist_ok=True)
+
+    def _path(self, h, kind):
+        return os.path.join(self.root, h[:2], f'{h}.{kind}')
+
+    def has(self, h):
+        return os.path.exists(self._path(h, 'rec'))
+
+    def _write(self, h, kind, obj):
+        import pickle
+        import zlib
+        path = self._path(h, kind)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f'{path}.{os.getpid()}.tmp'
+        with open(tmp, 'wb') as f:
+            f.write(zlib.compress(pickle.dumps(obj, protocol=5), 1))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+
+    def _read(self, h, kind):
+        import pickle
+        import zlib
+        with open(self._path(h, kind), 'rb') as f:
+            return pickle.loads(zlib.decompress(f.read()))
+
+    def save(self, h, block, keep_open=True):
+        """ `block` None: no data. `keep_open` False for the root, which nothing merges. """
+        if keep_open:
+            self._write(h, 'blk', None if block is None else {k: block[k] for k in ('nodes', 'passes', 'ring', 'bounds')})
+        self._write(h, 'rec', None if block is None else dict(records=block['records'], fwd=block['fwd'],
+                                                               stats=block.get('stats')))
+
+    def block(self, h):
+        return self._read(h, 'blk')
+
+    def rec(self, h):
+        return self._read(h, 'rec')
+
+    def record_run(self, name, info, hashes):
+        os.makedirs(os.path.join(self.root, 'runs'), exist_ok=True)
+        path = os.path.join(self.root, 'runs', f'{name}.json')
+        with open(path + '.tmp', 'w') as f:
+            json.dump(dict(info, blocks=sorted(hashes)), f)
+        os.replace(path + '.tmp', path)
+
+    def gc(self, dry_run=True):
+        """ Blocks no recorded run uses: (count, bytes), deleted unless `dry_run`. """
+        keep = set()
+        runs = os.path.join(self.root, 'runs')
+        for n in os.listdir(runs) if os.path.isdir(runs) else ():
+            if n.endswith('.json'):
+                keep.update(json.load(open(os.path.join(runs, n)))['blocks'])
+        count = size = 0
+        for d in os.listdir(self.root):
+            if len(d) != 2 or not os.path.isdir(os.path.join(self.root, d)):
+                continue
+            for n in os.listdir(os.path.join(self.root, d)):
+                if n.split('.')[0] not in keep:
+                    p = os.path.join(self.root, d, n)
+                    count += 1
+                    size += os.path.getsize(p)
+                    if not dry_run:
+                        os.remove(p)
+        return count, size
+
+
+def engine_fingerprint():
+    """ The engine's code that decides a block, hashed: a change makes every kept block stale. """
+    import hashlib
+    import inspect
+    fs = (label_tile, tile_passes, fragile_labels, reduce_core, edge_times, representatives, resolve, keep_passes, pass_order,
+          is_edge, in_ring, reduce_block, flood_tile, seam_passes, merge, _above, _find, _store_tile_job,
+          _store_merge_job, _ring_mask)
+    parts = [inspect.getsource(getattr(f, 'py_func', f)) for f in fs]
+    return hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:16]
+
+
+#: the eight neighbours of a tile, in the order of the mask `run_store` hands a tile
+NEIGHBOURS = tuple((dy, dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx)
+
+
+def _ring_mask(zp, b, halo, mask):
+    """ The cells of the ring around a tile that lie in tiles not flooded become no data. """
+    t, bot = b[0] - halo[0], halo[1] - b[1]
+    l, rgt = b[2] - halo[2], halo[3] - b[3]
+    h, w = b[1] - b[0], b[3] - b[2]
+    rows = {-1: slice(0, t), 0: slice(t, t + h), 1: slice(t + h, t + h + bot)}
+    cols = {-1: slice(0, l), 0: slice(l, l + w), 1: slice(l + w, l + w + rgt)}
+    for (dy, dx), m in zip(NEIGHBOURS, mask):
+        if m == '0':
+            zp[rows[dy], cols[dx]] = 0
+    return zp
+
+
+def _store_tile_job(args):
+    b, W, H, thr, top, h, root, mask, keep = args
+    halo = (max(b[0] - 1, 0), min(b[1] + 1, H), max(b[2] - 1, 0), min(b[3] + 1, W))
+    zp = _ring_mask(np.array(_READ(*halo), dtype=np.float32), b, halo, mask)
+    t, l = b[0] - halo[0], b[2] - halo[2]
+    if not (zp[t:t + b[1] - b[0], l:l + b[3] - b[2]] > 0).any():
+        Store(root).save(h, None, keep)
+        return None
+    o = flood_tile(zp, b, W, H, thr, top_level=top)
+    Store(root).save(h, o, keep)
+    return o['stats']
+
+
+def _store_merge_job(args):
+    b, kids, W, H, thr, top, h, root, keep = args
+    st = Store(root)
+    blocks = [k for k in (st.block(c) for c in kids) if k is not None]
+    if not blocks:
+        st.save(h, None, keep)
+        return None
+    m = merge(blocks, b, W, H, thr, top_level=top)
+    st.save(h, m, keep)
+    return m['stats']
+
+
+def run_store(read, fingerprint, store, H, W, tile, thr=THRESHOLD, tiles=None, salt='', log=None, jobs=1,
+              name=None):
+    """
+    `run`, every tile and merged block kept in `store` (a `Store` or its folder) under a hash of
+    what decides it: what is there already is not computed again. The blocks are the ones `run`
+    has, merged the same way, so the result is the same; merges of one level go in parallel.
+
+    `fingerprint(r0, r1, c0, c1)`: for the window `read` is asked for, a string that changes
+    whenever what `read` gives there could (its files, their sizes and times), None where it
+    gives no data at all. `tiles`: the (bi, bj) to flood, all by default; the rest are no data,
+    and so are the cells of the ring around a tile that fall in them. `salt`: what else decides
+    what `read` gives (its code, its settings). `name`: the run, recorded in the store's `runs/`.
+
+    A top in the result is settled — the data proves its key col — unless it is flagged
+    `border`: its ground reached the edge of the data before its col, and beyond that edge a
+    higher col may turn up. `walk_settled` says which parents are proven.
+    """
+    import hashlib
+    st = store if isinstance(store, Store) else Store(store)
+    ti, tj = -(-H // tile), -(-W // tile)
+    depth = 0
+    while (-(-H // (tile << depth)), -(-W // (tile << depth))) != (1, 1):
+        depth += 1
+    top = depth == 0
+    sel = set(tiles) if tiles is not None else {(i, j) for i in range(ti) for j in range(tj)}
+    base = f'{engine_fingerprint()}|{salt}|{H}|{W}|{tile}|{float(thr)!r}'
+    sha = lambda s: hashlib.sha256(s.encode()).hexdigest()[:32]
+
+    def bounds(level, k):
+        size = tile << level
+        return (k[0] * size, min((k[0] + 1) * size, H), k[1] * size, min((k[1] + 1) * size, W))
+
+    def morton(k):
+        code = 0
+        for bit in range(32):
+            code |= ((k[0] >> bit) & 1) << (2 * bit + 1) | ((k[1] >> bit) & 1) << (2 * bit)
+        return code
+
+    t0 = time.time()
+    hashes = [dict() for _ in range(depth + 1)]
+    masks = {}
+    keys = sorted(sel, key=morton)
+    bar = None
+    if log:
+        from tqdm import tqdm
+        bar = tqdm(keys, unit='tile', desc='fingerprints', file=sys.stdout, dynamic_ncols=True, mininterval=1)
+    for k in bar if bar is not None else keys:
+        b = bounds(0, k)
+        fp = fingerprint(max(b[0] - 1, 0), min(b[1] + 1, H), max(b[2] - 1, 0), min(b[3] + 1, W))
+        if fp is None:
+            continue
+        masks[k] = ''.join('1' if (k[0] + dy, k[1] + dx) in sel else '0' for dy, dx in NEIGHBOURS)
+        hashes[0][k] = sha(f'T|{base}|{k}|{masks[k]}|{fp}')
+    children = [dict() for _ in range(depth + 1)]
+    for level in range(1, depth + 1):
+        groups = {}
+        for k, h in hashes[level - 1].items():
+            groups.setdefault((k[0] // 2, k[1] // 2), []).append((k, h))
+        for p, kids in groups.items():
+            kids.sort()
+            children[level][p] = [h for _, h in kids]
+            hashes[level][p] = sha(f'B|{base}|{level}|{p}|' + ' '.join(f'{k}:{h}' for k, h in kids))
+    stats = dict(tiles=[], levels=[], selected=len(sel), with_data=len(hashes[0]))
+    todo = [k for k in keys if k in hashes[0] and not st.has(hashes[0][k])]
+    stats['flooded'] = len(todo)
+    if log:
+        log(f'{len(sel)} tiles, {len(hashes[0])} with data: {len(todo)} to flood, '
+            f'{len(hashes[0]) - len(todo)} kept already')
+
+    global _READ
+    _READ = read
+    pool = None
+    if jobs > 1:
+        import multiprocessing
+        pool = multiprocessing.get_context('fork').Pool(jobs)
+
+    def each(fn, args):
+        if pool:
+            yield from pool.imap_unordered(fn, args, chunksize=1)
+        else:
+            for x in args:
+                yield fn(x)
+
+    try:
+        args = [(bounds(0, k), W, H, thr, top, hashes[0][k], st.root, masks[k], not top) for k in todo]
+        if log:
+            from tqdm import tqdm
+            bar = tqdm(total=len(args), unit='tile', file=sys.stdout, mininterval=0, smoothing=0.05,
+                       dynamic_ncols=True)
+        tops = 0
+        for o in each(_store_tile_job, args):
+            if o is not None:
+                tops += o['tops']
+            if log:
+                bar.set_postfix_str(f'{tops} tops', refresh=False)
+                bar.update(1)
+        if log:
+            bar.close()
+        stats['tile_seconds'] = time.time() - t0
+        for level in range(1, depth + 1):
+            t1 = time.time()
+            work = [(bounds(level, p), children[level][p], W, H, thr, level == depth, h, st.root, level < depth)
+                    for p, h in sorted(hashes[level].items(), key=lambda x: morton(x[0])) if not st.has(h)]
+            lv = dict(level=level, blocks=len(hashes[level]), merged=len(work), nodes=0, passes=0, seam=0)
+            for o in each(_store_merge_job, work):
+                if o is not None:
+                    for k in ('nodes', 'passes', 'seam'):
+                        lv[k] += o[k]
+            lv['seconds'] = round(time.time() - t1, 2)
+            stats['levels'].append(lv)
+            if log:
+                log(f'level {level}: {lv}')
+    finally:
+        if pool:
+            pool.close()
+            pool.join()
+
+    records, fwds = [], []
+    for level in range(depth + 1):
+        for h in hashes[level].values():
+            r = st.rec(h)
+            if r is None:
+                continue
+            records.append(r['records'])
+            fwds.append(r['fwd'])
+            if level == 0:
+                stats['tiles'].append(r['stats'])
+    rec, stats['forward'] = _gather(records, fwds)
+    if name:
+        st.record_run(name, dict(H=H, W=W, tile=tile, threshold=thr, salt=salt, time=time.strftime('%Y-%m-%d %H:%M')),
+                      [h for lv in hashes for h in lv.values()])
     return rec, stats
 
 
@@ -935,6 +1294,59 @@ def walk(tops, col, hz, cz, far):
         tie_a = np.array(ta)
         tie_b = np.array(tb)
     return out, tie_a, tie_b
+
+
+@njit(cache=True)
+def resolve_weak(labels, keys, vals, weak):
+    """ `resolve`, and whether each label went through a weak forward on the way. """
+    out = labels.copy()
+    hit = np.zeros(len(out), np.bool_)
+    for i in range(len(out)):
+        x = out[i]
+        for _ in range(1 << 30):
+            if x < 0:
+                break
+            j = np.searchsorted(keys, x)
+            if j < len(keys) and keys[j] == x:
+                hit[i] |= weak[j]
+                x = vals[j]
+            else:
+                break
+        out[i] = x
+    return out, hit
+
+
+@njit(cache=True)
+def walk_settled(tops, col, hz, cz, far, border, weak):
+    """
+    Whether each top's parent, as `walk` finds it, is proven by the data: the top is settled and
+    so is every top the walk passes, the parent included. A top flagged `border` (its ground
+    reached the edge of the data before its col) may yet get a higher col from beyond the edge,
+    and with it a lower prominence and another way on; a walk through one may end elsewhere
+    once the data reaches further. So may a walk on from a top across its col whose way there
+    went through a lesser top unsettled in the same way (`weak`, from `_gather`).
+    """
+    n = len(tops)
+    prom = np.where(col >= 0, hz - cz, hz)
+    out = np.zeros(n, np.bool_)
+    for s in range(n):
+        ok = not border[s] and not weak[s]
+        p = far[s]
+        for _ in range(1 << 30):
+            if not ok or p < 0:
+                break
+            i = np.searchsorted(tops, p)
+            if i >= n or tops[i] != p or border[i]:
+                ok = False
+                break
+            if prom[i] > prom[s]:
+                break
+            if weak[i]:
+                ok = False
+                break
+            p = far[i]
+        out[s] = ok
+    return out
 
 
 def walk_line(tops, col, hz, cz, far, cutoff):
@@ -1490,6 +1902,9 @@ def main():
     p.add_argument('--jobs', type=int, default=10)
     p.add_argument('--line-cutoff', type=float, default=100.0)
     p.add_argument('--out', required=True)
+    p = sub.add_parser('store-gc', help="a store's blocks no recorded run uses (deleted with --delete)")
+    p.add_argument('store')
+    p.add_argument('--delete', action='store_true')
     p = sub.add_parser('dmr5', help='all of DMR 5.0, or a box of it: every top of P >= threshold')
     p.add_argument('--bbox', help='S,N,W,E (default: the whole raster)')
     p.add_argument('--tile', type=int, default=5000)
@@ -1508,6 +1923,9 @@ def main():
     if a.cmd == 'dmr5':
         dmr5([float(v) for v in a.bbox.split(',')] if a.bbox else None, a.out, a.tile, a.threshold, a.jobs,
              a.line_cutoff)
+    if a.cmd == 'store-gc':
+        n, size = Store(a.store).gc(dry_run=not a.delete)
+        print(f'{n} files, {size / 1e9:.2f} GB {"deleted" if a.delete else "unused (--delete deletes them)"}')
     if a.cmd == 'window':
         window([float(v) for v in a.center.split(',')], a.size, a.tile, a.threshold, a.out, not a.no_check)
 

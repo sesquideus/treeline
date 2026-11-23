@@ -296,6 +296,14 @@ def _open(path):
     return d
 
 
+def close():
+    """ Close the blocks this process holds open (before it exits: GDAL gone first fails). """
+    for k in list(_OPEN):
+        d = _OPEN.pop(k)
+        if d:
+            d.close()
+
+
 def window(root, kind, x0, y0, a, b, c, e):
     """ Rows a..b, columns c..e of the grid with top-left (x0, y0): heights in metres (0 no data)
     or source codes. """

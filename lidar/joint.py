@@ -9,6 +9,17 @@ has data (beyond the four, and Polish sheets not yet downloaded).
 `--grid DIR` reads the terrain `joint_grid.py` built once (with its sources) instead of deriving
 it from the sources in every tile: faster, and every cell has one value whichever tile reads it.
 
+Every run's tiles sit in one frame over Europe, and every tile and merged block is kept in
+`--store` (default /mnt/data/treeline/store/joint) under a hash of what decides it: the files
+it reads, the code, the threshold. A run with more data — another country, a bigger box —
+floods only the tiles the new files reach and merges only the blocks above them; the rest is
+read back. A run cut off resumes the same way. `catchments.py store-gc` deletes blocks no
+recorded run uses.
+
+Each top says whether the data settles it: `border` true if its ground reached the edge of the
+data before its key col (beyond the edge a higher col may turn up), and `parent_proven` if its
+parent cannot change either, whatever data is added (`catchments.walk_settled`).
+
 `--sources` reads only those (all by default). Without FABDEM, everything the others lack is no
 data, and a top whose ground reaches it stays open (`border`), as at the window's edge.
 
@@ -38,7 +49,8 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from catchments import ARC, THRESHOLD, despike, fabdem_tile, heights, run, walk, walk_line  # noqa: E402
+from catchments import (ARC, THRESHOLD, despike, fabdem_tile, heights, run_store, walk, walk_line,  # noqa: E402
+                        walk_settled)
 
 CRS = 'EPSG:3035'
 SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5_cm/dmr5_etrs89.tif')   # compact.py copies: int cm
@@ -363,6 +375,82 @@ def sources_at(xs, ys):
     return out
 
 
+#: the one frame every run's tiles sit in (EPSG:3035, top-left corner and side in metres): a tile
+#: is the same tile in every run, whatever its box, so that kept blocks serve the next one
+FRAME_X0, FRAME_Y0, FRAME_SIDE = 0.0, 10_240_000.0, 10_240_000.0
+STORE = os.environ.get('TREELINE_STORE', '/mnt/data/treeline/store/joint')
+
+
+def frame(res, tile):
+    """ Cells a side of the frame: `tile` doubled until it covers FRAME_SIDE. """
+    side = tile
+    while side * res < FRAME_SIDE:
+        side *= 2
+    return side
+
+
+def _stat(path):
+    """ What says a file changed: its size and modification time (a zip's for a path inside one). """
+    if path.startswith('/vsizip/'):
+        path = path[len('/vsizip/'):].split('.zip/')[0] + '.zip'
+    try:
+        st = os.stat(path)
+    except OSError:
+        return f'{path} -'
+    return f'{path} {st.st_size} {st.st_mtime_ns}'
+
+
+def fingerprinter(x0, y0, res):
+    """ `fingerprint(a, b, c, e)` for `catchments.run_store`: the files the reader opens for
+    that window (with the margin it reads around it), each with its size and time; None if none. """
+    m = 1 + ISLAND
+    st = {}
+
+    def fingerprint(a, b, c, e):
+        if not st:                  # what `files` needs, without opening a raster in this process
+            from pyproj import Transformer
+            st.update(sk_bounds=_sk_bounds(), evrf=evrf_sheets(),
+                      to_ll=Transformer.from_crs(CRS, 'EPSG:4326', always_xy=True),
+                      to_cz=Transformer.from_crs(CRS, 'EPSG:3045', always_xy=True),
+                      to_pl=Transformer.from_crs(CRS, 'EPSG:2180', always_xy=True))
+        bounds = (x0 + (c - m) * res, y0 - (b + m) * res, x0 + (e + m) * res, y0 - (a - m) * res)
+        parts = []
+        for code, source, _ in ORDER:
+            if source in SOURCES:
+                parts += [f'{source} {_stat(f)}' for f, _ in files(st, source, bounds)]
+        return '\n'.join(parts) if parts else None
+    return fingerprint
+
+
+def grid_fingerprinter(root, x0, y0):
+    """ The same over a grid `joint_grid.py` built: the blocks the window reads. A block `extend`
+    kept is a hard link to the old one, with its size and time. """
+    import joint_grid
+
+    def fingerprint(a, b, c, e):
+        X0, X1, Ytop, Ybot = int(x0) + c, int(x0) + e, int(y0) - a, int(y0) - b
+        parts = []
+        for i in range(X0 // joint_grid.BLOCK, (X1 - 1) // joint_grid.BLOCK + 1):
+            for j in range(Ybot // joint_grid.BLOCK, (Ytop - 1) // joint_grid.BLOCK + 1):
+                f = joint_grid.name(root, 'z', i, j)
+                if os.path.exists(f):
+                    parts.append(_stat(f))
+        return '\n'.join(parts) if parts else None
+    return fingerprint
+
+
+def salt(res, grid_dir=None):
+    """ What else decides a tile: the reader's code and settings, GDAL, PROJ and its grids. """
+    import inspect
+    import joint_grid
+    if grid_dir:
+        return f'grid {res!r} ' + inspect.getsource(joint_grid.window)
+    from pyproj.datadir import get_user_data_dir
+    d = get_user_data_dir()
+    grids = sorted(f'{f} {os.path.getsize(os.path.join(d, f))}' for f in os.listdir(d)) if os.path.isdir(d) else []
+    return f'{joint_grid.code_fingerprint()} {res!r} {grids}'      # the sources: in each tile's files
+
+
 def grid(s, n, w, e, res):
     """ The target grid covering the lon/lat box: top-left corner, rows, columns. """
     from pyproj import Transformer
@@ -386,32 +474,45 @@ def main():
     ap.add_argument('--line-cutoff', type=float, default=100.0)
     ap.add_argument('--sources', default=','.join(ALL_SOURCES), help='which to read, comma-separated')
     ap.add_argument('--grid', help='read the terrain built by joint_grid.py in this folder (its sources)')
+    ap.add_argument('--store', default=STORE, help=f'where the blocks are kept (default {STORE})')
     a = ap.parse_args()
     SOURCES.clear()
     SOURCES.update(v.strip() for v in a.sources.split(','))
     if SOURCES - set(ALL_SOURCES):
         ap.error(f'unknown sources: {SOURCES - set(ALL_SOURCES)}')
     s, n, w, e = (float(v) for v in a.bbox.split(','))
-    x0, y0, H, W = grid(s, n, w, e, a.res)
+    bx0, by0, bH, bW = grid(s, n, w, e, a.res)
     if a.grid:
         import joint_grid
         meta = joint_grid.describe(a.grid)
         if a.res != meta['res']:
             ap.error(f'the grid is at {meta["res"]} m')
-        if x0 < meta['x0'] or y0 > meta['y0'] or x0 + W > meta['x0'] + meta['W'] or y0 - H < meta['y0'] - meta['H']:
+        if bx0 < meta['x0'] or by0 > meta['y0'] or bx0 + bW > meta['x0'] + meta['W'] or by0 - bH < meta['y0'] - meta['H']:
             ap.error(f'the box reaches beyond the grid built for {meta["bbox"]}')
         SOURCES.clear()
         SOURCES.update(meta['sources'])
         print(f'reading the grid in {a.grid}: {",".join(meta["sources"])}', flush=True)
-    print(f'{H} × {W} cells ({H * W / 1e9:.1f} G) of {a.res:g} m in {CRS}, tiles of {a.tile}, {a.jobs} workers',
-          flush=True)
+    # the frame, and the tiles of it the box touches
+    x0, y0 = FRAME_X0, FRAME_Y0
+    H = W = frame(a.res, a.tile)
+    r0, c0 = round((y0 - by0) / a.res), round((bx0 - x0) / a.res)
+    tiles = [(i, j) for i in range(r0 // a.tile, (r0 + bH - 1) // a.tile + 1)
+             for j in range(c0 // a.tile, (c0 + bW - 1) // a.tile + 1)]
+    print(f'{len(tiles)} tiles of {a.tile} × {a.tile} cells of {a.res:g} m in {CRS}, {a.jobs} workers, '
+          f'blocks kept in {a.store}', flush=True)
     t0 = time.time()
-    read = joint_grid.grid_reader(a.grid, x0, y0) if a.grid else reader(x0, y0, a.res)
-    rec, stats = run(read, H, W, a.tile, a.threshold, log=lambda m: print(m, flush=True), jobs=a.jobs,
-                     checkpoint=os.path.splitext(a.out)[0] + '.ckpt')
+    read = joint_grid.grid_reader(a.grid, int(x0), int(y0)) if a.grid else reader(x0, y0, a.res)
+    fingerprint = grid_fingerprinter(a.grid, x0, y0) if a.grid else fingerprinter(x0, y0, a.res)
+    import hashlib
+    name = f'{os.path.splitext(os.path.basename(a.out))[0]}-{hashlib.sha256(os.path.abspath(a.out).encode()).hexdigest()[:8]}'
+    rec, stats = run_store(read, fingerprint, a.store, H, W, a.tile, a.threshold, tiles=tiles,
+                           salt=salt(a.res, a.grid), log=lambda m: print(m, flush=True), jobs=a.jobs, name=name)
     par, ta, tb = walk(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'])
+    proven = walk_settled(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], rec['border'], rec['weak'])
     line = walk_line(rec['top'], rec['col'], rec['hz'], rec['cz'], rec['far'], a.line_cutoff)
-    print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {a.threshold:g}; {len(ta)} ties', flush=True)
+    print(f'{time.time() - t0:.0f} s: {len(rec["top"])} tops of P >= {a.threshold:g}, '
+          f'{int((~rec["border"]).sum())} settled, {int(proven.sum())} with their parent proven; {len(ta)} ties',
+          flush=True)
     np.savez_compressed(os.path.splitext(a.out)[0] + '.npz', **{k: v for k, v in rec.items() if isinstance(v, np.ndarray)},
                         x0=x0, y0=y0, res=a.res, H=H, W=W, threshold=a.threshold)
     from pyproj import Transformer
@@ -433,7 +534,7 @@ def main():
     res = []
     for i in range(len(rec['top'])):
         x = dict(top=ll(rec['top'][i]), h=round(float(rec['hz'][i]), 2), prom=round(float(prom[i]), 2),
-                 border=bool(rec['border'][i]), source=src_of(rec['top'][i]))
+                 border=bool(rec['border'][i]), parent_proven=bool(proven[i]), source=src_of(rec['top'][i]))
         if rec['col'][i] >= 0:
             x.update(col=ll(rec['col'][i]), col_h=round(float(rec['cz'][i]), 2), col_source=src_of(rec['col'][i]))
         if par[i] >= 0:
@@ -442,11 +543,15 @@ def main():
             x['line'] = ll(line[i])
         res.append(x)
     st = {k: v for k, v in stats.items() if k != 'tiles'}
-    st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(p), ll(q)] for p, q in zip(ta, tb)],
+    st.update(tops=sum(t['tops'] for t in stats['tiles'] if t), ties=[[ll(p), ll(q)] for p, q in zip(ta, tb)],
+              settled=int((~rec['border']).sum()), parent_proven=int(proven.sum()), store=a.store, box=a.bbox,
               line_cutoff=a.line_cutoff, crs=CRS, res=a.res,
               sources=sorted(SOURCES), grid=a.grid,
               source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), FABDEM V1-2 beyond them; heights EGM2008')
-    json.dump(dict(stats=st, summits=res), open(a.out, 'w'))
+    with open(a.out, 'w') as f:
+        json.dump(dict(stats=st, summits=res), f)
+    if a.grid:
+        joint_grid.close()
     print(f'-> {a.out}', flush=True)
 
 

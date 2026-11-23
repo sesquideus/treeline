@@ -78,6 +78,14 @@ sit beside the originals in `/mnt/data/treeline/`: `DTM5_cm/dmr5_etrs89.tif` (SK
 as float metres. `lidar/joint_grid.py` builds the joint terrain once into 4 km blocks for runs
 (`joint.py --grid DIR`) and extends a built grid with more sources (`extend`).
 
+`joint.py` runs grow: tiles sit in one EPSG:3035 frame over Europe, and every tile and merged
+block is kept in `/mnt/data/treeline/store/joint` (`--store`) under a hash of its files, the code
+and the threshold (`catchments.run_store`). Adding a country or widening the box floods only the
+tiles the new files reach; a run cut off resumes. Each top in the output is `border` (its key col
+may still change with data beyond the edge) or settled, and `parent_proven` says its parent cannot
+change either (`catchments.walk_settled`). `catchments.py store-gc STORE [--delete]` drops blocks
+no run listed in `STORE/runs/` uses.
+
 ```bash
 uv run --group lidar python lidar/prominence.py --out OUT   # every P100, blind: ~12 min, cached in ~/.cache/treeline/lidar
 cd lidar && uv run --project .. --group lidar python parents.py --out OUT   # TreeLine's prominence parents

@@ -439,3 +439,150 @@ class ResettleTests(unittest.TestCase):
                 self.assertEqual(p1.tolist(), p2.tolist(), 'the same parents')
             swaps += int((col != rec['col']).any())
         self.assertGreaterEqual(swaps, 3, 'the key col changed hands')
+
+
+class StoreTests(unittest.TestCase):
+    """
+    `run_store`: blocks kept by the hash of what decides them. The same result as `run`; a run
+    with changed data floods only the tiles the change reaches, and still gives what a fresh run
+    gives; a top settled (and a parent proven) on part of the data stays so on all of it.
+    """
+
+    keys = ('top', 'col', 'hz', 'cz', 'far', 'border')
+
+    @staticmethod
+    def fp(z):
+        import hashlib
+        return lambda a, b, c, d: hashlib.sha1(z[a:b, c:d].tobytes()).hexdigest() if (z[a:b, c:d] > 0).any() else None
+
+    def stored(self, z, tile, store, tiles=None, jobs=1, thr=10.0):
+        from catchments import run_store
+        H, W = z.shape
+        return run_store(lambda a, b, c, d: z[a:b, c:d], self.fp(z), store, H, W, tile, thr, tiles=tiles, jobs=jobs)
+
+    def assertSame(self, a, b):
+        for k in self.keys:
+            np.testing.assert_array_equal(a[k], b[k], err_msg=k)
+
+    def test_as_run(self):
+        import tempfile
+        cases = [(noise(37, 41, 1), 9), (noise(37, 41, 2, quantum=5), 5), (smooth_hills(60, 50, 3), 8),
+                 (smooth_hills(64, 64, 4, quantum=1), 16)]
+        holes = smooth_hills(60, 60, 5)
+        holes[10:30, 5:22] = 0                  # a hole, whole tiles of it
+        holes[:, 41:43] = 0
+        holes[44:, :20] = 0
+        cases += [(holes, 10), (holes, 7)]
+        for z, tile in cases:
+            with self.subTest(shape=z.shape, tile=tile), tempfile.TemporaryDirectory() as d:
+                want, _ = run(lambda a, b, c, e: z[a:b, c:e], z.shape[0], z.shape[1], tile, 10.0)
+                got, _ = self.stored(z, tile, d)
+                self.assertSame(got, want)
+                again, stats = self.stored(z, tile, d)
+                self.assertEqual(stats['flooded'], 0, 'all kept')
+                self.assertSame(again, want)
+
+    def test_in_parallel(self):
+        import tempfile
+        z = smooth_hills(80, 70, 6)
+        want, _ = run(lambda a, b, c, e: z[a:b, c:e], 80, 70, 9, 10.0)
+        with tempfile.TemporaryDirectory() as d:
+            got, _ = self.stored(z, 9, d, jobs=4)
+        self.assertSame(got, want)
+
+    def test_more_data_floods_only_what_it_reaches(self):
+        import tempfile
+        for seed in range(4):
+            z = smooth_hills(72, 72, 10 + seed)
+            part = z.copy()
+            part[:, 40:] = 0                    # the first country; the second comes later
+            tile = 8
+            with self.subTest(seed=seed), tempfile.TemporaryDirectory() as d:
+                self.stored(part, tile, d)
+                got, stats = self.stored(z, tile, d)
+                want, _ = run(lambda a, b, c, e: z[a:b, c:e], 72, 72, tile, 10.0)
+                self.assertSame(got, want)
+                # tiles whose window (the tile and its ring) reaches column 40 or beyond
+                changed = sum(1 for i in range(9) for j in range(9) if (j + 1) * tile + 1 > 40)
+                self.assertEqual(stats['flooded'], changed)
+
+    def test_tiles_chosen(self):
+        import tempfile
+        z = smooth_hills(64, 64, 7)
+        tiles = [(i, j) for i in range(8) for j in range(8) if (i - 3) ** 2 + (j - 4) ** 2 <= 9]
+        cut = np.zeros_like(z)
+        for i, j in tiles:
+            cut[i * 8:(i + 1) * 8, j * 8:(j + 1) * 8] = z[i * 8:(i + 1) * 8, j * 8:(j + 1) * 8]
+        want, _ = run(lambda a, b, c, e: cut[a:b, c:e], 64, 64, 8, 10.0)
+        with tempfile.TemporaryDirectory() as d:
+            got, _ = self.stored(z, 8, d, tiles=tiles)
+        self.assertSame(got, want)
+
+    def test_settled_stays_settled(self):
+        """ What part of the data settles, all of it confirms: key col, heights, and the parents
+        `walk_settled` calls proven. """
+        import tempfile
+        from catchments import walk_settled
+        checked = proven = 0
+        for seed in range(24):
+            z = smooth_hills(80, 80, 20 + seed, quantum=1 if seed % 2 else None)
+            if seed % 3 == 2:
+                z = noise(80, 80, seed, quantum=3)
+            if seed % 4 == 3:                   # holes: lakes, gaps in the survey
+                rng = np.random.default_rng(seed)
+                for _ in range(6):
+                    r, c = rng.integers(0, 70, 2)
+                    z[r:r + rng.integers(2, 12), c:c + rng.integers(2, 12)] = 0
+            tile = (8, 5, 16)[seed % 3]
+            n = -(-80 // tile)
+            for tiles in ([(i, j) for i in range(n) for j in range(n * 6 // 10)],
+                          [(i, j) for i in range(n) for j in range(n) if (i - n / 2) ** 2 + (j - n / 2) ** 2 <= n * n / 8]):
+                with self.subTest(seed=seed, n=len(tiles)), tempfile.TemporaryDirectory() as d:
+                    sub, _ = self.stored(z, tile, d, tiles=tiles)
+                    full, _ = self.stored(z, tile, d)
+                    ps, _, _ = walk(sub['top'], sub['col'], sub['hz'], sub['cz'], sub['far'])
+                    ok = walk_settled(sub['top'], sub['col'], sub['hz'], sub['cz'], sub['far'], sub['border'], sub['weak'])
+                    pf, _, _ = walk(full['top'], full['col'], full['hz'], full['cz'], full['far'])
+                    where = {t: i for i, t in enumerate(full['top'].tolist())}
+                    for i, t in enumerate(sub['top'].tolist()):
+                        if sub['border'][i]:
+                            continue
+                        checked += 1
+                        self.assertIn(t, where, 'a settled top is a top')
+                        j = where[t]
+                        self.assertEqual(sub['col'][i], full['col'][j], 'its key col')
+                        self.assertEqual(sub['cz'][i], full['cz'][j])
+                        self.assertFalse(full['border'][j])
+                        if ok[i]:
+                            proven += 1
+                            self.assertEqual(ps[i], pf[j], 'a proven parent')
+        self.assertGreater(checked, 300)
+        self.assertGreater(proven, 150)
+
+    def test_cut_anywhere(self):
+        import tempfile
+        import catchments
+        z = smooth_hills(48, 48, 2)
+        want, _ = run(lambda a, b, c, e: z[a:b, c:e], 48, 48, 8, 10.0)
+        real = catchments.Store._write
+        for cut in range(1, 200):
+            with self.subTest(cut=cut), tempfile.TemporaryDirectory() as d:
+                count = [0]
+
+                def write(store, *a, **k):
+                    count[0] += 1
+                    if count[0] == cut:
+                        raise CheckpointTests.Cut      # a power cut before this write lands
+                    return real(store, *a, **k)
+                catchments.Store._write = write
+                try:
+                    self.stored(z, 8, d)
+                    happened = False
+                except CheckpointTests.Cut:
+                    happened = True
+                finally:
+                    catchments.Store._write = real
+                if not happened:
+                    break
+                got, _ = self.stored(z, 8, d)
+                self.assertSame(got, want)
