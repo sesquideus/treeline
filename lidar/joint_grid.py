@@ -4,6 +4,7 @@ EGM2008, islands of data and spikes filtered) written to disk in blocks, so that
 rather than deriving it again in every tile.
 
     cd lidar && uv run --project .. --group lidar python joint_grid.py build S,N,W,E DIR [--sources SK,CZ,AT] [--jobs 16]
+    cd lidar && uv run --project .. --group lidar python joint_grid.py extend BASE DIR --add PLE,PL [--bbox S,N,W,E]
     cd lidar && uv run --project .. --group lidar python joint_grid.py verify DIR [--cells 20000]
     cd lidar && uv run --project .. --group lidar python joint.py S,N,W,E OUT.json --grid DIR [--threshold 10] [--jobs 16]
 
@@ -19,6 +20,13 @@ no data); DIR/src/ the same block's source codes (joint.NAMES, 0 no data). A blo
 at all is not written. DIR/grid.json says what was built: box, sources, unit; DIR/blocks.log
 lists the blocks finished (with their cells and bytes), so an interrupted build resumes. Blocks
 sit at absolute positions, so any run box inside the built one reads them.
+
+Adding sources. `extend` builds a new grid from a finished one: a block that no file of an added
+source reaches (within the 201 m the island filter looks around it) would be read exactly as
+before, so it is hard-linked — the same file under a second name, no space, no time — and only
+the rest is built. The base stays as it was. `grid.json` records the reader's code (with the GDAL
+and PROJ versions) and each source's files; `extend` refuses a base built by other code or from
+files that have changed since (a download that went on), whose blocks would be stale.
 
 Nothing is lost and nothing touched. The build only reads the sources and only writes under DIR,
 which may not be, contain, or lie inside a source folder; it deletes nothing but its own
@@ -61,6 +69,42 @@ def source_folders():
                 q = os.path.dirname(q)
             out.add(q if os.path.dirname(q) != q else p)
     return sorted(out)
+
+
+def code_fingerprint():
+    """ What decides a block's cells besides the data: the reader's code and constants, and the
+    GDAL and PROJ that reproject and correct. A different one means old blocks may differ. """
+    import hashlib
+    import inspect
+    import pyproj
+    import rasterio
+    import catchments
+    import compact
+    parts = [inspect.getsource(f) for f in (joint.reader, joint.files, joint._warp, joint.correction,
+                                            joint.drop_islands, joint._state, catchments.despike,
+                                            catchments.heights, compact.quantize, _block)]
+    parts += [repr(v) for v in (joint.ORDER, joint.HEIGHTS, joint.ISLAND, joint.CRS, catchments.SPIKE,
+                                BLOCK, UNIT, rasterio.__gdal_version__, pyproj.proj_version_str)]
+    return hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:16]
+
+
+def data_fingerprint(source):
+    """ The files a source has now (names, sizes, modification times), hashed: a source still
+    downloading or replaced since a build changes it. """
+    import hashlib
+    from catchments import FABDEM
+    root = {'SK': joint.SK, 'CZ': joint.CZ, 'PL': joint.PL, 'PLE': joint.PLE, 'AT': joint.AT,
+            'FABDEM': FABDEM}[source]
+    h = hashlib.sha256()
+    if os.path.isfile(root):
+        paths = [root]
+    else:
+        paths = sorted(os.path.join(d, f) for d, _, fs in os.walk(root) for f in fs
+                       if f.lower().endswith(('.tif', '.tiff', '.zip')) or f == 'index.json')
+    for f in paths:
+        st = os.stat(f)
+        h.update(f'{os.path.relpath(f, os.path.dirname(root))} {st.st_size} {st.st_mtime_ns}\n'.encode())
+    return f'{len(paths)} files {h.hexdigest()[:16]}'
 
 
 def check_safe(root):
@@ -120,43 +164,62 @@ def _block(args):
     return i, j, st['cells'], n
 
 
-def build(bbox, root, sources, jobs):
+def read_log(root):
+    """ The blocks finished in a build: {(i, j): (cells, bytes)}. """
+    log = os.path.join(root, 'blocks.log')
+    done = {}
+    if os.path.exists(log):
+        for line in open(log):
+            i, j, c, n = (int(v) for v in line.split())
+            done[(i, j)] = (c, n)
+    return done
+
+
+def build(bbox, root, sources, jobs, base=None):
+    """ Build the grid for the box into `root`. With `base` (a finished grid of fewer sources),
+    its blocks that no added source reaches are hard-linked rather than built again. """
     check_safe(root)
-    os.makedirs(os.path.join(root, 'z'), exist_ok=True)
-    os.makedirs(os.path.join(root, 'src'), exist_ok=True)
+    if base:
+        check_base(base, sources)
     s, n, w, e = bbox
     x0, y0, H, W = joint.grid(s, n, w, e, 1.0)
     meta = dict(bbox=list(bbox), x0=x0, y0=y0, H=H, W=W, res=1.0, block=BLOCK, unit=UNIT, crs=joint.CRS,
-                sources=sorted(sources), island=joint.ISLAND)
+                sources=sorted(sources), island=joint.ISLAND, code=code_fingerprint(),
+                data={k: data_fingerprint(k) for k in sorted(sources)})
+    if base:
+        meta['base'] = os.path.realpath(base)
     path = os.path.join(root, 'grid.json')
     if os.path.exists(path):
         old = json.load(open(path))
         if {k: old.get(k) for k in meta} != meta:
-            raise SystemExit(f'{path} describes another build: {old}\nUse a new DIR.')
-    else:
+            raise SystemExit(f'{path} describes another build (or the code or data changed since):\n'
+                             f'  was {old}\n  now {meta}\nUse a new DIR.')
+    os.makedirs(os.path.join(root, 'z'), exist_ok=True)
+    os.makedirs(os.path.join(root, 'src'), exist_ok=True)
+    if not os.path.exists(path):
         json.dump(meta, open(path, 'w'), indent=1)
     for kind in ('z', 'src'):                    # only our own leftovers
         for f in os.listdir(os.path.join(root, kind)):
             if f.endswith('.part'):
                 os.remove(os.path.join(root, kind, f))
     log = os.path.join(root, 'blocks.log')
-    done = set()
-    if os.path.exists(log):
-        for line in open(log):
-            bi, bj = line.split()[:2]
-            done.add((int(bi), int(bj)))
+    done = read_log(root)
     blocks = blocks_for(x0, y0, H, W)
     todo = [b for b in blocks if b not in done]
     print(f'{len(blocks)} blocks of {BLOCK} m, {len(done)} done already, sources {",".join(sorted(sources))}, '
           f'{jobs} workers', flush=True)
     joint.SOURCES.clear()
     joint.SOURCES.update(sources)
+    cells = written = 0
+    if base:
+        todo, linked = reuse(base, root, todo, sources, log)
+        print(f'{linked} blocks kept from {base} (no added source reaches them), {len(todo)} to build',
+              flush=True)
     import multiprocessing
     from tqdm import tqdm
-    cells = written = 0
     with open(log, 'a') as L, multiprocessing.get_context('fork').Pool(jobs) as pool, \
-            tqdm(total=len(blocks), initial=len(done), unit='block', file=sys.stdout, mininterval=0,
-                 smoothing=0.05, dynamic_ncols=True) as bar:
+            tqdm(total=len(blocks), initial=len(blocks) - len(todo), unit='block', file=sys.stdout,
+                 mininterval=0, smoothing=0.05, dynamic_ncols=True) as bar:
         for i, j, c, b in pool.imap_unordered(_block, [(root, i, j) for i, j in todo]):
             L.write(f'{i} {j} {c} {b}\n')
             L.flush()
@@ -165,6 +228,55 @@ def build(bbox, root, sources, jobs):
             bar.set_postfix_str(f'{written / 1e9:.2f} GB', refresh=False)
             bar.update(1)
     print(f'{cells} cells with data, {written / 1e9:.2f} GB written', flush=True)
+
+
+def reaches(st, sources, i, j):
+    """ Whether any of `sources` has a file the reader would open for block (i, j). """
+    m = 1 + joint.ISLAND
+    bounds = (i * BLOCK - m, j * BLOCK - m, (i + 1) * BLOCK + m, (j + 1) * BLOCK + m)
+    return any(joint.files(st, src, bounds) for src in sources)
+
+
+def reuse(base, root, todo, sources, log):
+    """ Hard-link the blocks of `base` (checked by `check_base`) that the added sources do not
+    reach; returns the blocks still to build and the count kept. """
+    import shutil
+    old = describe(base)
+    added = set(sources) - set(old['sources'])
+    base_done = read_log(base)
+    st = joint._state()
+    left, kept = [], 0
+    with open(log, 'a') as L:
+        for i, j in todo:
+            if (i, j) not in base_done or reaches(st, added, i, j):
+                left.append((i, j))
+                continue
+            c, n = base_done[(i, j)]
+            if c:
+                for kind in ('z', 'src'):
+                    a, b = name(base, kind, i, j), name(root, kind, i, j)
+                    try:
+                        os.link(a, b)
+                    except OSError:                    # another file system: copy
+                        shutil.copy2(a, b)
+            L.write(f'{i} {j} {c} {n}\n')
+            kept += 1
+    return left, kept
+
+
+def check_base(base, sources):
+    """ Refuse a base with sources this build lacks, built by other code, or from files that
+    have changed since. """
+    old = describe(base)
+    if set(old['sources']) - set(sources):
+        raise SystemExit(f'{base} has sources this build lacks: {set(old["sources"]) - set(sources)}')
+    if old.get('code') != code_fingerprint():
+        raise SystemExit(f'{base} was built by another reader (code {old.get("code")}, now '
+                         f'{code_fingerprint()}): its blocks may differ; build afresh')
+    for k in old['sources']:
+        if old['data'].get(k) != data_fingerprint(k):
+            raise SystemExit(f'{base}: the {k} files changed since it was built '
+                             f'({old["data"].get(k)} -> {data_fingerprint(k)}); build afresh')
 
 
 # ------------------------------------------------------------------ reading
@@ -308,6 +420,12 @@ def main():
     p.add_argument('dir')
     p.add_argument('--sources', default='SK,CZ,AT')
     p.add_argument('--jobs', type=int, default=16)
+    p = sub.add_parser('extend', help='a new grid with more sources, keeping what they do not reach')
+    p.add_argument('base')
+    p.add_argument('dir')
+    p.add_argument('--add', required=True, help='the sources to add, comma-separated')
+    p.add_argument('--bbox', help='S,N,W,E, if other than the base\'s')
+    p.add_argument('--jobs', type=int, default=16)
     p = sub.add_parser('verify')
     p.add_argument('dir')
     p.add_argument('--cells', type=int, default=20000)
@@ -318,6 +436,15 @@ def main():
             ap.error(f'unknown sources: {sources - set(joint.ALL_SOURCES)}')
         t0 = time.time()
         build(tuple(float(v) for v in a.bbox.split(',')), a.dir, sources, a.jobs)
+        print(f'{time.time() - t0:.0f} s', flush=True)
+    elif a.cmd == 'extend':
+        base = describe(a.base)
+        add = {v.strip() for v in a.add.split(',')}
+        if add - set(joint.ALL_SOURCES):
+            ap.error(f'unknown sources: {add - set(joint.ALL_SOURCES)}')
+        bbox = tuple(float(v) for v in a.bbox.split(',')) if a.bbox else tuple(base['bbox'])
+        t0 = time.time()
+        build(bbox, a.dir, set(base['sources']) | add, a.jobs, base=a.base)
         print(f'{time.time() - t0:.0f} s', flush=True)
     else:
         verify(a.dir, a.cells)

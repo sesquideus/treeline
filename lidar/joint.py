@@ -85,6 +85,14 @@ def evrf_sheets():
 _STATE = {}
 
 
+def _sk_bounds():
+    """ The Slovak raster's extent in EPSG:3035. """
+    import rasterio
+    from rasterio.warp import transform_bounds
+    with rasterio.open(SK) as d:
+        return transform_bounds(d.crs, CRS, *d.bounds, densify_pts=101)
+
+
 def _state():
     """ Per process: the open files and transformers (forked workers open their own). """
     pid = os.getpid()
@@ -94,6 +102,7 @@ def _state():
         _STATE.clear()
         _STATE[pid] = dict(
             sk=rasterio.open(SK),
+            sk_bounds=_sk_bounds(),
             to_ll=Transformer.from_crs(CRS, 'EPSG:4326', always_xy=True),
             to_cz=Transformer.from_crs(CRS, 'EPSG:3045', always_xy=True),
             to_pl=Transformer.from_crs(CRS, 'EPSG:2180', always_xy=True),
@@ -162,6 +171,68 @@ def drop_islands(z, size=None):
     return int(small.sum())
 
 
+#: the reader's order: the first source with data wins a cell (code, name, resampling)
+ORDER = ((1, 'SK', 'nearest'), (2, 'CZ', 'nearest'), (5, 'PLE', 'nearest'), (3, 'PL', 'nearest'),
+         (6, 'AT', 'nearest'), (4, 'FABDEM', 'bilinear'))
+
+
+def files(st, source, bounds):
+    """
+    The files of `source` the reader opens for a window of the target grid with `bounds`
+    (x0, y0, x1, y1 in EPSG:3035), each with the no-data value to assume where the file declares
+    none: [(path, nodata)]. A window none of them touches gets nothing from that source, which
+    is what lets `joint_grid.py extend` keep a block as it was.
+    """
+    xs, ys = [bounds[0], bounds[2], bounds[0], bounds[2]], [bounds[1], bounds[1], bounds[3], bounds[3]]
+    out = []
+    if source == 'SK':
+        b = st['sk_bounds']
+        if b[0] < bounds[2] and bounds[0] < b[2] and b[1] < bounds[3] and bounds[1] < b[3]:
+            out.append((SK, None))
+    elif source == 'CZ' and os.path.isdir(CZ):
+        # 2 km tiles named by their south-west corner in km (EPSG:3045)
+        ex, ny = st['to_cz'].transform(xs, ys)
+        for ek in range(int(min(ex) // 2000) * 2, int(max(ex) // 2000) * 2 + 2, 2):
+            for nk in range(int(min(ny) // 2000) * 2, int(max(ny) // 2000) * 2 + 2, 2):
+                f = os.path.join(CZ, f'{ek:03d}_{nk:04d}.tif')
+                if os.path.exists(f):
+                    out.append((f, None))
+    elif source == 'PLE' and st['evrf']:
+        # the surveys of 2018 on (EVRF2007): 1:5000 sheets, found by their bounds (EPSG:2180)
+        ex, ny = st['to_pl'].transform(xs, ys)
+        we0, we1, wn0, wn1 = min(ex), max(ex), min(ny), max(ny)
+        seen = set()
+        for ek in range(int(we0 // 10000), int(we1 // 10000) + 1):
+            for nk in range(int(wn0 // 10000), int(wn1 // 10000) + 1):
+                for e0, n0, e1, n1, f in st['evrf'].get((ek, nk), ()):
+                    if f in seen or e1 < we0 or e0 > we1 or n1 < wn0 or n0 > wn1:
+                        continue
+                    seen.add(f)
+                    out.append((f, -9999))
+    elif source == 'PL' and os.path.isdir(PL):
+        # the older coverage (KRON86): 10 km tiles, n{northing km}_e{easting km}, zeros beyond Poland
+        ex, ny = st['to_pl'].transform(xs, ys)
+        for ek in range(int(min(ex) // 10000) * 10, int(max(ex) // 10000) * 10 + 10, 10):
+            for nk in range(int(min(ny) // 10000) * 10, int(max(ny) // 10000) * 10 + 10, 10):
+                f = os.path.join(PL, f'n{nk:04d}_e{ek:04d}.tif')
+                if os.path.exists(f):
+                    out.append((f, 0))
+    elif source == 'AT' and os.path.isdir(AT):
+        # 50 km tiles in the target CRS, named by their south-west corner, no data beyond Austria
+        for ek in range(int(bounds[0] // AT_TILE) * AT_TILE, int(bounds[2] // AT_TILE) * AT_TILE + 1, AT_TILE):
+            for nk in range(int(bounds[1] // AT_TILE) * AT_TILE, int(bounds[3] // AT_TILE) * AT_TILE + 1, AT_TILE):
+                f = os.path.join(AT, at_name(ek, nk))
+                if os.path.exists(f):
+                    out.append((f, None))
+    elif source == 'FABDEM':
+        # 1° tiles in 10° zips; a degree of sea has none (the reader skips what fails to open)
+        lon, lat = st['to_ll'].transform(xs, ys)
+        for la in range(math.floor(min(lat)), math.floor(max(lat)) + 1):
+            for lo in range(math.floor(min(lon)), math.floor(max(lon)) + 1):
+                out.append((fabdem_tile(la, lo), -9999))
+    return out
+
+
 def reader(x0, y0, res):
     """ `read(a, b, c, e)` for the grid with top-left corner (x0, y0) and `res` m cells. """
 
@@ -190,77 +261,26 @@ def reader(x0, y0, res):
             z[new] = part[new]
             src[new] = code
 
-        # Slovakia: one big raster
-        if 'SK' in SOURCES:
-            fill(_warp(st['sk'], z, tr, Resampling.nearest), 1, 'SK')
-        # Czechia: 2 km tiles named by their south-west corner in km (EPSG:3045)
-        if 'CZ' in SOURCES and np.isnan(z).any() and os.path.isdir(CZ):
-            ex, ny_ = st['to_cz'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
-                                            [bounds[1], bounds[1], bounds[3], bounds[3]])
+        for code, source, resampling in ORDER:
+            if source not in SOURCES or (code != 1 and not np.isnan(z).any()):
+                continue
+            fs = files(st, source, bounds)
+            if not fs:
+                continue
             part = np.full((h, w), np.nan, np.float32)
-            for ek in range(int(min(ex) // 2000) * 2, int(max(ex) // 2000) * 2 + 2, 2):
-                for nk in range(int(min(ny_) // 2000) * 2, int(max(ny_) // 2000) * 2 + 2, 2):
-                    f = os.path.join(CZ, f'{ek:03d}_{nk:04d}.tif')
-                    if os.path.exists(f):
+            for f, nodata in fs:
+                try:
+                    if f == SK:                 # the one big raster, kept open per process
+                        t = _warp(st['sk'], part, tr, getattr(Resampling, resampling), nodata=nodata)
+                    else:
                         with rasterio.open(f) as d:
-                            t = _warp(d, part, tr, Resampling.nearest)
-                        part = np.where(np.isnan(part), t, part)
-            fill(part, 2, 'CZ')
-        # Poland, the surveys of 2018 on (EVRF2007): 1:5000 sheets, found by their bounds
-        if 'PLE' in SOURCES and np.isnan(z).any() and st['evrf']:
-            ex, ny_ = st['to_pl'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
-                                            [bounds[1], bounds[1], bounds[3], bounds[3]])
-            we0, we1, wn0, wn1 = min(ex), max(ex), min(ny_), max(ny_)
-            part = np.full((h, w), np.nan, np.float32)
-            seen = set()
-            for ek in range(int(we0 // 10000), int(we1 // 10000) + 1):
-                for nk in range(int(wn0 // 10000), int(wn1 // 10000) + 1):
-                    for e0, n0, e1, n1, f in st['evrf'].get((ek, nk), ()):
-                        if f in seen or e1 < we0 or e0 > we1 or n1 < wn0 or n0 > wn1:
-                            continue
-                        seen.add(f)
-                        with rasterio.open(f) as d:
-                            t = _warp(d, part, tr, Resampling.nearest, nodata=-9999)
-                        part = np.where(np.isnan(part), t, part)
-            fill(part, 5, 'PLE')
-        # Poland, the older coverage (KRON86): 10 km tiles, n{northing km}_e{easting km} (EPSG:2180), zeros beyond Poland
-        if 'PL' in SOURCES and np.isnan(z).any() and os.path.isdir(PL):
-            ex, ny_ = st['to_pl'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
-                                            [bounds[1], bounds[1], bounds[3], bounds[3]])
-            part = np.full((h, w), np.nan, np.float32)
-            for ek in range(int(min(ex) // 10000) * 10, int(max(ex) // 10000) * 10 + 10, 10):
-                for nk in range(int(min(ny_) // 10000) * 10, int(max(ny_) // 10000) * 10 + 10, 10):
-                    f = os.path.join(PL, f'n{nk:04d}_e{ek:04d}.tif')
-                    if os.path.exists(f):
-                        with rasterio.open(f) as d:
-                            t = _warp(d, part, tr, Resampling.nearest, nodata=0)
-                        part = np.where(np.isnan(part), t, part)
-            fill(part, 3, 'PL')
-        # Austria: 50 km tiles in the target CRS, named by their south-west corner, no data beyond Austria
-        if 'AT' in SOURCES and np.isnan(z).any() and os.path.isdir(AT):
-            part = np.full((h, w), np.nan, np.float32)
-            for ek in range(int(bounds[0] // AT_TILE) * AT_TILE, int(bounds[2] // AT_TILE) * AT_TILE + 1, AT_TILE):
-                for nk in range(int(bounds[1] // AT_TILE) * AT_TILE, int(bounds[3] // AT_TILE) * AT_TILE + 1, AT_TILE):
-                    f = os.path.join(AT, at_name(ek, nk))
-                    if os.path.exists(f):
-                        with rasterio.open(f) as d:
-                            t = _warp(d, part, tr, Resampling.nearest)
-                        part = np.where(np.isnan(part), t, part)
-            fill(part, 6, 'AT')
-        # FABDEM wherever none of them has data
-        if 'FABDEM' in SOURCES and np.isnan(z).any():
-            lon, lat = st['to_ll'].transform([bounds[0], bounds[2], bounds[0], bounds[2]],
-                                             [bounds[1], bounds[1], bounds[3], bounds[3]])
-            part = np.full((h, w), np.nan, np.float32)
-            for la in range(math.floor(min(lat)), math.floor(max(lat)) + 1):
-                for lo in range(math.floor(min(lon)), math.floor(max(lon)) + 1):
-                    try:
-                        with rasterio.open(fabdem_tile(la, lo)) as d:
-                            t = _warp(d, part, tr, Resampling.bilinear, nodata=-9999)
-                    except Exception:
+                            t = _warp(d, part, tr, getattr(Resampling, resampling), nodata=nodata)
+                except Exception:
+                    if source == 'FABDEM':      # a degree with no tile: the sea
                         continue
-                    part = np.where(np.isnan(part), t, part)
-            fill(part, 4, None)
+                    raise
+                part = np.where(np.isnan(part), t, part)
+            fill(part, code, None if source == 'FABDEM' else source)
         drop_islands(z)
         z = z[ISLAND:-ISLAND, ISLAND:-ISLAND]
         z[np.isnan(z)] = 0
