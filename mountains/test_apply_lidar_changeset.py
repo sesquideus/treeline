@@ -776,3 +776,52 @@ class MoveBySummitAtTests(TestCase):
         self.assertIn('not moved', out)
         self.laguna.point.refresh_from_db()
         self.assertEqual(self.laguna.point.altitude, 5034.0)
+
+
+class HeightSwapTests(TestCase):
+    """
+    Two summits the lidar finds the other way round in height: the higher one hung off the
+    lower in prominence and isolation both. Neither can change alone (each would still point
+    at the lower one), so a relink carries the isolation and all of it is checked at once.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.arber = make_summit('Großer Arber', 1455.5, 49.1125, 13.1360, key_col=make_col(None, 600.0, 49.5, 13.5))
+        cls.low_col = make_col(None, 858.4, 48.792271, 13.756644)
+        cls.saddle = make_col('Rakouská louka', 1343.5, 48.770665, 13.852593)
+        cls.hufberg = make_summit('Hufberg', 1377.54, 48.7699219, 13.8471466, key_col=cls.low_col,
+                                  prominence_parent=cls.arber, isolation_parent=cls.arber,
+                                  nearest_higher_point=Point(13.39, 48.98, srid=4326))
+        cls.plechy = make_summit('Plechý', 1378.26, 48.7712914, 13.8572777, key_col=cls.saddle,
+                                 prominence_parent=cls.hufberg, isolation_parent=cls.hufberg,
+                                 nearest_higher_point=Point(13.8474, 48.7698, srid=4326),
+                                 isolation_name='southeast of summit')
+
+    def data(self):
+        ref = lambda s: dict(pk=s.pk, name=s.point.name)
+        return dict(sources=dict(lidar='Joint lidar', names='OpenStreetMap'), relinks=[
+            dict(summit=self.plechy.pk, summit_name='Plechý',
+                 key_col=dict(point=self.low_col.point.pk, name=None, was=[48.792271, 13.756644]),
+                 parent=ref(self.arber),
+                 isolation=dict(parent=ref(self.arber), nhp=[48.98, 13.39], source='carried over')),
+            dict(summit=self.hufberg.pk, summit_name='Hufberg',
+                 key_col=dict(point=self.saddle.point.pk, name='Rakouská louka'), parent=ref(self.plechy),
+                 isolation=dict(parent=ref(self.plechy), nhp=[48.7713222, 13.85722]))])
+
+    def test_they_trade_places(self):
+        out = ApplyTests.run_it(self, self.data())
+        self.assertIn('2 relinked', out)
+        self.plechy.refresh_from_db(), self.hufberg.refresh_from_db()
+        self.assertEqual((self.plechy.key_col, self.plechy.prominence_parent, self.plechy.isolation_parent),
+                         (self.low_col, self.arber, self.arber))
+        self.assertIsNone(self.plechy.isolation_name)       # it described Hufberg's ground
+        self.assertEqual(self.plechy.isolation_source.name, 'carried over')
+        self.assertEqual((self.hufberg.key_col, self.hufberg.prominence_parent, self.hufberg.isolation_parent),
+                         (self.saddle, self.plechy, self.plechy))
+        self.assertEqual(self.hufberg.isolation_source.name, 'Joint lidar')
+
+    def test_a_second_run_changes_nothing(self):
+        ApplyTests.run_it(self, self.data())
+        self.assertIn('0 relinked', ApplyTests.run_it(self, self.data()))

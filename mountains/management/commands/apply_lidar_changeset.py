@@ -433,6 +433,11 @@ class Command(BaseCommand):
         """
         New key cols and parents for a group of summits at once. A key col belongs to one
         summit, so cols trading places are let go of first and then handed out.
+
+        A link may carry the summit's new isolation too (`isolation`: parent, nhp, and a
+        `source` if not the lidar), checked together with the rest: two summits trading places
+        in height can change neither their parents nor their isolations one at a time, since
+        each would point at the lower one for a moment.
         """
         def near(model, at):
             here = Point(at['lon'], at['lat'], srid=4326)
@@ -467,19 +472,30 @@ class Command(BaseCommand):
                 self.stdout.write(f'  ! {link.get("summit_name")}: summit, key col or parent not found as such: skipped')
                 self.counts['skipped'] += 1
                 continue
-            if col.pk and summit.key_col_id == col.pk and summit.prominence_parent_id == (parent and parent.pk):
+            iso = link.get('isolation')
+            if iso:
+                iso = dict(iso, parent=self.summit_spec(iso['parent']), nhp=Point(iso['nhp'][1], iso['nhp'][0], srid=4326))
+                if iso['parent'] is None:
+                    self.stdout.write(f'  ! {link.get("summit_name")}: isolation parent not found as such: skipped')
+                    self.counts['skipped'] += 1
+                    continue
+                if (summit.isolation_parent_id == iso['parent'].pk and summit.nearest_higher_point is not None
+                        and summit.nearest_higher_point.distance(iso['nhp']) < 1e-7):
+                    iso = None                       # it has it already
+            if col.pk and summit.key_col_id == col.pk and summit.prominence_parent_id == (parent and parent.pk) \
+                    and not iso:
                 self.counts['skipped'] += 1
                 continue
             if not col.pk:
                 col = Col.objects.create(point=self.point(k['new'], f'the new key col of {summit.point}'))
                 created.append(col)
-            todo.append((summit, col, parent))
+            todo.append((summit, col, parent, iso))
         # Each summit's own col, to give back if its relink is refused: the cols are let go of
         # all at once below, so a refused summit would otherwise be left with none.
-        before = {s.pk: s.key_col_id for s, _, _ in todo}
-        Summit.objects.filter(pk__in=[s.pk for s, _, _ in todo]).update(key_col=None)
+        before = {s.pk: s.key_col_id for s, _, _, _ in todo}
+        Summit.objects.filter(pk__in=[s.pk for s, _, _, _ in todo]).update(key_col=None)
         refused = []
-        for summit, col, parent in todo:
+        for summit, col, parent, iso in todo:
             summit.refresh_from_db()
             if parent is not None:
                 # It may itself have been relinked a moment ago: check cycles against that.
@@ -489,6 +505,11 @@ class Command(BaseCommand):
                 summit.line_parent = summit.line_cutoff = summit.line_source = None
             summit.key_col, summit.prominence_parent = col, parent
             summit.prominence_source = self.lidar if parent else None
+            if iso:
+                if summit.isolation_parent_id != iso['parent'].pk:
+                    summit.isolation_name = None
+                summit.nearest_higher_point, summit.isolation_parent = iso['nhp'], iso['parent']
+                summit.isolation_source = Source.objects.get_or_create(name=iso['source'])[0] if iso.get('source') else self.lidar
             try:
                 summit.full_clean()
             except ValidationError as e:
@@ -714,6 +735,16 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ isolation
 
+    def summit_spec(self, spec):
+        """ A summit given as one this changeset made (`new`), by position (`at`), or by number. """
+        if 'new' in spec:
+            return self.new.get(spec['new'])
+        if 'at' in spec:
+            return Summit.objects.filter(point__location__dwithin=(
+                Point(spec['at'][1], spec['at'][0], srid=4326), SAME_PLACE)).first()
+        s = Summit.objects.filter(pk=spec['pk'], point__name=spec['name']).select_related('point').first()
+        return s and self.checked(s, s.point, spec['name'], spec.get('was'), 'summit')
+
     def isolation(self, iso):
         """
         A summit's nearest higher point and isolation parent, from the lidar. Both summits may
@@ -721,15 +752,7 @@ class Command(BaseCommand):
         The description of the ground (`isolation_name`) is cleared when the parent changes:
         "northern ridge of X" no longer says anything once it is not X's.
         """
-        def summit(spec):
-            if 'new' in spec:
-                return self.new.get(spec['new'])
-            if 'at' in spec:
-                return Summit.objects.filter(point__location__dwithin=(
-                    Point(spec['at'][1], spec['at'][0], srid=4326), SAME_PLACE)).first()
-            s = Summit.objects.filter(pk=spec['pk'], point__name=spec['name']).select_related('point').first()
-            return s and self.checked(s, s.point, spec['name'], spec.get('was'), 'summit')
-        s, parent = summit(iso['summit']), summit(iso['parent'])
+        s, parent = self.summit_spec(iso['summit']), self.summit_spec(iso['parent'])
         if s is None or parent is None:
             self.stdout.write(f'  ! isolation of {iso["summit"]}: summit or parent not found as such: skipped')
             self.counts['skipped'] += 1
