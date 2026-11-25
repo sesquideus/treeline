@@ -4,7 +4,7 @@ Where each terrain source has data: every file's no-data mask, read decimated, l
 the coverage map. A cell counts as covered if the file's cell nearest its centre has data, so the outlines
 are good to about 200 m, not 1 m.
 
-    cd lidar && uv run --project .. --group lidar python coverage.py OUT_DIR
+    cd lidar && uv run --project .. --group lidar python coverage_map.py OUT_DIR
 
 OUT_DIR/coverage.json: {sources: [{key, label, ..., km2, files, bytes, geometry}], land, box}.
 OUT_DIR/masks.npz keeps each source's grid, so a rerun with ONLY=key,key rescans just those.
@@ -25,7 +25,9 @@ from rasterio.warp import reproject, transform_bounds
 from rasterio.windows import Window
 from tqdm import tqdm
 
-D = '/mnt/data/treeline'
+from data import ROOT
+
+D = ROOT
 BOX = (9.5, 46.3, 24.2, 52.0)                    # lon0, lat0, lon1, lat1: the joint run
 VIEW = (8.8, 45.8, 24.9, 52.5)                   # what the map shows
 RES = 200.0
@@ -33,30 +35,30 @@ CHUNK = 8192                                     # a big file is read in windows
 
 
 def dgm(st, name, years, crs='ETRS89 / UTM 32N (EPSG:25832)', tile='1 km tiles'):
-    return dict(key='DE-' + st, label=f'DGM1 {name}', country='DE', files=f'{D}/DGM1_{st}_cm/tiles/*.tif',
+    return dict(key='DE-' + st, label=f'DGM1 {name}', country='DE', files=f'{D}/intcm/DE/{st}/tiles/*.tif',
                 res='1 m', crs=crs, tiles=tile, heights='DHHN2016 (EPSG:7837)', years=years, nodata=None,
                 lidar=True)
 
 
 SOURCES = [
-    dict(key='SK', label='DMR 5.0', country='SK', files=f'{D}/DTM5_cm/dmr5_etrs89.tif', res='1 m',
+    dict(key='SK', label='DMR 5.0', country='SK', files=f'{D}/intcm/SK/dmr5_etrs89.tif', res='1 m',
          crs='ETRS89 / UTM 34N (EPSG:3046)', tiles='one mosaic', heights='ETRS89 ellipsoidal (EPSG:4937)',
          years='2017–2023', nodata=None, lidar=True),
-    dict(key='CZ', label='DMR 5G', country='CZ', files=f'{D}/DMR5G_CZ_cm/*.tif', res='1 m (triangulated from points)',
+    dict(key='CZ', label='DMR 5G', country='CZ', files=f'{D}/intcm/CZ/*.tif', res='1 m (triangulated from points)',
          crs='ETRS89 / TM33N (EPSG:3045)', tiles='2 km tiles', heights='Bpv (EPSG:8357)', years='2009–2013',
          nodata=None, lidar=True),
-    dict(key='AT', label='ALS-DGM', country='AT', files=f'{D}/ALS_AT_cm/*.tif', res='1 m',
+    dict(key='AT', label='ALS-DGM', country='AT', files=f'{D}/intcm/AT/*.tif', res='1 m',
          crs='ETRS89 / LAEA (EPSG:3035)', tiles='50 km tiles', heights='EVRF2000 Austria (EPSG:9274)',
          years='edition 2025-09', nodata=None, lidar=True),
-    dict(key='PL-EVRF', label='NMT EVRF2007, 1992 sheets', country='PL', files=f'{D}/NMT_PL_EVRF/sheets/[MN]-*.tif',
+    dict(key='PL-EVRF', label='NMT EVRF2007, 1992 sheets', country='PL', files=f'{D}/intcm/PL/EVRF/sheets/[MN]-*.tif',
          res='1 m', crs='PUWG 1992 (EPSG:2180)', tiles='1:5000 sheets', heights='PL-EVRF2007-NH (EPSG:9651)',
          years='2018–2026', nodata=None, lidar=True),
     dict(key='PL-EVRF-2000', label='NMT EVRF2007, PL-2000 sheets', country='PL',
-         files=f'{D}/NMT_PL_EVRF/sheets/[5-8].*.tif', res='1 m', crs='PL-2000 zones 5–7 (EPSG:2176–2178)',
+         files=f'{D}/intcm/PL/EVRF/sheets/[5-8].*.tif', res='1 m', crs='PL-2000 zones 5–7 (EPSG:2176–2178)',
          tiles='PL-2000 sheets', heights='PL-EVRF2007-NH (EPSG:9651)', years='2018–2026', nodata=None, lidar=True),
-    dict(key='PL-KRON86', label='NMT KRON86 (older)', country='PL', files=f'{D}/NMT_PL/tiles/*.tif', res='1 m',
+    dict(key='PL-KRON86', label='NMT KRON86 (older)', country='PL', files=f'{D}/intcm/PL/KRON86/tiles/*.tif', res='1 m',
          crs='PUWG 1992 (EPSG:2180)', tiles='10 km tiles', heights='PL-KRON86-NH (EPSG:9650)', years='2010–2015',
-         nodata=0, lidar=True),
+         nodata=None, lidar=True),
     dgm('BY', 'Bayern', '2008–2024'),
     dgm('BW', 'Baden-Württemberg', '2000–2023', tile='1 km tiles (2 km cells)'),
     dgm('HE', 'Hessen', '2008–2022', tile='1 km squares (WCS)'),
@@ -140,16 +142,18 @@ def main():
     masks = dict(np.load(path)) if os.path.exists(path) else {}
     only = os.environ.get('ONLY')
     todo = [s for s in SOURCES if (only and s['key'] in only.split(',')) or (not only and s['key'] not in masks)]
-    js = [j for s in todo for j in jobs(s)]
-    for s in todo:
-        masks[s['key']] = np.zeros((GH, GW), np.uint8)
     with ProcessPoolExecutor(int(os.environ.get('JOBS', 10))) as pool:
-        for key, res in tqdm(pool.map(scan, js, chunksize=8), total=len(js), unit='part', mininterval=10):
-            if res is not None:
-                r0, c0, a = res
-                masks[key][r0:r0 + a.shape[0], c0:c0 + a.shape[1]] |= a
-    np.savez_compressed(path + '.part.npz', **masks)
-    os.replace(path + '.part.npz', path)
+        for s in todo:                          # one source at a time, each saved when done: a rerun resumes
+            js = jobs(s)
+            m = np.zeros((GH, GW), np.uint8)
+            for key, res in tqdm(pool.map(scan, js, chunksize=8), total=len(js), unit='part', mininterval=10,
+                                 desc=s['key']):
+                if res is not None:
+                    r0, c0, a = res
+                    m[r0:r0 + a.shape[0], c0:c0 + a.shape[1]] |= a
+            masks[s['key']] = m
+            np.savez_compressed(path + '.part.npz', **masks)
+            os.replace(path + '.part.npz', path)
 
     # land in the view, from Natural Earth (countries), and what of it no lidar covers inside the box
     from shapely.geometry import shape, box, mapping

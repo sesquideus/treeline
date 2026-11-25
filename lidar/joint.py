@@ -10,7 +10,7 @@ has data (beyond the four, and Polish sheets not yet downloaded).
 it from the sources in every tile: faster, and every cell has one value whichever tile reads it.
 
 Every run's tiles sit in one frame over Europe, and every tile and merged block is kept in
-`--store` (default /mnt/data/treeline/store/joint) under a hash of what decides it: the files
+`--store` (default $TREELINE_DATA/store/joint) under a hash of what decides it: the files
 it reads, the code, the threshold. A run with more data — another country, a bigger box —
 floods only the tiles the new files reach and merges only the blocks above them; the rest is
 read back. A run cut off resumes the same way. `catchments.py store-gc` deletes blocks no
@@ -27,7 +27,7 @@ Sources, the first with data wins a cell:
   Slovakia  DMR 5.0, 1 m, ETRS89 / UTM 34N, ellipsoidal heights (ETRS89-h); spikes filtered
   Czechia   DMR 5G, triangulated to 1 m by `dmr5g_raster.py`, ETRS89 / TM33N, Bpv
   Poland    GUGiK NMT in PL-EVRF2007-NH, the surveys of 2018 on, 1 m 1:5000 sheets (EPSG:2180)
-            from `NMT_PL_EVRF/download.py`; where none, the older coverage in PL-KRON86-NH,
+            from `NMT_PL_EVRF/download.py` (int cm in intcm/PL/EVRF); where none, the older coverage in PL-KRON86-NH,
             1 m in 10 km tiles (EPSG:2180)
   Austria   BEV ALS-DGM, 1 m, 50 km tiles in EPSG:3035 (edition 2025-09-15, CC BY 4.0), EVRF2000
             Austria heights (EPSG:9274); from `ALS_AT/download.sh`
@@ -49,15 +49,16 @@ import time
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from data import path  # noqa: E402
 from catchments import (ARC, THRESHOLD, despike, fabdem_tile, heights, run_store, walk, walk_line,  # noqa: E402
                         walk_settled)
 
 CRS = 'EPSG:3035'
-SK = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5_cm/dmr5_etrs89.tif')   # compact.py copies: int cm
-CZ = os.environ.get('TREELINE_DMR5G', '/mnt/data/treeline/DMR5G_CZ_cm')
-PL = os.environ.get('TREELINE_NMT_PL', '/mnt/data/treeline/NMT_PL/tiles')
-PLE = os.environ.get('TREELINE_NMT_PL_EVRF', '/mnt/data/treeline/NMT_PL_EVRF')
-AT = os.environ.get('TREELINE_ALS_AT', '/mnt/data/treeline/ALS_AT_cm')
+SK = path('intcm', 'SK', 'dmr5_etrs89.tif', env='TREELINE_DMR5')     # compact.py copies: int cm
+CZ = path('intcm', 'CZ', env='TREELINE_DMR5G')
+PL = path('intcm', 'PL', 'KRON86', 'tiles', env='TREELINE_NMT_PL')
+PLE = path('intcm', 'PL', 'EVRF', env='TREELINE_NMT_PL_EVRF')
+AT = path('intcm', 'AT', env='TREELINE_ALS_AT')
 #: each source's height system, as PROJ knows it (heights relative to these become EGM2008)
 HEIGHTS = {'SK': 'EPSG:4937', 'CZ': 'EPSG:4258+8357', 'PL': 'EPSG:4258+9650',   # PL: Baltic 1986 (KRON86)
            'PLE': 'EPSG:4258+9651',                                               # PLE: EVRF2007-PL
@@ -381,7 +382,7 @@ def sources_at(xs, ys):
 #: the one frame every run's tiles sit in (EPSG:3035, top-left corner and side in metres): a tile
 #: is the same tile in every run, whatever its box, so that kept blocks serve the next one
 FRAME_X0, FRAME_Y0, FRAME_SIDE = 0.0, 10_240_000.0, 10_240_000.0
-STORE = os.environ.get('TREELINE_STORE', '/mnt/data/treeline/store/joint')
+STORE = path('store', 'joint', env='TREELINE_STORE')
 
 
 def frame(res, tile):

@@ -69,17 +69,22 @@ Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar
 database. The server needs none of it — only the changesets it writes.
 
 The lidar is kept as `lidar/compact.py` copies: integer centimetres (the GDAL scale says 0.01),
-3–4× smaller than the float32 the agencies ship, every cell within 5 mm, checked as written. They
-sit beside the originals in `/mnt/data/treeline/`: `DTM5_cm/dmr5_etrs89.tif` (SK, 46 GB),
-`ALS_AT_cm/` (AT), `DMR5G_CZ_cm/` (CZ), the paths `joint.py` reads by default (`TREELINE_DMR5`,
-`TREELINE_ALS_AT`, `TREELINE_DMR5G` override them). Readers take heights through
-`catchments.heights()`, which applies the scale; the older tools that read raw values
-(`prominence.py` and what imports its `SOURCE`) read `DTM5_cm/dmr5_etrs89_m.vrt`, the Slovak copy
-as float metres. `lidar/joint_grid.py` builds the joint terrain once into 4 km blocks for runs
+3–4× smaller than the float32 the agencies ship, every cell within 5 mm, checked as written.
+
+All the data sits under one root, `TREELINE_DATA` (default `/mnt/data/treeline`); `lidar/data.py`
+builds every path from it, so moving the data means setting that variable, not editing tools (a
+source's own variable, e.g. `TREELINE_DMR5`, still overrides its one path). The integer-cm copies
+are in `intcm/<country>/`, apart from the originals: `SK/dmr5_etrs89.tif` (46 GB), `CZ/`, `AT/`,
+`PL/EVRF/` (sheets + index.json) and `PL/KRON86/tiles/`, which `joint.py` reads; `DE/<state>/`,
+`CH/`, `IT/<region>/`, `SI/`, which it does not read yet. Each downloaded country keeps its
+downloader beside its tiles. Readers take heights through `catchments.heights()`, which applies
+the scale; the older tools that read raw values (`prominence.py` and what imports its `SOURCE`)
+read `intcm/SK/dmr5_etrs89_m.vrt`, the Slovak copy as float metres. `lidar/coverage_map.py` maps
+which source covers what (`coverage/`). `lidar/joint_grid.py` builds the joint terrain once into 4 km blocks for runs
 (`joint.py --grid DIR`) and extends a built grid with more sources (`extend`).
 
 `joint.py` runs grow: tiles sit in one EPSG:3035 frame over Europe, and every tile and merged
-block is kept in `/mnt/data/treeline/store/joint` (`--store`) under a hash of its files, the code
+block is kept in `$TREELINE_DATA/store/joint` (`--store`) under a hash of its files, the code
 and the threshold (`catchments.run_store`). Adding a country or widening the box floods only the
 tiles the new files reach; a run cut off resumes. Each top in the output is `border` (its key col
 may still change with data beyond the edge) or settled, and `parent_proven` says its parent cannot

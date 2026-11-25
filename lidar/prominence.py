@@ -33,7 +33,9 @@ from numba import njit
 from pyproj import Transformer
 from rasterio.windows import Window
 
-SOURCE = os.environ.get('TREELINE_DMR5', '/mnt/data/treeline/DTM5_cm/dmr5_etrs89_m.vrt')   # the cm copy, as float metres
+from data import path
+
+SOURCE = path('intcm', 'SK', 'dmr5_etrs89_m.vrt', env='TREELINE_DMR5')   # the cm copy, as float metres
 NODATA = np.float32(-np.inf)
 
 

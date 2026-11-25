@@ -51,6 +51,8 @@ from multiprocessing import Pool
 import numpy as np
 from numba import njit
 
+from data import path
+
 ARC = 3600                  # cells per degree
 
 
@@ -767,7 +769,7 @@ def main():
     ap.add_argument('step', choices=['mosaic', 'burn', 'flood', 'walk', 'check'])
     ap.add_argument('work')
     ap.add_argument('--region')
-    ap.add_argument('--tiles', default='/mnt/data/treeline/copernicus')
+    ap.add_argument('--tiles', default=path('copernicus'))
     ap.add_argument('--heights')
     ap.add_argument('--jobs', type=int, default=12)
     ap.add_argument('--min-prominence', type=float, default=600)

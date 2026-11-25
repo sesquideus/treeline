@@ -47,6 +47,9 @@ from pyproj import Transformer
 from pyproj.exceptions import ProjError
 
 from mountains.models import Col, NamedPoint, Summit
+import sys
+sys.path.insert(0, os.path.join(os.getcwd(), 'lidar'))   # run from the repo root, through manage.py shell
+from data import path  # noqa: E402
 
 D = os.environ['OUT']
 os.makedirs(D, exist_ok=True)
@@ -72,9 +75,9 @@ DATUM = {'sk': 'Bpv', 'cz': 'Bpv'}                 # else EGM2008
 LANG = {'sk': 'sk', 'cz': 'cs', 'at': 'de'}
 
 run = json.load(open(os.environ['RUN']))
-# named peaks from OpenStreetMap (`osm_peaks.py`): Slovakia's, and those beside it in /mnt/data/treeline/osm
+# named peaks from OpenStreetMap (`osm_peaks.py`): Slovakia's, and those beside it in $TREELINE_DATA/osm
 PEAKS = os.environ.get('PEAKS', ','.join([os.path.expanduser('~/.cache/treeline/lidar/osm/peaks.json'),
-                                          '/mnt/data/treeline/osm/peaks-cz.json', '/mnt/data/treeline/osm/peaks-at.json']))
+                                          path('osm', 'peaks-cz.json'), path('osm', 'peaks-at.json')]))
 peaks = [p for f in PEAKS.split(',') if os.path.exists(f) for p in json.load(open(f)) if p['kind'] != 'saddle']
 to_bpv = Transformer.from_crs('EPSG:4326+3855', 'EPSG:4258+8357', always_xy=True, allow_ballpark=False)
 

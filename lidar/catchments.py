@@ -47,6 +47,7 @@ from numba import njit, types
 from numba.typed import Dict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from data import path  # noqa: E402
 from tiled import _above, _find  # noqa: E402
 
 THRESHOLD = 10.0
@@ -1506,7 +1507,7 @@ def dmr5_reader(source, r0, c0):
     return read
 
 
-FABDEM = os.environ.get('TREELINE_FABDEM', '/mnt/data/treeline/fabdem/zip')
+FABDEM = path('fabdem', 'zip', env='TREELINE_FABDEM')
 ARC = 3600                     # cells a degree: FABDEM (and Copernicus GLO-30) at 1″
 
 
@@ -1552,10 +1553,10 @@ def fabdem_reader(north, west):
     return read
 
 
-COPERNICUS = os.environ.get('TREELINE_COPERNICUS', '/mnt/data/treeline/copernicus')
+COPERNICUS = path('copernicus', env='TREELINE_COPERNICUS')
 #: GLO-90 (3″) for the few land tiles GLO-30 withholds (Armenia, Azerbaijan): coarser, but
 #: without it the Caucasus has a hole that cuts the routes through it.
-GLO90 = os.environ.get('TREELINE_GLO90', '/mnt/data/treeline/glo90')
+GLO90 = path('glo90', env='TREELINE_GLO90')
 #: Added to every land cell, so that land below sea level (the Dead Sea, -430 m) stays above
 #: zero, which the engine reads as no data; only the ocean is 0. Taken off again in the output.
 LIFT = 1000.0
