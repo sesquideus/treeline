@@ -106,8 +106,9 @@ because each step depends on the previous one existing.
    `/ranges` lists the trees and a range's page shows every peak at or below it. A boundary
    polygon (`Range.area`) is optional and only feeds the map layer.
 6. **Slope and horizon parents** — never by hand. Admin actions on the summit changelist:
-   *Compute slope*, *Compute horizon parent*, *Compute horizon parent (std)*. They are
-   O(n²) Python loops over every summit; fine at current scale, slow at 10× it.
+   *Compute slope*, *Compute horizon parent*, *Compute horizon parent (std)*. A branch and
+   bound over a k-d tree of the summits (`core/functions/parents.py`): exact, and seconds even
+   for every summit.
 7. **Verify** — run the integrity script.
 
 From the shell, validate explicitly:
