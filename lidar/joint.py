@@ -90,10 +90,13 @@ def evrf_sheets():
         if not os.path.exists(path):
             continue
         e0, n0, e1, n1 = s['bounds']
+        # where sheets overlap (those named in the PL-2000 system lie over the EPSG:2180 ones), the
+        # newest survey wins, and in the same year the EPSG:2180 sheet: the reader takes the first
+        rank = (-s['year'], name[0].isdigit())
         for ek in range(int(e0 // 10000), int(e1 // 10000) + 1):
             for nk in range(int(n0 // 10000), int(n1 // 10000) + 1):
-                cells.setdefault((ek, nk), []).append((e0, n0, e1, n1, path))
-    return cells
+                cells.setdefault((ek, nk), []).append((rank, (e0, n0, e1, n1, path)))
+    return {k: [x for _, x in sorted(v)] for k, v in cells.items()}
 _STATE = {}
 
 
