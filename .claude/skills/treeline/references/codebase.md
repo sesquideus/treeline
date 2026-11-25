@@ -266,7 +266,8 @@ The summit detail page is where the per-request cost concentrates, and two thing
 Admin actions on `SummitAdmin` are generators decorated with cairn's `@admin_action`; they
 `yield` the name of each changed object for progress reporting. The three compute actions run
 `compute_parents` (`mountains/slope_horizon.py`, over `core/functions/parents.py`: a branch and
-bound on a k-d tree of the summits on the unit sphere, exact, seconds for all of them), and each stamps `slope_computed` / `horizon_computed` /
+bound on a compiled (numba) vantage-point tree of the summits on the unit sphere, exact, about 5 s
+for all of them), and each stamps `slope_computed` / `horizon_computed` /
 `horizon_std_computed` whether or not it finds a parent — that stamp is what tells a missing
 parent apart from an uncomputed one on the map.
 

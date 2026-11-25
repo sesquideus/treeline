@@ -687,7 +687,9 @@ dependencies = [
     { name = "django" },
     { name = "django-cairn" },
     { name = "django-map-widgets" },
+    { name = "geographiclib" },
     { name = "geopy" },
+    { name = "numba" },
     { name = "psycopg2-binary" },
     { name = "pyproj" },
     { name = "python-decouple" },
@@ -702,7 +704,6 @@ dev = [
 ]
 lidar = [
     { name = "laspy", extra = ["lazrs"] },
-    { name = "numba" },
     { name = "osmium" },
     { name = "rasterio" },
     { name = "scipy" },
@@ -714,7 +715,9 @@ requires-dist = [
     { name = "django", specifier = ">=6.0.6" },
     { name = "django-cairn", specifier = ">=0.1.4" },
     { name = "django-map-widgets", specifier = ">=0.5.2" },
+    { name = "geographiclib", specifier = ">=2.0" },
     { name = "geopy", specifier = ">=2.4.1" },
+    { name = "numba", specifier = ">=0.68.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pyproj", specifier = ">=3.8.0" },
     { name = "python-decouple", specifier = ">=3.8" },
@@ -729,7 +732,6 @@ dev = [
 ]
 lidar = [
     { name = "laspy", extras = ["lazrs"], specifier = ">=2.7.0" },
-    { name = "numba", specifier = ">=0.68.1" },
     { name = "osmium", specifier = ">=4.3.2" },
     { name = "rasterio", specifier = ">=1.5.2" },
     { name = "scipy", specifier = ">=1.18.1" },

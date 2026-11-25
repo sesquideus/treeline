@@ -107,8 +107,8 @@ because each step depends on the previous one existing.
    polygon (`Range.area`) is optional and only feeds the map layer.
 6. **Slope and horizon parents** — never by hand. Admin actions on the summit changelist:
    *Compute slope*, *Compute horizon parent*, *Compute horizon parent (std)*. A branch and
-   bound over a k-d tree of the summits (`core/functions/parents.py`): exact, and seconds even
-   for every summit.
+   bound over a compiled vantage-point tree of the summits (`core/functions/parents.py`): exact,
+   about 5 s for every summit.
 7. **Verify** — run the integrity script.
 
 From the shell, validate explicitly:
