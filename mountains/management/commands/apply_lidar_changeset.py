@@ -15,6 +15,10 @@ creates something the other does not: an unnamed point is taken by its number on
 also stands where the changeset saw it (`was`, [lat, lon], within 50 m), and otherwise skipped. A name
 another point already has is numbered — "Hoľa (2)" — for a person to qualify properly later.
 
+`altitude_review` (O, W, R; see `NamedPoint`) on a new point or a point fix sets how far its height can
+be trusted, and a fix's `notes` are added once each: a W carries the note saying which sources differ
+and by how much. A point a person marked R is never moved, re-measured or re-marked.
+
 The dry run is a real one, rolled back at the end, as in `import_peaks`.
 """
 import json
@@ -178,7 +182,8 @@ class Command(BaseCommand):
         point = NamedPoint(name=name, location=Point(d['lon'], d['lat'], srid=4326),
                            altitude=round(d['altitude'], 2),
                            altitude_datum=self.datums[d['datum']] if d.get('datum') else None,
-                           source=Source.objects.get_or_create(name=d['source'])[0] if d.get('source') else self.lidar)
+                           source=Source.objects.get_or_create(name=d['source'])[0] if d.get('source') else self.lidar,
+                           altitude_review=d.get('altitude_review'))
         point.full_clean()
         point.save()
         point.countries.set([self.countries[c] for c in d['countries'] if c in self.countries])
@@ -408,6 +413,11 @@ class Command(BaseCommand):
             point = self.found(fix['point'], fix['name'], at=fix.get('was'))
         if point is None:
             return
+        if point.altitude_review == NamedPoint.REVIEW_REVIEWED:
+            # a person checked this point: no changeset moves or re-measures it
+            self.stdout.write(f'  ! {point.name or point}: reviewed, left as it is')
+            self.counts['skipped'] += 1
+            return
         # Without a position only the height changes; without an altitude only the position:
         # the height, its datum and its source stay. A height from elsewhere than the lidar (a
         # published list) names its `source`, and its `datum` may be null: unknown.
@@ -415,7 +425,8 @@ class Command(BaseCommand):
         height = fix.get('altitude')
         datum = self.datums[fix['datum']] if fix.get('datum') else None
         source = Source.objects.get_or_create(name=fix['source'])[0] if fix.get('source') else self.lidar
-        if point.location.distance(here) < 1e-7 and (height is None or (
+        review = fix.get('altitude_review', point.altitude_review)
+        if point.location.distance(here) < 1e-7 and review == point.altitude_review and (height is None or (
                 point.altitude == height and point.altitude_datum == datum and point.source == source)):
             self.counts['skipped'] += 1
             return
@@ -423,8 +434,11 @@ class Command(BaseCommand):
         point.location = here
         if height is not None:
             point.altitude, point.altitude_datum, point.source = height, datum, source
+        point.altitude_review = review
         point.full_clean()
         point.save()
+        for text in fix.get('notes', []):
+            Note.objects.get_or_create(point=point, text=text, defaults=dict(author=self.author))
         self.counts['moved'] += 1
         self.stdout.write(f'  + {point.name or point}: {was} -> {here.y:.6f}, {here.x:.6f}, {point.altitude} m'
                           + (f' ({point.source})' if point.source != self.lidar else ''))

@@ -66,6 +66,17 @@ class NamedPoint(AdminModel):
     countries = models.ManyToManyField(Country)
     source = models.ForeignKey('Source', null=True, blank=True, on_delete=models.SET_NULL)
 
+    # How far the altitude can be trusted. Empty: never assessed (everything older
+    # than the field). Changesets set O or W; a person sets R, which no changeset overrides.
+    REVIEW_OK, REVIEW_WARNING, REVIEW_REVIEWED = 'O', 'W', 'R'
+    REVIEW_CHOICES = [
+        (REVIEW_OK, 'OK: from lidar or a trustworthy source, or the sources agree within 20 m'),
+        (REVIEW_WARNING, 'Warning: the sources differ by more than 20 m; do not trust without review'),
+        (REVIEW_REVIEWED, 'Reviewed by a person'),
+    ]
+    altitude_review = models.CharField(max_length=1, choices=REVIEW_CHOICES, null=True, blank=True, db_index=True,
+                              help_text='How far the altitude can be trusted; a warning carries a note saying why')
+
     objects = NamedPointQuerySet.as_manager()
 
     def __str__(self):

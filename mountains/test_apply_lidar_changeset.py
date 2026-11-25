@@ -221,6 +221,51 @@ class TieAndMoveTests(TestCase):
         self.assertIn('1 skipped', ApplyTests.run_it(self, data))
 
 
+class ReviewTests(TestCase):
+    """The review mark: a changeset sets O or W (a warning with its note), and never touches a point a
+    person marked R."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        for code, priority in (('sk', 1), ('hu', 40), ('pl', 50)):
+            make_language(code, priority)
+        make_country('hu'), make_country('sk')
+        cls.parent = make_summit('Veľký Milič', 894.7, 48.5843, 21.4581)
+        cls.col = make_col(None, 2282.0, 49.1744, 20.1002)
+        cls.kycera = make_summit('Kýčera', 806.0, 49.2500, 19.3640)
+
+    def test_a_new_summit_takes_its_mark_and_note(self):
+        data = changeset(self.parent, self.col.point)
+        data['summits'][0].update(altitude_review='W', notes=['FABDEM 643.7 m, Wikidata 670 m: 26.3 m apart.'])
+        ApplyTests.run_it(self, data)
+        point = NamedPoint.objects.get(name='Szurok-hegy')
+        self.assertEqual(point.altitude_review, 'W')
+        self.assertIn('26.3 m apart', point.notes.get().text)
+
+    def test_a_fix_sets_the_mark_and_adds_its_note_once(self):
+        point = self.kycera.point
+        data = dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), points=[
+            dict(point=point.pk, name='Kýčera', altitude=830.0, datum=None, source='Wikidata', altitude_review='W',
+                 notes=['The model reads 806.0 m: 24.0 m below.'])])
+        ApplyTests.run_it(self, data)
+        point.refresh_from_db()
+        self.assertEqual((point.altitude, point.altitude_review), (830.0, 'W'))
+        self.assertIn('1 skipped', ApplyTests.run_it(self, data))
+        self.assertEqual(point.notes.count(), 1)
+
+    def test_a_reviewed_point_is_left_as_it_is(self):
+        point = self.kycera.point
+        point.altitude_review = 'R'
+        point.save()
+        out = ApplyTests.run_it(self, dict(sources=dict(lidar='DMR 5.0', names='OpenStreetMap'), points=[
+            dict(point=point.pk, name='Kýčera', lat=49.2502, lon=19.3641, altitude=800.0, altitude_review='O')]))
+        point.refresh_from_db()
+        self.assertEqual((point.altitude, point.altitude_review), (806.0, 'R'))
+        self.assertAlmostEqual(point.location.y, 49.25)
+        self.assertIn('reviewed, left as it is', out)
+
+
 class KeyColTests(TestCase):
     """A summit given the key col the lidar shows; the col it had, given to the summit that owns it."""
 

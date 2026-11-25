@@ -27,8 +27,8 @@ class NamedPointAdmin(GISModelAdmin):
         },
     }
     list_display = ['__str__', 'location_display', 'altitude', 'altitude_datum',
-                    'altitude_egm2008', 'flags']
-    list_filter = [('altitude_datum', admin.EmptyFieldListFilter), 'altitude_datum']
+                    'altitude_egm2008', 'altitude_review', 'flags']
+    list_filter = ['altitude_review', ('altitude_datum', admin.EmptyFieldListFilter), 'altitude_datum']
     list_select_related = ['altitude_datum']
     readonly_fields = ['altitude_egm2008']
     inlines = [PointNameInline, NoteInline]
@@ -43,7 +43,7 @@ class NamedPointAdmin(GISModelAdmin):
                        'countries')
         }),
         ('Source', {
-            'fields': ('source',)
+            'fields': ('source', 'altitude_review')
         }),
     )
 
