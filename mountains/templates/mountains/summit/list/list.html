@@ -63,8 +63,12 @@
                     <td class="distance">{{ mountain.dd.m|distance }}</td>
                     <td class="altitude">{{ mountain.dh|diff_altitude }}</td>
                     <td class="angle" style="color: {{ mountain.angle|angle_colour }};">{{ mountain.angle|angle_above_horizon }}</td>
-                    <td class="link">{% object_link mountain.horizon_parent 'mountain' attr='name' %}</td>
-                    <td class="distance">{{ mountain.distance_to_horizon.m|distance }}</td>
+                    <td class="link">
+                        {% if mountain.horizon_parent %}{% object_link mountain.horizon_parent 'mountain' attr='name' %}
+                        {% elif mountain.horizon_computed %}<span class="parent-none" title="Computed: no summit rises above its horizon">none</span>
+                        {% else %}<span class="parent-unknown" title="Not computed yet">?</span>{% endif %}
+                    </td>
+                    <td class="distance">{% if mountain.horizon_parent %}{{ mountain.distance_to_horizon.m|distance }}{% else %}<span class="parent-none">&mdash;</span>{% endif %}</td>
                 </tr>
             {% endfor %}
         </tbody>

@@ -559,6 +559,9 @@ tr.down {
 .altitude { text-align: right; }
 span.datum { font-size: 0.6em; font-weight: normal; color: dimgray; }
 span.datum.unknown { color: orangered; }
+/* a parent cell with no parent: computed and none exists, or not computed yet */
+span.parent-none { color: dimgray; font-style: italic; }
+span.parent-unknown { color: orangered; font-weight: bold; cursor: help; }
 ul.altitudes {
     list-style: none;
     margin: 0.6em 0 1em;
