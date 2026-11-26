@@ -23,7 +23,7 @@ def pt(p):
     return dict(pk=p.pk, name=p.name, lat=p.location.y, lon=p.location.x, alt=p.altitude,
                 egm=p.altitude_egm2008, datum=p.altitude_datum.code if p.altitude_datum_id else None,
                 countries=[c.code for c in p.countries.all()], langs=langs, names=[n['name'] for n in langs],
-                source=p.source.name if p.source_id else None)
+                source=p.source.name if p.source_id else None, review=p.altitude_review)
 
 
 summits = []

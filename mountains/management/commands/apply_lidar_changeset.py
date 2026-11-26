@@ -306,7 +306,7 @@ class Command(BaseCommand):
 
     def point_name(self, n):
         point = self.found(n['point'], n['point_name'])
-        if point and self.add_name(point, n['lang'], n['name']):
+        if point and self.add_name(point, n['lang'], n['name'], source=n.get('source')):
             self.stdout.write(f'  + {point}: {n["lang"]} {n["name"]}')
 
     def replace_name(self, r):
@@ -326,7 +326,7 @@ class Command(BaseCommand):
         point.name = None
         point.save(update_fields=['name'])
         self.rename(point, r['name'], f'the summit at {r["at"]}')
-        self.add_name(point, r['lang'], r['name'], local=True)
+        self.add_name(point, r['lang'], r['name'], local=True, source=r.get('source'))
         self.stdout.write(f'  ~ "{r["old"]}" renamed {point.name}')
 
     def col_name(self, c):
@@ -334,9 +334,10 @@ class Command(BaseCommand):
         if point is None:
             return
         self.rename(point, c['name'], f'the key col of {c["summit"]}')
-        self.add_name(point, c['lang'], c['name'], local=True)
+        # `source`: where the name comes from (OpenStreetMap, ...), recorded on the names it adds
+        self.add_name(point, c['lang'], c['name'], local=True, source=c.get('source'))
         for n in c['names']:
-            self.add_name(point, n['lang'], n['name'])
+            self.add_name(point, n['lang'], n['name'], source=c.get('source'))
         self.counts['col_names'] += 1
         self.stdout.write(f'  + key col of {c["summit"]}: {c["name"]}')
 
@@ -765,18 +766,29 @@ class Command(BaseCommand):
         be ones this tooling made (a split's twin top), so either can be given by position.
         The description of the ground (`isolation_name`) is cleared when the parent changes:
         "northern ridge of X" no longer says anything once it is not X's.
+
+        `parent` may be null: the ground was measured, the summit it belongs to not found (a
+        nearest higher point alone is legal, the parent being an attribution of it). A summit
+        whose point a person reviewed (`altitude_review` R) is never changed. `notes` are added
+        to the summit's point once each (say, that a burned-in height decided the ground).
         """
-        s, parent = self.summit_spec(iso['summit']), self.summit_spec(iso['parent'])
-        if s is None or parent is None:
+        s = self.summit_spec(iso['summit'])
+        parent = self.summit_spec(iso['parent']) if iso.get('parent') else None
+        if s is None or (iso.get('parent') and parent is None):
             self.stdout.write(f'  ! isolation of {iso["summit"]}: summit or parent not found as such: skipped')
             self.counts['skipped'] += 1
             return
+        if s.point.altitude_review == 'R':
+            self.stdout.write(f'  ! {s.point}: reviewed (R): isolation left as it is')
+            self.counts['skipped'] += 1
+            return
         nhp = Point(iso['nhp'][1], iso['nhp'][0], srid=4326)
-        if (s.isolation_parent_id == parent.pk and s.nearest_higher_point is not None
+        parent_pk = parent.pk if parent else None
+        if (s.isolation_parent_id == parent_pk and s.nearest_higher_point is not None
                 and s.nearest_higher_point.distance(nhp) < 1e-7):
             self.counts['skipped'] += 1
             return
-        if s.isolation_parent_id != parent.pk:
+        if s.isolation_parent_id != parent_pk:
             s.isolation_name = None
         # A measurement carried over from elsewhere keeps its own source.
         source = Source.objects.get_or_create(name=iso['source'])[0] if iso.get('source') else self.lidar
@@ -788,8 +800,10 @@ class Command(BaseCommand):
             self.counts['skipped'] += 1
             return
         s.save()
+        for text in iso.get('notes', []):
+            Note.objects.get_or_create(point=s.point, text=text, defaults=dict(author=self.author))
         self.counts['isolations'] += 1
-        self.stdout.write(f'  + {s.point}: isolation {iso["metres"]:.0f} m, parent {parent.point}')
+        self.stdout.write(f'  + {s.point}: isolation {iso["metres"]:.0f} m, parent {parent.point if parent else "-"}')
 
     # ------------------------------------------------------------------ names
 

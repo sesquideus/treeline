@@ -146,8 +146,10 @@ def main():
     for b in burns:
         m = near(b['at'][0], b['at'][1], 0.05)
         if m and abs(hz[m[1]] - lift - b['elev']) < 0.01:
-            height_from[m[1]] = dict(source='Wikidata', qid=b['qid'], label=b['label'], how='burned',
+            height_from[m[1]] = dict(source=b.get('source', 'Wikidata'), qid=b['qid'], label=b['label'], how='burned',
                                      placed=b['placed'], model=b['model'])
+            if b.get('db') is not None:          # the database's own height (burn_match.py --known)
+                height_from[m[1]]['db'] = b['db']
 
     caps, refused = [], []
     old_prom = np.where(col < 0, hz - lift, hz - cz)

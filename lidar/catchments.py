@@ -1511,6 +1511,36 @@ FABDEM = path('fabdem', 'zip', env='TREELINE_FABDEM')
 ARC = 3600                     # cells a degree: FABDEM (and Copernicus GLO-30) at 1″
 
 
+#: The 1″ model `world` reads (and `burn_match.py` checks against): FABDEM, or with TREELINE_MODEL=gedtm30
+#: GEDTM30 v1.2 (OpenGeoHub, CC BY 4.0) from the tiles `gedtm30.py fetch` wrote, laid out as FABDEM's.
+MODEL = os.environ.get('TREELINE_MODEL', 'fabdem')
+
+
+def model_tile(lat, lon):
+    """ The path of the world model's 1° tile whose south-west corner is (lat, lon): see MODEL. """
+    if MODEL == 'gedtm30':
+        from gedtm30 import tile_path
+        return tile_path(lat, lon)
+    return fabdem_tile(lat, lon)
+
+
+def read_model(path):
+    """ A model tile as float32 metres, NaN where it has no data: applies the file's scale (GEDTM30 is kept
+    in integer centimetres) and its no-data value, so a reader never sees raw centimetres. """
+    import rasterio
+    with rasterio.open(path) as d:
+        m = d.read(1, masked=True)
+        scale, offset = float(d.scales[0] or 1.0), float(d.offsets[0] or 0.0)
+    return np.where(np.ma.getmaskarray(m), np.nan, m.data.astype(np.float64) * scale + offset).astype(np.float32)
+
+
+def model_name():
+    if MODEL == 'gedtm30':
+        from gedtm30 import SOURCE
+        return SOURCE
+    return 'FABDEM V1-2'
+
+
 def fabdem_tile(lat, lon):
     """The GDAL path of FABDEM's 1° tile whose south-west corner is (lat, lon), read in its zip."""
     ns = lambda v, w: f'{"N" if v >= 0 else "S"}{abs(v):0{w}d}'
@@ -1606,7 +1636,7 @@ def _to_arc(t):
 
 def world_tile(lat, lon):
     """
-    The 1° tile whose south-west corner is (lat, lon) as the engine is to read it: FABDEM where
+    The 1° tile whose south-west corner is (lat, lon) as the engine is to read it: FABDEM (or MODEL) where
     it has the tile, else Copernicus GLO-30 (Antarctica, north of 80°); the ocean (Copernicus's
     water-body mask, class 1) 0, every other cell lifted by LIFT, lakes and rivers included, so
     that a canal joins what it joins. None where Copernicus has no tile (the open ocean, and
@@ -1620,8 +1650,10 @@ def world_tile(lat, lon):
     if coarse:
         z = _from_90(rasterio.open(_glo90_name(lat, lon, 'DEM')).read(1))
     else:
+        if MODEL == 'gedtm30' and not os.path.exists(model_tile(lat, lon)):
+            raise FileNotFoundError(f'{model_tile(lat, lon)}: fetch it first (gedtm30.py fetch)')
         try:
-            z = rasterio.open(fabdem_tile(lat, lon)).read(1)
+            z = read_model(model_tile(lat, lon))
         except rasterio.errors.RasterioIOError:
             z = _to_arc(rasterio.open(_glo_name(lat, lon, 'DEM')).read(1))
     z = np.where(np.isfinite(z) & (z > -1000), z + LIFT, 0).astype(np.float32)
@@ -1699,7 +1731,7 @@ def world(bbox, out, tile=5000, thr=THRESHOLD, jobs=10, line_cutoff=600.0, burn=
         res.append(x)
     st = {k: v for k, v in stats.items() if k != 'tiles'}
     st.update(tops=sum(t['tops'] for t in stats['tiles']), ties=[[ll(a), ll(b)] for a, b in zip(ta, tb)],
-              line_cutoff=line_cutoff, source='FABDEM V1-2, Copernicus GLO-30 where FABDEM has no tile')
+              line_cutoff=line_cutoff, source=f'{model_name()}, Copernicus GLO-30 where it has no tile')
     json.dump(dict(stats=st, summits=res), open(out, 'w'))
     print(f'-> {out}', flush=True)
 

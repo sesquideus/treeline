@@ -17,6 +17,7 @@ on the ground, from lidar/summits.py (P >= 30), named after the catalogued one o
 """
 import argparse
 import heapq
+import itertools
 import json
 import math
 import os
@@ -98,6 +99,171 @@ def nearest_higher(d, levels, tr, tc, h):
                 best, best_at = float(dd[j]), (a * CELL + int(ys[j]), b * CELL + int(xs[j]))
     edge = next((dist for dist, _, _ in nearest(levels, TR, TC, lambda lvl, z, hole: hole)), math.inf)
     return best, best_at, edge * CELL < best
+
+
+# ------------------------------------------------------------------------- any terrain (terrain.py)
+#
+# The same search over any reader of `terrain.py`: best-first down its boxes by their lower-bound
+# distance, skipping every box whose highest point is not higher; only the leaves reached are read.
+# The terrain is a continuous surface, bilinear between cell centres: the nearest higher point is
+# the nearest place where that surface rises above the summit, not the nearest higher cell centre
+# (on 1" cells, 31 x 21 m in Ukraine, the two differ by 10-20 m).
+
+EPS = 0.01          # m: "higher" is higher than the summit's top by this much
+
+
+def search(terrain, lon, lat, t, limit=math.inf):
+    """
+    The nearest point of `terrain` from (lon, lat) where the surface reaches height `t`: a dict of
+    metres, lon, lat, the nearest higher cell centre's metres (`centre_m`), `anchor` (lon, lat of
+    the highest corner of the cell square the point lies on, where a climb starts), `source`, and
+    `burned` (the burned cells among that square's corners above t: (height, model, label)); None
+    if nothing within `limit` m reaches t.
+    """
+    heap, n = [], itertools.count()
+    for box, zmax, node in terrain.roots():
+        if zmax > t:
+            heapq.heappush(heap, (terrain_box_bound(lon, lat, box), next(n), node))
+    best, found, slack = math.inf, [], terrain.diag
+    while heap:
+        b, _, node = heapq.heappop(heap)
+        if b > min(best + slack, limit):
+            break
+        if terrain.is_leaf(node):
+            p = terrain.patch(node)
+            with np.errstate(invalid='ignore'):
+                rr, cc = np.nonzero(p.z[1:-1, 1:-1] >= t)
+            if not len(rr):
+                continue
+            rr, cc = rr + 1, cc + 1
+            d = _dist(lon, lat, *p.lonlat(rr, cc))
+            best = min(best, float(d.min()))
+            found.append((p, rr, cc, d))
+            continue
+        for box, zmax, child in terrain.children(node):
+            if zmax > t:
+                heapq.heappush(heap, (terrain_box_bound(lon, lat, box), next(n), child))
+    if not found or best > limit:
+        return None
+    return refine(found, lon, lat, t, best, slack)
+
+
+def first_leaf(terrain, lon, lat, t, limit=math.inf):
+    """ The lower-bound metres to the nearest leaf of `terrain` whose maximum reaches t (inf if none
+    within `limit`): where higher ground may begin, without reading it. """
+    heap, n = [], itertools.count()
+    for box, zmax, node in terrain.roots():
+        if zmax > t:
+            heapq.heappush(heap, (terrain_box_bound(lon, lat, box), next(n), node))
+    while heap:
+        b, _, node = heapq.heappop(heap)
+        if b > limit:
+            break
+        if terrain.is_leaf(node):
+            return b
+        for box, zmax, child in terrain.children(node):
+            if zmax > t:
+                heapq.heappush(heap, (terrain_box_bound(lon, lat, box), next(n), child))
+    return math.inf
+
+
+def terrain_box_bound(lon, lat, box):
+    from terrain import box_bound as bb
+    return bb(lon, lat, box)
+
+
+def _dist(lon, lat, plon, plat):
+    from terrain import distances
+    return distances(lon, lat, plon, plat)
+
+
+def contour_samples(z00, z01, z10, z11, t, n=64):
+    """
+    Points (v, u) of unit cell squares (v down the rows, u along the columns) on the boundary of
+    where the bilinear surface through the corners reaches t: the corners and n + 1 points along
+    each edge where it does, the exact crossings of t on the edges, and the contour f = t inside,
+    sampled along u and along v (so steep runs of it are as dense as flat ones). Arrays of the
+    corners (S,) give v, u and `ok` of shape (S, K). The nearest point of the region to anything
+    outside it lies on this boundary; sampling misses it by a second-order amount (well under 0.1 m
+    on a 30 m cell), and not at all where it is a corner or an edge crossing.
+    """
+    z00, z01, z10, z11 = (np.asarray(a, np.float64)[:, None] for a in (z00, z01, z10, z11))
+    a, b, c, d = z00, z01 - z00, z10 - z00, z11 - z10 - z01 + z00
+    g = np.linspace(0.0, 1.0, n + 1)[None, :]
+    S = z00.shape[0]
+    one, zero = np.ones((S, n + 1)), np.zeros((S, n + 1))
+    vs, us = [], []
+    vs += [np.zeros((S, 1)), np.zeros((S, 1)), np.ones((S, 1)), np.ones((S, 1))]
+    us += [np.zeros((S, 1)), np.ones((S, 1)), np.zeros((S, 1)), np.ones((S, 1))]
+    G = np.broadcast_to(g, (S, n + 1))
+    vs += [zero, one, G, G]
+    us += [G, G, zero, one]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        vs += [np.zeros((S, 1)), np.ones((S, 1)), (t - z00) / (z10 - z00), (t - z01) / (z11 - z01)]
+        us += [(t - z00) / (z01 - z00), (t - z10) / (z11 - z10), np.zeros((S, 1)), np.ones((S, 1))]
+        vs.append((t - a - b * g) / (c + d * g))
+        us.append(np.broadcast_to(g, (S, n + 1)))
+        us.append((t - a - c * g) / (b + d * g))
+        vs.append(np.broadcast_to(g, (S, n + 1)))
+    v, u = np.concatenate(vs, axis=1), np.concatenate(us, axis=1)
+    with np.errstate(invalid='ignore'):
+        f = a + b * u + c * v + d * u * v
+        ok = np.isfinite(v) & np.isfinite(u) & (v >= -1e-12) & (v <= 1 + 1e-12) & (u >= -1e-12) & (u <= 1 + 1e-12) \
+            & (f >= t - 1e-6)
+    return np.clip(np.nan_to_num(v), 0, 1), np.clip(np.nan_to_num(u), 0, 1), ok
+
+
+def refine(found, lon, lat, t, best, slack):
+    """
+    From the higher cells the search found ([(patch, rows, cols, metres)]), the nearest point where
+    the bilinear surface reaches t: on every cell square with a higher corner within `best +
+    slack` (no square farther can hold a nearer point), see `contour_samples`.
+    """
+    win = None
+    for p, rr, cc, d in found:
+        sel = d < best + slack
+        if not sel.any():
+            continue
+        H, W = p.z.shape
+        sq = set()
+        for r, c in zip(rr[sel], cc[sel]):
+            for i in (r - 1, r):
+                for j in (c - 1, c):
+                    if 0 <= i < H - 1 and 0 <= j < W - 1:
+                        sq.add((int(i), int(j)))
+        # the cell centres themselves: points of the region even where a square has no data
+        cand = [(rr[sel].astype(np.float64), cc[sel].astype(np.float64), np.stack([rr[sel], cc[sel]], 1))]
+        if sq:
+            sq = np.array(sorted(sq))
+            i, j = sq[:, 0], sq[:, 1]
+            z00, z01, z10, z11 = p.z[i, j], p.z[i, j + 1], p.z[i + 1, j], p.z[i + 1, j + 1]
+            full = np.isfinite(z00) & np.isfinite(z01) & np.isfinite(z10) & np.isfinite(z11)
+            if full.any():
+                i, j = i[full], j[full]
+                v, u, ok = contour_samples(z00[full], z01[full], z10[full], z11[full], t)
+                R = (i[:, None] + v)[ok]
+                C = (j[:, None] + u)[ok]
+                corner = np.broadcast_to(np.arange(len(i))[:, None], ok.shape)[ok]
+                cand.append((R, C, np.stack([i[corner], j[corner]], 1)))
+        for R, C, ij in cand:
+            if not len(R):
+                continue
+            plon, plat = p.lonlat(R, C)
+            dd = _dist(lon, lat, plon, plat)
+            k = int(np.argmin(dd))
+            if win is None or dd[k] < win[0]:
+                win = (float(dd[k]), float(plon[k]), float(plat[k]), p, tuple(ij[k]), (R[k], C[k]))
+    metres, plon, plat, p, (i, j), (R, C) = win
+    # the square's corners (or the cell itself, for a centre)
+    if R == i and C == j:
+        corners = [(i, j)]
+    else:
+        corners = [(a, b) for a in (i, i + 1) for b in (j, j + 1) if 0 <= a < p.z.shape[0] and 0 <= b < p.z.shape[1]]
+    hi = max(corners, key=lambda q: p.z[q] if np.isfinite(p.z[q]) else -np.inf)
+    alon, alat = p.lonlat(np.array([hi[0]], np.float64), np.array([hi[1]], np.float64))
+    burned = [p.burned[q] for q in corners if q in p.burned and p.z[q] >= t]
+    return dict(metres=metres, lon=plon, lat=plat, centre_m=best, anchor=(float(alon[0]), float(alat[0])),
+                source=p.source, burned=burned)
 
 
 def main():

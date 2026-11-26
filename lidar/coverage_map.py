@@ -141,20 +141,32 @@ def main():
                       dtype=np.uint8) > 0
     lidar = np.zeros((H, W), bool)
     srcs = []
+    masks = {}
     for k in keys:
-        s = sources.BY_KEY[k]
         m, nf, nb = mask(k, T, H, W)
         if not m.any():
             print(f'{k:10s} not indexed yet', flush=True)
             continue
+        masks[k] = (m, nf, nb)
+    # Where sources overlap, the map shows the one a run uses: the finer, then the one earlier in
+    # sources.PRIORITY (newer surveys first). Each is drawn where nothing preferred covers the ground;
+    # its whole extent stays in km2.
+    claimed = np.zeros((H, W), bool)
+    for k in sorted(masks, key=sources.priority):
+        s = sources.BY_KEY[k]
+        m, nf, nb = masks[k]
+        used = m & ~claimed
+        claimed |= m
         if s['lidar']:
             lidar |= m
-        geom, km2 = outline(m, T)
-        inb = float((m & inbox).sum()) * RES * RES / 1e6
+        geom, km2_used = outline(used, T)
+        km2 = float(m.sum()) * RES * RES / 1e6
+        inb = float((used & inbox).sum()) * RES * RES / 1e6
         srcs.append(dict(key=k, label=s['label'], country=s['country'], res=f'{s["res"]:g} m', crs=s['crs'],
                          tiles=s['tiles'], heights=s['datum'], years=s['years'], licence=s['licence'],
-                         lidar=s['lidar'], km2=round(km2), km2_box=round(inb), files=nf, bytes=nb, geometry=geom))
-        print(f'{k:10s} {nf:6d} files {km2:9.0f} km2, {inb:9.0f} in the box', flush=True)
+                         lidar=s['lidar'], km2=round(km2), km2_used=round(km2_used), km2_box=round(inb),
+                         files=nf, bytes=nb, geometry=geom))
+        print(f'{k:10s} {nf:6d} files {km2:9.0f} km2, used {km2_used:9.0f}, {inb:9.0f} in the box', flush=True)
     gap = land & inbox & ~lidar
     ggeom, gkm2 = outline(gap, T, simplify=400)
     per = {}

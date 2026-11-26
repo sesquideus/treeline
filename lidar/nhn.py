@@ -14,6 +14,7 @@ lidar or was missing, and for the added tops themselves (whose climbs may add mo
 does). Isolations measured by hand are left alone.
 """
 import argparse
+import heapq
 import json
 import math
 import os
@@ -74,6 +75,186 @@ def climb_to(z, w, h, p):
         if found < 0:
             return np.array(queue, dtype=np.int64)
         p = found
+
+
+# ------------------------------------------------------------------------- any terrain (terrain.py)
+
+HIGHER, PROMINENT, WINDOW_EDGE, NO_DATA, TOO_BIG = range(5)
+
+
+@njit(cache=True)
+def flood_from(z, w, h, start, cutoff, forced, cap):
+    """
+    From the top `start`, down the ground around it, highest first, until something higher than
+    the top is reached: (HIGHER, that cell, the lowest level gone down to, i.e. the col). Unless
+    `forced`, gives up once the flood goes `cutoff` below the top without (PROMINENT, ...): the
+    top's prominence is at least the cutoff. WINDOW_EDGE when the flood reaches the window's
+    border (a larger window decides), NO_DATA when it reaches a cell without data (the ground
+    beyond is unknown), TOO_BIG after `cap` cells.
+    """
+    top = z[start]
+    seen = np.zeros(z.size, np.bool_)
+    seen[start] = True
+    heap = [(-top, start)]
+    level = top
+    n = 0
+    while len(heap):
+        nz, p = heapq.heappop(heap)
+        zp = -nz
+        if zp > top:
+            return HIGHER, p, level
+        if not forced and zp < top - cutoff:
+            return PROMINENT, p, level
+        if zp < level:
+            level = zp
+        y = p // w
+        x = p - y * w
+        if y == 0 or y == h - 1 or x == 0 or x == w - 1:
+            return WINDOW_EDGE, p, level
+        n += 1
+        if n > cap:
+            return TOO_BIG, p, level
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                if dy == 0 and dx == 0:
+                    continue
+                q = (y + dy) * w + x + dx
+                if seen[q]:
+                    continue
+                seen[q] = True
+                if np.isnan(z[q]):
+                    return NO_DATA, q, level
+                heapq.heappush(heap, (-z[q], q))
+    return PROMINENT, start, level
+
+
+class Climb:
+    """
+    The climb from a nearest higher point to the summit its ground belongs to, over a frame of
+    `terrain.py` (the model's 1" grid, or the lidar at 10 m): uphill to a top, and on across every
+    top whose own key col dips under `cutoff` below it (a crag, a bump on a ridge); a top of at
+    least the cutoff is the answer if `match(lon, lat, cells)` names a summit for it (it says which,
+    and whether that one is higher than the summit climbed for), otherwise the climb goes on across
+    that top's key col too, however deep. Never across a valley to a top that is merely near.
+    """
+
+    def __init__(self, frame, cutoff=10.0, size=256, max_size=4096, cap=4_000_000):
+        self.frame, self.cutoff, self.size0, self.max_size, self.cap = frame, cutoff, size, max_size, cap
+        self.win = None          # (gy0, gx0, h, w, z flat)
+
+    def _window(self, gy, gx, size):
+        """ A window of `size` cells a side holding (gy, gx) well inside; the current one if it does. """
+        if self.win is not None:
+            gy0, gx0, h, w, _ = self.win
+            m = size // 4
+            if h >= size and gy0 + m <= gy < gy0 + h - m and gx0 + m <= gx < gx0 + w - m:
+                return self.win
+        gy0, gx0 = gy - size // 2, gx - size // 2
+        z = self.frame.window(gy0, gx0, size, size).astype(np.float32)
+        self.win = (gy0, gx0, size, size, np.ascontiguousarray(z).ravel())
+        return self.win
+
+    def run(self, lon, lat, match):
+        """
+        From (lon, lat) up: (summit match, info) or (None, info); info has `status` ('ok', 'window',
+        'no data', 'too big', 'steps') and `tops`: (lon, lat, height, burn) of every top of at least
+        the cutoff crossed or ended on, the last the parent's; `burn` is the frame's record of a
+        burned cell, (height, model height, label), or None.
+        """
+        gy, gx = self.frame.cell_of(lon, lat)
+        size, forced = self.size0, False
+        info = dict(status='ok', tops=[])
+        for _ in range(400):
+            gy0, gx0, h, w, z = self._window(gy, gx, size)
+            p = (gy - gy0) * w + (gx - gx0)
+            if not np.isfinite(z[p]):
+                info['status'] = 'no data'
+                return None, info
+            cells = climb_to(z, w, h, p)
+            ty, tx = cells // w, cells % w
+            if ((ty == 0) | (ty == h - 1) | (tx == 0) | (tx == w - 1)).any():
+                gy, gx = gy0 + int(ty[0]), gx0 + int(tx[0])
+                size *= 2
+                if size > self.max_size:
+                    info['status'] = 'window'
+                    return None, info
+                continue
+            top = int(cells[0])
+            gy, gx = gy0 + top // w, gx0 + top % w
+            status, q, level = flood_from(z, w, h, top, self.cutoff, forced, self.cap)
+            if status == WINDOW_EDGE:
+                size *= 2
+                if size > self.max_size:
+                    info['status'] = 'window'
+                    return None, info
+                continue
+            if status == NO_DATA:
+                info['status'] = 'no data'
+                return None, info
+            if status == TOO_BIG:
+                info['status'] = 'too big'
+                return None, info
+            if status == HIGHER:
+                gy, gx = gy0 + q // w, gx0 + q % w
+                forced = False
+                continue
+            # a top of at least the cutoff: a catalogued summit, higher, or on across its key col
+            tlon, tlat = self.frame.lonlat(np.array([gy]), np.array([gx]))
+            b = self.frame.burned(gy, gx)
+            info['tops'].append((float(tlon[0]), float(tlat[0]), float(z[top]), b))
+            plat_cells = [(gy0 + int(c) // w, gx0 + int(c) % w) for c in cells]
+            hit = match(float(tlon[0]), float(tlat[0]), plat_cells, self)
+            if hit is not None:
+                return hit, info
+            forced = True
+        info['status'] = 'steps'
+        return None, info
+
+    def ascend(self, lon, lat, dip=0.0, within=None, origin=None):
+        """
+        The top a walk uphill from (lon, lat) reaches: (height, lon, lat), None if no data there or
+        the top is not inside a window of the first size. With `dip`, on across every col that
+        dips less than that below the top (a model's noise: twin bumps of one summit) to higher
+        ground within `within` m of `origin` (lon, lat).
+        """
+        from terrain import distances
+        gy, gx = self.frame.cell_of(lon, lat)
+        gy0, gx0, h, w, z = self._window(gy, gx, self.size0)
+        p = (gy - gy0) * w + (gx - gx0)
+        if not np.isfinite(z[p]):
+            return None
+        for _ in range(50):
+            cells = climb_to(z, w, h, p)
+            ty, tx = cells // w, cells % w
+            if ((ty == 0) | (ty == h - 1) | (tx == 0) | (tx == w - 1)).any():
+                return None
+            top = int(cells[0])
+            tlon, tlat = self.frame.lonlat(np.array([gy0 + top // w]), np.array([gx0 + top % w]))
+            if dip <= 0:
+                break
+            status, q, level = flood_from(z, w, h, top, dip, False, 100000)
+            if status != HIGHER:
+                break
+            qlon, qlat = self.frame.lonlat(np.array([gy0 + q // w]), np.array([gx0 + q % w]))
+            if distances(origin[0], origin[1], qlon, qlat)[0] > within:
+                break
+            p = int(q)
+        return float(z[top]), float(tlon[0]), float(tlat[0])
+
+    def top_of(self, lon, lat):
+        """ The top (global cells of its plateau) a climb from (lon, lat) reaches in the current
+        window, or None outside it. """
+        if self.win is None:
+            return None
+        gy, gx = self.frame.cell_of(lon, lat)
+        gy0, gx0, h, w, z = self.win
+        if not (0 < gy - gy0 < h - 1 and 0 < gx - gx0 < w - 1):
+            return None
+        p = (gy - gy0) * w + (gx - gx0)
+        if not np.isfinite(z[p]):
+            return None
+        cells = climb_to(z, w, h, p)
+        return {(gy0 + int(c) // w, gx0 + int(c) % w) for c in cells}
 
 
 def main():

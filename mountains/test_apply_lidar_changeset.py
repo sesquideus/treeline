@@ -455,6 +455,45 @@ class IsolationTests(TestCase):
         self.assertIn('0 isolations', ApplyTests.run_it(self, self.data()))
 
 
+class IsolationOverrideTests(TestCase):
+    """A computed isolation over a measured one: notes once, a reviewed point untouched, no parent."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.hoverla = make_summit('Hoverla', 2061.0, 48.160, 24.500)
+        cls.pip = make_summit('Pip Ivan', 2028.0, 48.047, 24.627, isolation_parent=cls.hoverla,
+                              nearest_higher_point=Point(24.55, 48.10, srid=4326))
+
+    def data(self, parent=True):
+        return dict(sources=dict(lidar='GEDTM30', names='OpenStreetMap'), isolations=[dict(
+            summit=dict(pk=self.pip.pk, name='Pip Ivan', was=[48.047, 24.627]),
+            parent=dict(pk=self.hoverla.pk, name='Hoverla') if parent else None,
+            nhp=[48.1012, 24.5511], metres=6890.0, source='GEDTM30 with OSM heights burned in',
+            notes=['Isolation: decided by a burned OSM height.'])])
+
+    def test_the_measured_isolation_is_overridden_and_the_note_added_once(self):
+        ApplyTests.run_it(self, self.data())
+        ApplyTests.run_it(self, self.data())
+        self.pip.refresh_from_db()
+        self.assertAlmostEqual(self.pip.nearest_higher_point.y, 48.1012)
+        self.assertEqual(self.pip.isolation_source.name, 'GEDTM30 with OSM heights burned in')
+        self.assertEqual(self.pip.point.notes.count(), 1)
+
+    def test_a_reviewed_point_keeps_its_isolation(self):
+        NamedPoint.objects.filter(pk=self.pip.point.pk).update(altitude_review='R')
+        self.assertIn('reviewed (R)', ApplyTests.run_it(self, self.data()))
+        self.pip.refresh_from_db()
+        self.assertAlmostEqual(self.pip.nearest_higher_point.y, 48.10)
+        self.assertEqual(self.pip.point.notes.count(), 0)
+
+    def test_the_ground_alone_without_a_parent(self):
+        ApplyTests.run_it(self, self.data(parent=False))
+        self.pip.refresh_from_db()
+        self.assertIsNone(self.pip.isolation_parent)
+        self.assertAlmostEqual(self.pip.nearest_higher_point.x, 24.5511)
+
+
 class PromoteTests(TestCase):
     """Devínska Kobyla's name to the higher of its two tops, with what referred to it."""
 

@@ -75,6 +75,15 @@ SOURCES = [
          heights=None, years='2011–2015', licence='ARSO open data', lidar=True),
 ]
 BY_KEY = {s['key']: s for s in SOURCES}
+# Where two sources cover the same ground, the one a run takes: the finer first, then by this order
+# (the newer survey before the older; a country's own survey before a national or foreign one).
+PRIORITY = ['IT-MASE05', 'CH', 'IT-TN', 'SK', 'CZ', 'AT', 'PL-EVRF', 'PL-KRON86', 'SI', 'IT-FVG', 'IT-MASE']
+
+
+def priority(key):
+    """ Sort key: finer resolution first, then PRIORITY, then the catalogue's order. """
+    s = BY_KEY[key]
+    return (s['res'], PRIORITY.index(key) if key in PRIORITY else len(PRIORITY), SOURCES.index(s))
 
 
 def folder(s):
