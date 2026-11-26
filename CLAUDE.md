@@ -44,7 +44,7 @@ Every `NamedPoint.altitude` is stored as its source gave it, in `altitude_datum`
 `altitude_egm2008` is that altitude converted to EGM2008, the canonical system, by
 `core/functions/heights.py` on every save. Prominence and the other metrics still use the
 raw `altitude`. The conversion needs PROJ grids that pyproj does not ship. Fetch them once
-per machine (laptop and amos), then fill the column:
+per machine (the desktop and amos), then fill the column:
 
 ```bash
 mkdir -p ~/.local/share/proj
@@ -65,7 +65,7 @@ The grids must be readable by the user that uwsgi runs as.
 
 ### Lidar (`lidar/`)
 
-Offline tooling, laptop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m) against the
+Offline tooling, desktop only (`uv sync --group lidar`): Slovakia's DMR 5.0 lidar (1 m) against the
 database. The server needs none of it — only the changesets it writes.
 
 The lidar is kept as `lidar/compact.py` copies: integer centimetres (the GDAL scale says 0.01),
