@@ -136,6 +136,17 @@ class BurnMatchMain(unittest.TestCase):
                             model={(48.16, 24.50): 2058.0}, below=40, above=30)
         self.assertEqual(res['burns'], [])
 
+    def test_known_below_lets_a_sharp_summit_stand_far_above_the_model(self):
+        # the Matterhorn: 4478 m, the 30 m model 4328 m; Wikidata alone would still be refused
+        known = [dict(pk=510, name='Matterhorn', lat=45.9764, lon=7.6586, alt=4478.0)]
+        model = {(45.9764, 7.6586): 4328.0}
+        tops = [top(45.9764, 7.6586, 4328.0, 1000)]
+        res = self.run_main(tops, [], known=known, model=model, below=40, above=30, known_below=250)
+        self.assertEqual([(b.get('db'), b['elev']) for b in res['burns']], [(510, 4478.0)])
+        res = self.run_main(tops, [peak('Q1', 45.9764, 7.6586, 4478.0, 'Matterhorn')], model=model,
+                            below=40, above=30, known_below=250)
+        self.assertEqual(res['burns'], [])
+
 
 class OsmPeaks(unittest.TestCase):
     """ burn_match: OSM's peaks as summits to burn, Wikidata's as a cross-check and a fallback. """
@@ -387,6 +398,37 @@ class ChangesetMain(unittest.TestCase):
         self.assertEqual(s[(48.1, 24.0)]['name'], 'Друга')
         self.assertIsNone(s[(48.3, 24.0)]['name'])             # unnamed stays unnamed
         self.assertNotIn((48.2, 24.0), s)                       # the database's summit, matched
+
+    def geonames(self, langs='uk,ru-UA'):
+        g = os.path.join(self.d, 'geonames')
+        os.makedirs(g, exist_ok=True)
+        for name, data in (('summits.json', []), ('summit-alternates.json', {}),
+                           ('languages-wikidata.json', dict(results=dict(bindings=[]))),
+                           ('treeline-languages.json', [dict(code='uk', english_name='Ukrainian'),
+                                                        dict(code='ru', english_name='Russian'),
+                                                        dict(code='en', english_name='English')])):
+            json.dump(data, open(os.path.join(g, name), 'w'))
+        open(os.path.join(g, 'country-languages.tsv'), 'w').write(f'ua\t{langs}\nru\tru\n')
+        open(os.path.join(g, 'countryInfo.txt'), 'w').write('#\n')
+        return g
+
+    def test_auto_takes_the_countrys_languages_in_order(self):
+        labels = json.load(open(self.labels))
+        labels['Q2'] = {'ru': 'Вторая', 'en': 'Two'}             # none in the first language
+        json.dump(labels, open(self.labels, 'w'), ensure_ascii=False)
+        s = self.make('--local-lang', 'auto', '--labels', self.labels, '--geonames', self.geonames())
+        self.assertEqual(s[(48.0, 24.0)]['name'], 'Перша')
+        self.assertEqual(s[(48.0, 24.0)]['names'][0]['lang'], 'uk')
+        self.assertEqual(s[(48.1, 24.0)]['name'], 'Вторая')
+        self.assertEqual(s[(48.1, 24.0)]['names'][0], dict(lang='ru', name='Вторая', local=True, source='Wikidata'))
+
+    def test_script_of(self):
+        self.assertIs(cc.script_of('el'), cc.GREEK)
+        self.assertIs(cc.script_of('gr'), cc.GREEK)               # TreeLine's code for Greek
+        self.assertIs(cc.script_of('sr'), cc.CYRILLIC)
+        self.assertIs(cc.script_of('it'), cc.LATIN)
+        self.assertEqual(cc.local_form('Όλυμπος', cc.GREEK), 'Όλυμπος')
+        self.assertIsNone(cc.local_form('Olympos', cc.GREEK))
 
     def test_repeated_name_near_left_unnamed(self):
         s = self.make_ua()

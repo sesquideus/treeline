@@ -15,22 +15,21 @@ import osmium
 KINDS = {'peak', 'rock', 'stone', 'saddle', 'volcano', 'hill'}
 
 
-class Peaks(osmium.SimpleHandler):
-    def __init__(self):
-        super().__init__()
-        self.out = []
-
-    def node(self, n):
-        kind = n.tags.get('natural')
-        if kind not in KINDS or 'name' not in n.tags:
-            return
+def peaks(src):
+    """ The named peaks of an extract; the tag filter runs in osmium's C++, so the planet's ten
+    billion nodes never reach Python. """
+    out = []
+    flt = osmium.filter.TagFilter(*[('natural', k) for k in sorted(KINDS)])
+    for n in osmium.FileProcessor(src, osmium.osm.NODE).with_filter(flt):
+        if 'name' not in n.tags:
+            continue
         other = {t.k[5:]: t.v for t in n.tags if t.k.startswith('name:') and len(t.k) <= 8}
-        self.out.append(dict(id=n.id, lat=n.location.lat, lon=n.location.lon, kind=kind,
-                             name=n.tags['name'], other_names=other, ele=n.tags.get('ele')))
+        out.append(dict(id=n.id, lat=n.location.lat, lon=n.location.lon, kind=n.tags['natural'],
+                        name=n.tags['name'], other_names=other, ele=n.tags.get('ele')))
+    return out
 
 
 if __name__ == '__main__':
-    h = Peaks()
-    h.apply_file(sys.argv[1])
-    json.dump(h.out, open(sys.argv[2], 'w'), ensure_ascii=False)
-    print(len(h.out), 'named peaks ->', sys.argv[2])
+    out = peaks(sys.argv[1])
+    json.dump(out, open(sys.argv[2], 'w'), ensure_ascii=False)
+    print(len(out), 'named peaks ->', sys.argv[2])

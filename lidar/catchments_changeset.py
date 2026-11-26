@@ -96,6 +96,17 @@ CYRILLIC = re.compile(r"^[\u0400-\u04ff0-9'’ʼ .,()-]+$")
 # a word for the kind of feature before the name proper ("гора Стіг" is Стіг): left off
 KIND = re.compile(r'^(гора|г\.|вершина|полонина гора|vârful|varful|vf\.)\s+(?=\S)', re.I)
 CYRILLIC_LANGS = {'uk', 'ru', 'be', 'bg', 'sr', 'mk'}
+GREEK = re.compile(r"^[\u0370-\u03ff\u1f00-\u1fff0-9'’ .,()-]+$")
+GEORGIAN = re.compile(r"^[\u10a0-\u10ff0-9'’ .,()-]+$")
+ARMENIAN = re.compile(r"^[\u0530-\u058f0-9'’ .,()-]+$")
+
+
+def script_of(lang):
+    """ The script a language's names are written in, for `local_form`. """
+    return (CYRILLIC if lang in CYRILLIC_LANGS else GREEK if lang in ('el', 'gr') else GEORGIAN if lang == 'ka'
+            else ARMENIAN if lang == 'hy' else LATIN)
+
+
 #: the script of the local language (--local-lang): Cyrillic or Latin, set in main()
 SCRIPT = [CYRILLIC]
 
@@ -239,7 +250,8 @@ def main():
     ap.add_argument('--assign', action='append', default=[],
                     help='ADMIN1.geojson:ISO_3166_2,...:CODE: those first-level units count as country CODE '
                          '(Crimea and Sevastopol, which Natural Earth gives Russia, as Ukraine: ...:UA-43,UA-40:ua)')
-    ap.add_argument('--local-lang', help="the name in this language's script (uk: Cyrillic), from --labels or GeoNames")
+    ap.add_argument('--local-lang', help="the name in this language's script (uk: Cyrillic), from --labels or GeoNames; "
+                                         "auto: each top's in its country's languages (GeoNames' list, in order)")
     ap.add_argument('--labels', help="wikidata_labels.py's LABELS.json: the items' labels in --local-lang")
     ap.add_argument('--review-heights', action='store_true', help="altitude_review by the Wikidata item's height")
     ap.add_argument('--agree', type=float, default=20.0, help='m: heights this close agree (O), farther W')
@@ -257,6 +269,21 @@ def main():
     a = ap.parse_args()
 
     SCRIPT[0] = CYRILLIC if (a.local_lang or 'uk') in CYRILLIC_LANGS else LATIN
+    AUTO = a.local_lang == 'auto'
+    country_langs = {}                       # every language a country lists, in GeoNames' order
+    if AUTO and not a.geonames:
+        ap.error('--local-lang auto needs --geonames (its country-languages.tsv)')
+    if AUTO:
+        SCRIPT[0] = LATIN
+    if a.geonames:
+        for line in open(os.path.join(a.geonames, 'country-languages.tsv')):
+            cc, langs = (line.rstrip('\n').split('\t') + [''])[:2]
+            ls = []
+            for lg in langs.split(','):
+                lg = lg.split('-')[0]
+                if len(lg) == 2 and lg not in ls:
+                    ls.append(lg)
+            country_langs[cc] = ls
     run = json.load(open(a.run))
     known = json.load(open(a.known))
     osm = [e for e in json.load(open(a.osm))['elements'] if e.get('tags', {}).get('name')]
@@ -342,8 +369,37 @@ def main():
 
     labels = json.load(open(a.labels)) if a.labels else {}
 
-    def local_label(qid):
-        return local_form(labels.get(qid, {}).get(a.local_lang)) if a.local_lang else None
+    def langs_of(ccs):
+        """ The local languages of a top in these countries, the first country's first. """
+        if not AUTO:
+            return [a.local_lang] if a.local_lang else []
+        out = []
+        for cc in ccs:
+            out += [lg for lg in country_langs.get(cc, []) if lg not in out]
+        return out
+
+    def local_label_in(qid, langs):
+        """ (language, label) of the item's first label in one of `langs`, in that language's script. """
+        for lg in langs:
+            n = local_form(labels.get(qid, {}).get(lg), script_of(lg))
+            if n:
+                return lg, n
+        return None, None
+
+    def local_label(qid, langs=None):
+        if not a.local_lang:
+            return None
+        if langs is None:
+            langs = list(labels.get(qid, {})) if AUTO else [a.local_lang]
+        return local_label_in(qid, langs)[1]
+
+    def item_names(qid, label):
+        """ The names an item goes by, for telling whether TreeLine holds it already. """
+        return [label] + (list(labels.get(qid, {}).values()) if AUTO else [local_label(qid)])
+
+    def osm_names(e):
+        return [e['name']] + (list(e['other_names'].values()) if AUTO
+                              else [e['other_names'].get(a.local_lang or 'en')])
 
     def norm_name(n):
         return re.sub(r'\s+', ' ', (n or '').lower().replace('ʼ', "'").replace('’', "'")).strip()
@@ -387,7 +443,7 @@ def main():
         for p in json.load(open(a.wikidata)):
             if not (p.get('label') or local_label(p['qid'])) or p['qid'] in taken_q or p['elev'] is None:
                 continue
-            if a.local_lang and known_claims(p['lat'], p['lon'], [p.get('label'), local_label(p['qid'])]):
+            if a.local_lang and known_claims(p['lat'], p['lon'], item_names(p['qid'], p.get('label'))):
                 continue
             reach = 1.0 if p['precision'] is not None and p['precision'] <= 0.001 else \
                 min(2.0, max(0.5, (p['precision'] or 0.01) * 111))
@@ -407,6 +463,10 @@ def main():
     # mountain, peak, hill, volcano or nunatak within 1 km at a height within 150 m (if it gives one)
     gn_of, gn_alts, lang_code, local_langs, new_langs = {}, {}, {}, {}, {}
     tl_codes = None
+
+    def tl_lang(raw, x=None):
+        """ TreeLine's code for an ISO 639-1 language (as is, without --geonames). """
+        return raw
     if a.geonames:
         G = [g for g in json.load(open(os.path.join(a.geonames, 'summits.json')))
              if g['code'] in ('MT', 'PK', 'HLL', 'VLC', 'NTK', 'PKU', 'MTU', 'HLLU')]
@@ -464,6 +524,14 @@ def main():
                                                  english_name=wl[c]['en'][:64], countries={}))
             lang_code[raw] = c
             return c
+
+        def tl_lang(raw, x=None):
+            """ `code_for`, counting a language TreeLine lacks against the top's country (its flag). """
+            c = code_for(raw)
+            if c in new_langs and x is not None:
+                cc = (x['countries'] or [''])[0]
+                new_langs[c]['countries'][cc] = new_langs[c]['countries'].get(cc, 0) + 1
+            return c
         GCELL = 0.05
         ggrid = grid(G, GCELL, lambda g: (g['lat'], g['lon']))
         pairs = []
@@ -472,7 +540,7 @@ def main():
         def g_claimed(g):
             if g['id'] not in claimed_g:
                 claimed_g[g['id']] = known_claims(g['lat'], g['lon'], [g['name']] + [
-                    t['name'] for t in gn_alts.get(str(g['id']), []) if t['lang'] in (a.local_lang, 'en')])
+                    t['name'] for t in gn_alts.get(str(g['id']), []) if AUTO or t['lang'] in (a.local_lang, 'en')])
             return claimed_g[g['id']]
         for x in new:
             for g in around(ggrid, GCELL, x['at']):
@@ -498,7 +566,7 @@ def main():
             hf = x.get('height_from')
             if hf and hf.get('source') == 'OpenStreetMap' and int(hf['qid'][4:]) in by_id:
                 e = by_id[int(hf['qid'][4:])]
-                if known_claims(e['lat'], e['lon'], [e['name'], e['other_names'].get(a.local_lang or 'en')]):
+                if known_claims(e['lat'], e['lon'], osm_names(e)):
                     # its height burned, but its name is a summit's TreeLine holds: this top is not that
                     # summit (it was matched elsewhere), so it takes no name at all
                     osm_claimed[key(x)] = e
@@ -523,7 +591,7 @@ def main():
                 continue
             e = by_id[i]
             if i not in claimed_o:
-                claimed_o[i] = known_claims(e['lat'], e['lon'], [e['name'], e['other_names'].get(a.local_lang or 'en')])
+                claimed_o[i] = known_claims(e['lat'], e['lon'], osm_names(e))
             if not claimed_o[i]:
                 osm_of[k] = e
                 taken_o.add(i)
@@ -556,6 +624,7 @@ def main():
                 break
 
     summits, stats, warned, latin_only = [], dict(named=0, island=0, stepped=0), [], []
+    used_langs = set()                       # the languages the names kept are in
     given, duplicate = {}, []                # names given so far, by grid cell; names refused as repeats
     peak_of = {p['qid']: p for p in json.load(open(a.wikidata)) if p['elev'] is not None} if a.wikidata else {}
 
@@ -596,13 +665,18 @@ def main():
             if a.local_lang:
                 # the name in the local script: Wikidata's label, else GeoNames' (preferred first);
                 # GeoNames' names in that language as their own names, in its script only
-                loc = local_label(wd[1]) if wd else None
+                tl = langs_of(x['countries'])
+                loc_lang, loc = local_label_in(wd[1], tl) if wd else (None, None)
                 loc_src = 'Wikidata'
-                gl = [n for n in names if n['lang'] == a.local_lang and n.get('source') == 'GeoNames']
+                tlc = [tl_lang(lg) or lg for lg in tl]       # GeoNames' names are in TreeLine's codes
+                gl = [n for n in names if n['lang'] in tlc and n.get('source') == 'GeoNames']
                 names = [n for n in names if n not in gl]
-                gl = [dict(n, name=local_form(n['name'])) for n in gl if local_form(n['name'])]
+                gl = [dict(n, name=local_form(n['name'], script_of(n['lang']))) for n in gl
+                      if local_form(n['name'], script_of(n['lang']))]
+                gl.sort(key=lambda n: tlc.index(n['lang']))
                 if not loc:
-                    loc = next((n['name'] for n in gl if not n.get('historical')), None)
+                    g0 = next((n for n in gl if not n.get('historical')), None)
+                    loc_lang, loc = (g0['lang'], g0['name']) if g0 else (None, None)
                     loc_src = 'GeoNames'
                 if loc and (any(norm_name(o['name']) == norm_name(loc) and km(o['at'], x['at']) <= 3.0
                                 for o in around(given, K3CELL, x['at']))
@@ -616,7 +690,9 @@ def main():
                 if loc:
                     given.setdefault((math.floor(x['at'][0] / K3CELL), math.floor(x['at'][1] / K3CELL)), []).append(
                         dict(name=loc, at=x['at']))
-                    names = [dict(lang=a.local_lang, name=loc, local=True, source=loc_src)] + gl + names
+                    if loc_src == 'Wikidata':
+                        loc_lang = tl_lang(loc_lang, x)
+                    names = [dict(lang=loc_lang, name=loc, local=True, source=loc_src)] + gl + names
                     name = loc
                     stats['local_name'] = stats.get('local_name', 0) + 1
                 elif name:
@@ -650,12 +726,19 @@ def main():
                                       prom=round(x['prom'], 1), name=nm, source='OpenStreetMap', osm=e['id']))
                 name, names = None, []
             else:
-                home = set(local_langs.get(x['countries'][0] if x['countries'] else '', [])) | {a.local_lang}
-                on = [dict(lang=lg, name=v.strip(), local=lg in home, source='OpenStreetMap')
-                      for lg, v in sorted(e['other_names'].items())
-                      if len(lg) == 2 and v.strip() and len(v.strip()) <= 64 and (tl_codes is None or lg in tl_codes)]
-                if a.local_lang and a.local_lang not in e['other_names'] and local_form(nm) == nm:
-                    on.insert(0, dict(lang=a.local_lang, name=nm, local=True, source='OpenStreetMap'))
+                tl = langs_of(x['countries'])
+                home = set(local_langs.get(x['countries'][0] if x['countries'] else '', [])) | set(tl)
+                # OSM's `name` in the local language: the one the country has (a country of several
+                # cannot tell which, Ticino's Italian from Graubünden's Romansh)
+                lg0 = tl[0] if len(tl) == 1 or not AUTO else None
+                # each `name:xx` under TreeLine's code for it (Greek is gr), a language it lacks
+                # going into the reference
+                on = []
+                for lg, v in sorted(e['other_names'].items()):
+                    if len(lg) == 2 and v.strip() and len(v.strip()) <= 64 and tl_lang(lg):
+                        on.append(dict(lang=tl_lang(lg, x), name=v.strip(), local=lg in home, source='OpenStreetMap'))
+                if lg0 and lg0 not in e['other_names'] and local_form(nm, script_of(lg0)) == nm and tl_lang(lg0):
+                    on.insert(0, dict(lang=tl_lang(lg0, x), name=nm, local=True, source='OpenStreetMap'))
                 if name and name != nm:
                     stats['osm_over_other'] = stats.get('osm_over_other', 0) + 1
                 name = nm
@@ -665,6 +748,7 @@ def main():
                 names = [n for n in on + names
                          if (n['lang'], n['name']) not in seen_n and not seen_n.add((n['lang'], n['name']))]
                 stats['osm_name'] = stats.get('osm_name', 0) + 1
+        used_langs.update(n['lang'] for n in names)
         rec = dict(key=key(x), lat=x['at'][0], lon=x['at'][1], name=name, names=names,
                    countries=x['countries'], altitude=round(x['h'], 2), datum=a.datum,
                    notes=[f'{a.source} at 1″, P {x["prom"]:.0f} m.'])
@@ -801,7 +885,7 @@ def main():
         langs = []
         taken_names = set()
         for c, d in sorted(new_langs.items()):
-            if not d['countries']:
+            if not d['countries'] or c not in used_langs:
                 continue
             nm = d['name'] if d['name'] not in taken_names else f"{d['name']} ({c})"
             taken_names.add(nm)

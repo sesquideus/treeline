@@ -37,11 +37,11 @@ QUERY = '''SELECT DISTINCT ?item ?label ?lon ?lat ?precision ?elev ?prom WHERE {
 }}'''
 
 
-def fetch(s, n, w, e, min_elev):
+def fetch(s, n, w, e, min_elev, attempts=5):
     q = QUERY.format(s=s, n=n, w=w, e=e, min_elev=min_elev)
     req = urllib.request.Request(ENDPOINT, data=urllib.parse.urlencode({'query': q}).encode(),
                                  headers={'User-Agent': AGENT, 'Accept': 'application/sparql-results+json'})
-    for attempt in range(5):
+    for attempt in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=180) as r:
                 rows = json.load(r)['results']['bindings']
@@ -62,7 +62,24 @@ def fetch(s, n, w, e, min_elev):
             wait = 30 * (attempt + 1)
             print(f'  tile {s},{w}: {ex}; again in {wait} s', flush=True)
             time.sleep(wait)
-    raise RuntimeError(f'tile {s},{w} failed five times')
+    raise RuntimeError(f'tile {s},{w} failed {attempts} times')
+
+
+def fetch_split(s, n, w, e, min_elev, depth=0):
+    """ `fetch`, and where a box keeps failing (too many items for the service's time limit), its
+    four quarters, down to a quarter of a degree. """
+    try:
+        return fetch(s, n, w, e, min_elev, attempts=2 if depth < 4 else 5)
+    except RuntimeError:
+        if depth >= 4:
+            raise
+        print(f'  {s},{w} to {n},{e}: in quarters', flush=True)
+        ms, mw = (s + n) / 2, (w + e) / 2
+        rows = {}
+        for box in ((s, ms, w, mw), (s, ms, mw, e), (ms, n, w, mw), (ms, n, mw, e)):
+            for r in fetch_split(*box, min_elev, depth + 1):
+                rows[r['qid']] = r
+        return list(rows.values())
 
 
 def main():
@@ -80,7 +97,7 @@ def main():
     for i, (s, w) in enumerate(tiles):
         path = os.path.join(a.out, f'tile_{s}_{w}.json')
         if not os.path.exists(path):
-            rows = fetch(s, s + STEP, w, w + STEP, a.min_elevation)
+            rows = fetch_split(s, s + STEP, w, w + STEP, a.min_elevation)
             json.dump(rows, open(path + '.tmp', 'w'), ensure_ascii=False)
             os.replace(path + '.tmp', path)
             time.sleep(1)                     # one request at a time, with a breath between

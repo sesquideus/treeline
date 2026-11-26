@@ -34,7 +34,7 @@ matched to a top of a catchment run, so that the flood sees its surveyed height 
   where OSM has none with a height within 300 m.
 - --known KNOWN.json (the database's summits, [{pk, name, lat, lon, alt}]): the database's own
   heights burned too, each at its own position when the model's highest cell within 150 m of it
-  lies between --below and --above it, so that the flood sees the summit the database has where
+  lies between --known-below (else --below) and --above it, so that the flood sees the summit the database has where
   the model reads two neighbours about level the other way round (and a changeset finds it
   there, rather than beside it). The database's height wins: a Wikidata summit within --known-km
   of one is not burned (it is listed as `deferred`).
@@ -166,11 +166,17 @@ def near_known(peaks, known, within_km):
 
 
 def main(run_path, peaks_path, out_path, below=BELOW, above=ABOVE, known_path=None, known_km=0.3,
-         check_position=False, also_path=None, confirmed_below=None):
+         check_position=False, also_path=None, confirmed_below=None, known_below=None):
     tops = json.load(open(run_path))['summits']
-    peaks = load_peaks(peaks_path)
+    # only the summits over the run's tops (a world PEAKS.json beside a continent's run): the rest
+    # pair with nothing, and checking them against the model would read every tile on Earth
+    lats, lons = [t['top'][0] for t in tops] or [-90, 90], [t['top'][1] for t in tops] or [-180, 180]
+    s_, n_, w_, e_ = min(lats) - 0.05, max(lats) + 0.05, min(lons) - 0.05, max(lons) + 0.05
+    inside = lambda p: s_ <= p['lat'] <= n_ and w_ <= p['lon'] <= e_
+    peaks = [p for p in load_peaks(peaks_path) if inside(p)]
     if also_path:
-        peaks = combine(peaks, load_peaks(also_path), confirmed_below=confirmed_below)
+        peaks = combine(peaks, [p for p in load_peaks(also_path) if inside(p)], confirmed_below=confirmed_below)
+    print(f'{len(peaks)} summits over the run ({s_:.2f}..{n_:.2f}, {w_:.2f}..{e_:.2f})', flush=True)
     known = [k for k in json.load(open(known_path)) if k.get('alt') is not None] if known_path else []
     deferred = []
     if known:
@@ -218,6 +224,8 @@ def main(run_path, peaks_path, out_path, below=BELOW, above=ABOVE, known_path=No
         return [round(la0 + 1 - (r0 + i) / ARC, 7), round(lo0 + (c0 + j) / ARC, 7)]
 
     burns = []
+    # tile by tile, so that each of the model's tiles is read once
+    pairs = sorted(pairs, key=lambda t: (math.floor(peaks[t[0]]['lat']), math.floor(peaks[t[0]]['lon'])))
     for j, i, score in pairs:
         p, t = peaks[j], tops[i]
         precise = p['precision'] is not None and p['precision'] <= PRECISE
@@ -271,7 +279,7 @@ def main(run_path, peaks_path, out_path, below=BELOW, above=ABOVE, known_path=No
         n = 0
         for k in sorted(known, key=lambda k: (math.floor(k['lat']), math.floor(k['lon']))):
             m = model_max(k['lat'], k['lon'])
-            if m is None or not (-above <= k['alt'] - m <= below) or k['alt'] <= m:
+            if m is None or not (-above <= k['alt'] - m <= (known_below or below)) or k['alt'] <= m:
                 continue
             burns.append(dict(qid=None, db=k['pk'], source='database', label=k['name'], elev=k['alt'], prom=k.get('prom'),
                               at=[k['lat'], k['lon']], placed='database, checked against the model', top=None,
@@ -307,6 +315,9 @@ if __name__ == '__main__':
                                    'summits of its own where the first has none within 300 m')
     ap.add_argument('--confirmed-below', type=float,
                     help='m: the guard below a summit both sources state within 20 m of each other')
+    ap.add_argument('--known-below', type=float,
+                    help="m: the guard below the database's own summits (default --below): curated and placed "
+                         "precisely, they may stand far above a 30 m model on a sharp summit (the Matterhorn, 150 m)")
     a = ap.parse_args()
     main(a.run, a.peaks, a.out, a.below, a.above, a.known, a.known_km, a.check_position, a.also,
-         a.confirmed_below)
+         a.confirmed_below, a.known_below)

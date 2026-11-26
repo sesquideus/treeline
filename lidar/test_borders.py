@@ -44,5 +44,23 @@ class BordersTests(unittest.TestCase):
         self.assertEqual(b.decide(49.0, 22.0003, lambda exclude: set()), {'pl', 'ua'})
 
 
+class AdjustTests(unittest.TestCase):
+    def test_crimea_leaves_russia_and_north_cyprus_is_carved(self):
+        import borders
+        d = tempfile.mkdtemp()
+        ne = os.path.join(d, 'ne.geojson')
+        json.dump(dict(type='FeatureCollection', features=[
+            dict(type='Feature', properties=dict(ADM0_A3='CYN'), geometry=mapping(box(32, 35.2, 35, 36)))]), open(ne, 'w'))
+        geoms = {'RU': box(30, 44, 40, 50), 'UA': box(30, 44, 35, 46),     # the overlap: Crimea
+                 'CY': box(32, 34.5, 35, 35.7)}
+        props = {c: dict(source='OSM') for c in geoms}
+        borders.adjust(geoms, props, natural_earth=ne)
+        self.assertFalse(geoms['RU'].contains(box(31, 44.5, 34, 45.5)))
+        self.assertTrue(geoms['UA'].contains(box(31, 44.5, 34, 45.5)))
+        self.assertAlmostEqual(geoms['XC'].area, 3 * 0.5)
+        self.assertAlmostEqual(geoms['CY'].area, 3 * 0.7)
+        self.assertNotIn('XS', geoms)                                    # no Somalia here
+
+
 if __name__ == '__main__':
     unittest.main()

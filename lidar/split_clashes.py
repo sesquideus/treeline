@@ -3,7 +3,7 @@ A changeset of new summits (`catchments_changeset.py`) split against what the da
 for a country the database holds some of: a clean part to apply, and the clashes to leave alone and
 ask about. Nothing the database has is changed by the clean part.
 
-    python3 lidar/split_clashes.py RUN.json CHANGESET.json DB.json OSM.json COUNTRY OUT_DIR [--near 400]
+    python3 lidar/split_clashes.py RUN.json CHANGESET.json DB.json OSM.json COUNTRY[,COUNTRY...] OUT_DIR [--near 400]
 
 DB.json: the database's summits around ([{pk, name, lat, lon, alt, source, review, countries, col:
 {lat, lon, alt}, parent: {pk, name, lat, lon}}]). OSM.json: `osm_peaks.py` output.
@@ -74,7 +74,8 @@ def split(run, changeset, db, osm, country, near_m=400.0, agree=20.0):
 
     def label(d):
         return f'{d["name"] or "unnamed"} (#{d["pk"]}, {d["alt"]} m)'
-    ours = [d for d in db if country in d['countries']]
+    wanted = set(country.split(','))            # one code, or several comma separated
+    ours = [d for d in db if wanted & set(d['countries'])]
     top_of, on_top = {}, {}
     for d in ours:
         c = [(km((d['lat'], d['lon']), tuple(t['top'])), t) for t in around(tg, 0.02, (d['lat'], d['lon']))]
