@@ -391,6 +391,34 @@ class BothParentsLowerTests(TestCase):
         self.assertIsNone(self.child.line_parent)
 
 
+class IslandSwapTests(TestCase):
+    """Vágar: Árnafjall (722 m by OSM) is the island's high point, not Eysturtindur (715 m)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.col = make_col(None, 342.5, 62.12833, -7.41833)
+        cls.eystur = make_summit('Eysturtindur', 715.0, 62.11583, -7.39667)
+        Summit.objects.filter(pk=cls.eystur.pk).update(island_high_point=True)
+        cls.arna = make_summit('Árnafjall', 722.0, 62.12944, -7.43333)
+        Summit.objects.filter(pk=cls.arna.pk).update(key_col=cls.col)
+
+    def test_swap(self):
+        cs = dict(sources=dict(lidar='GEDTM30', names='OpenStreetMap'),
+                  islands=[dict(summit_at=[62.12944, -7.43333], name='Árnafjall')],
+                  relinks=[dict(summit_at=dict(lat=62.11583, lon=-7.39667), summit_name='Eysturtindur',
+                                key_col=dict(at=dict(lat=62.12833, lon=-7.41833)),
+                                parent_at=dict(lat=62.12944, lon=-7.43333))])
+        ApplyTests.run_it(self, cs)
+        self.arna.refresh_from_db(), self.eystur.refresh_from_db()
+        self.assertTrue(self.arna.island_high_point)
+        self.assertIsNone(self.arna.key_col)
+        self.assertEqual((self.eystur.key_col, self.eystur.prominence_parent), (self.col, self.arna))
+        self.assertFalse(self.eystur.island_high_point)
+        out = ApplyTests.run_it(self, cs)                    # again: nothing to do
+        self.assertIn('0 islands', out)
+
+
 class TwinSwapTests(TestCase):
     """Two tops a centimetre apart: the higher one, found by position, takes over the key col."""
 

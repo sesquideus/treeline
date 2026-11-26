@@ -72,7 +72,7 @@ class Command(BaseCommand):
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
                            removed=0, summits_removed=0, merged=0, isolations=0, promoted=0,
-                           line_parents=0, countries=0, skipped=0)
+                           line_parents=0, countries=0, islands=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -88,6 +88,8 @@ class Command(BaseCommand):
                     self.split(split)
                 for fix in data.get('points', []):
                     self.move(fix)
+                for isl in data.get('islands', []):
+                    self.island(isl)
                 self.relink(data.get('relinks', []))
                 for s in data.get('summits', []):
                     self.summit(s, new)
@@ -129,7 +131,7 @@ class Command(BaseCommand):
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
             f'{c["removed"]} cols removed, {c["summits_removed"]} summits removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted, '
-            f'{c["line_parents"]} line parents, {c["countries"]} countries; '
+            f'{c["line_parents"]} line parents, {c["countries"]} countries, {c["islands"]} islands; '
             f'{c["skipped"]} skipped'))
 
     def reference(self, ref):
@@ -543,6 +545,7 @@ class Command(BaseCommand):
                 # A line parent was found across the key col it had: no longer this one.
                 summit.line_parent = summit.line_cutoff = summit.line_source = None
             summit.key_col, summit.prominence_parent = col, parent
+            summit.island_high_point = False         # a key col: it is no island's high point
             summit.prominence_source = self.lidar if parent else None
             if iso:
                 if summit.isolation_parent_id != iso['parent'].pk:
@@ -724,6 +727,33 @@ class Command(BaseCommand):
         self.stdout.write(f'  - {m["drop"]["name"] or "unnamed"} #{drop_pk} merged into '
                           f'{keep.name or "unnamed"} #{keep.pk}'
                           + (f' (its key col {key_col.point} left free)' if key_col else ''))
+
+    def island(self, isl):
+        """
+        A summit made its island's high point (`summit_at`, [lat, lon], and its `name`): the sea is
+        its key col, so it lets go of its key col and its prominence parent. Run before the relinks,
+        so that the summit the island's top used to be can take the freed col.
+        """
+        point = self.summit_point_at(isl['summit_at'])
+        summit = point and Summit.objects.select_related('point').get(point=point)
+        if summit is None or summit.point.name != isl['name']:
+            self.stdout.write(f'  ! no summit "{isl["name"]}" at {isl["summit_at"]}: skipped')
+            self.counts['skipped'] += 1
+            return
+        if summit.island_high_point:
+            self.counts['skipped'] += 1
+            return
+        summit.island_high_point = True
+        summit.key_col = summit.prominence_parent = summit.prominence_source = None
+        try:
+            summit.full_clean()
+        except ValidationError as e:
+            self.stdout.write(f'  ! {summit.point}: {"; ".join(e.messages)} Not made an island high point.')
+            self.counts['skipped'] += 1
+            return
+        summit.save()
+        self.counts['islands'] += 1
+        self.stdout.write(f'  + {summit.point}: its island\'s high point')
 
     def summit_point_at(self, at):
         """The point of the summit standing exactly at `at` ([lat, lon]), or None."""
