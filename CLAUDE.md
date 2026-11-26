@@ -115,6 +115,12 @@ uv run --group lidar python -m unittest lidar/test_catchments.py
 `lidar/tiled.py` is the same idea on Copernicus at 1″ for whole continents (South America:
 `lidar/southamerica/README.md`).
 
+Countries come from OpenStreetMap's borders (`$TREELINE_DATA/borders/*.geojson`, made by
+`lidar/osm_borders.py` from an extract or fetched by `lidar/borders.py fetch PL SK …`): a point
+within 100 m of a line is in both countries. Natural Earth (a few hundred metres off, padded by
+1 km) decides only where no outline is on disk, and `catchments_changeset.py` says how many tops
+that was: fetch the outlines of every country a run touches before it.
+
 Beyond the border, Copernicus GLO-30 fills in (a 30 m surface model, forest canopy included):
 anything it decides is flagged less precise. Names come from an OpenStreetMap extract (what
 Freemap draws). `apply_lidar_changeset` is idempotent and checks each point's name before

@@ -361,7 +361,8 @@ class ChangesetMain(unittest.TestCase):
     def make(self, *extra):
         argv = ['catchments_changeset.py', self.run, self.known, self.osm, self.admin0, self.out,
                 '--countries', 'ua', '--exclude-box', '48,49,26,30', '--min-prominence', '30',
-                '--source', 'FABDEM V1-2', '--wikidata', self.peaks, '--match', '0.3,0,0'] + list(extra)
+                '--source', 'FABDEM V1-2', '--wikidata', self.peaks, '--match', '0.3,0,0',
+                '--borders', os.path.join(self.d, 'no-borders')] + list(extra)   # Natural Earth alone
         with mock.patch.object(sys, 'argv', argv), mock.patch('builtins.print'):
             cc.main()
         return {(s['lat'], s['lon']): s for s in json.load(open(self.out))['summits']}

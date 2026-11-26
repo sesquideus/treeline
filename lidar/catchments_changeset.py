@@ -67,6 +67,7 @@ from shapely.geometry import Point, shape
 from shapely.strtree import STRtree
 
 from burn_match import OSM_KINDS, osm_ele as osm_height
+from borders import Borders, DIR as BORDERS_DIR
 
 
 def km(a, b):
@@ -228,6 +229,8 @@ def main():
                     help="a summit TreeLine holds: within KM, or FAR km at a height within DH m (KM,FAR,DH)")
     ap.add_argument('--fill', help='FILL.json: a second changeset giving summits TreeLine holds without a key col '
                                    "the run's (applied after OUT.json, whose new summits it may name as parents)")
+    ap.add_argument('--borders', default=BORDERS_DIR,
+                    help='directory of OpenStreetMap country outlines (lidar/borders.py); Natural Earth beyond them')
     ap.add_argument('--coarse', help="directory of the GLO-90 filler tiles: summits there are noted less precise")
     ap.add_argument('--min-prominence', type=float, default=100.0)
     ap.add_argument('--source', required=True, help='the elevation data, as the Source is to be named')
@@ -284,10 +287,23 @@ def main():
                     assigned[-1] = (assigned[-1][0], held_by, to)
         print(f'{len(assigned)} areas of {units} assigned to {to}')
 
-    def countries(lat, lon):
+    def ne_countries(lat, lon, exclude=frozenset()):
+        # Natural Earth, a few hundred metres off: padded by 0.01° so that a point near its line
+        # takes both sides, the nearest country where it falls in none (the sea by a coast);
+        # never one of `exclude` (the countries whose OSM outline decides them)
         p = Point(lon, lat)
-        hit = {codes[i] for i in tree.query(p.buffer(0.01), predicate='intersects')} - {''}
-        hit = hit or {c for c in [codes[tree.nearest(p)]] if c}
+        hit = {codes[i] for i in tree.query(p.buffer(0.01), predicate='intersects')} - {''} - set(exclude)
+        if not hit:
+            near = sorted(((geoms[i].distance(p), codes[i]) for i in tree.query(p.buffer(0.5))
+                           if codes[i] and codes[i] not in exclude), key=lambda t: t[0])
+            hit = {near[0][1]} if near else set()
+        return hit
+
+    def countries(lat, lon):
+        # OpenStreetMap's borders where they are on disk (lidar/borders.py), Natural Earth elsewhere
+        p = Point(lon, lat)
+        hit = borders.decide(lat, lon, lambda exclude: ne_countries(lat, lon, exclude))
+        hit = hit or ne_countries(lat, lon)
         for geom, frm, to in assigned:
             if geom.intersects(p.buffer(0.01)):
                 if geom.contains(p) or not hit - {frm}:
@@ -295,6 +311,8 @@ def main():
                 hit.add(to)
         return sorted(hit)
 
+    borders = Borders(a.borders)
+    print(f'{len(borders.codes)} OpenStreetMap country outlines in {BORDERS_DIR}: {", ".join(sorted(borders.codes))}')
     all_tops = {tuple(x['top']): x for x in run['summits']}
     tops = [x for x in run['summits'] if x['prom'] >= a.min_prominence]
     for x in tops:
@@ -304,6 +322,9 @@ def main():
     tops = [x for x in tops if (keep is None or keep & set(x['countries'])) and not drop & set(x['countries'])
             and not any(b[0] <= x['at'][0] <= b[1] and b[2] <= x['at'][1] <= b[3] for b in boxes)]
     by_pos = {x['at']: x for x in tops}
+    if borders.coarse:
+        print(f'{borders.coarse} tops beyond every OpenStreetMap outline on disk: countries from Natural Earth '
+              f'(a few hundred metres off; fetch the outlines with lidar/borders.py)')
     print(len(tops), f'tops of P >= {a.min_prominence:g} in', sorted(keep) if keep else f'all but {sorted(drop)}')
 
     KCELL = 0.02

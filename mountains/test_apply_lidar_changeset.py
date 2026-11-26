@@ -909,3 +909,27 @@ class HeightSwapTests(TestCase):
     def test_a_second_run_changes_nothing(self):
         ApplyTests.run_it(self, self.data())
         self.assertIn('0 relinked', ApplyTests.run_it(self, self.data()))
+
+
+class CountriesTests(TestCase):
+    """ A point's countries as a finer border says; one changed by a person since is left alone. """
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.pl, cls.ua, cls.sk = make_country('pl'), make_country('ua'), make_country('sk')
+        cls.p = make_summit('Łysania', 820.0, 49.2, 22.6).point
+        cls.p.countries.set([cls.ua])
+        cls.q = make_summit('Kińczyk Bukowski', 1251.0, 49.1, 22.6).point
+        cls.q.countries.set([cls.pl, cls.sk])
+
+    def test_set_and_guarded(self):
+        data = dict(sources=dict(lidar='OpenStreetMap borders', names='OpenStreetMap'), countries=[
+            dict(point=self.p.pk, name='Łysania', was=[49.2, 22.6], countries=['pl'], had=['ua']),
+            dict(point=self.q.pk, name='Kińczyk Bukowski', was=[49.1, 22.6], countries=['pl', 'ua'], had=['pl'])])
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
+            json.dump(data, f)
+        out = io.StringIO()
+        call_command('apply_lidar_changeset', f.name, stdout=out)
+        self.assertEqual(sorted(c.code for c in self.p.countries.all()), ['pl'])
+        self.assertEqual(sorted(c.code for c in self.q.countries.all()), ['pl', 'sk'])   # not what it had
+        self.assertIn('left as they are', out.getvalue())

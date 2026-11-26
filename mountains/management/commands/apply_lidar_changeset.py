@@ -72,7 +72,7 @@ class Command(BaseCommand):
             raise CommandError('no superuser to write the notes as; pass --author')
         self.counts = dict(summits=0, names=0, col_names=0, renamed=0, splits=0, moved=0, relinked=0,
                            removed=0, summits_removed=0, merged=0, isolations=0, promoted=0,
-                           line_parents=0, skipped=0)
+                           line_parents=0, countries=0, skipped=0)
         # A col this changeset names is no longer unnamed on a second run: that is not a change.
         self.ours = {c['point']: c['name'] for c in data.get('col_names', [])}
         try:
@@ -109,6 +109,8 @@ class Command(BaseCommand):
                     self.promote(pr)
                 for lp in data.get('line_parents', []):
                     self.line_parent(lp)
+                for cc in data.get('countries', []):
+                    self.set_countries(cc)
                 if dry_run:
                     raise DryRun
         except DryRun:
@@ -127,7 +129,7 @@ class Command(BaseCommand):
             f'{c["summits"]} summits, {c["names"]} names, {c["col_names"]} col names, '
             f'{c["renamed"]} renamed, {c["splits"]} split, {c["moved"]} moved, {c["relinked"]} relinked, '
             f'{c["removed"]} cols removed, {c["summits_removed"]} summits removed, {c["merged"]} merged, {c["isolations"]} isolations, {c["promoted"]} promoted, '
-            f'{c["line_parents"]} line parents; '
+            f'{c["line_parents"]} line parents, {c["countries"]} countries; '
             f'{c["skipped"]} skipped'))
 
     def reference(self, ref):
@@ -303,6 +305,25 @@ class Command(BaseCommand):
             self.counts['skipped'] += 1
             return None
         return point
+
+    def set_countries(self, cc):
+        """
+        A point's countries as a finer border says: `countries` in place of `had` (codes). A point
+        whose countries are no longer `had` (someone changed them since) is left as it is.
+        """
+        point = self.found(cc['point'], cc['name'], at=cc.get('was'))
+        if point is None:
+            return
+        have = sorted(c.code for c in point.countries.all())
+        if have == sorted(cc['countries']):
+            return
+        if have != sorted(cc['had']):
+            self.stdout.write(f'  ! {point}: countries are {have}, not {cc["had"]}: left as they are')
+            self.counts['skipped'] += 1
+            return
+        point.countries.set([self.countries[c] for c in cc['countries']])
+        self.counts['countries'] += 1
+        self.stdout.write(f'  ~ {point}: {"+".join(cc["had"]) or "none"} -> {"+".join(cc["countries"])}')
 
     def point_name(self, n):
         point = self.found(n['point'], n['point_name'])
