@@ -360,6 +360,37 @@ class RefusedRelinkTests(TestCase):
         self.assertFalse(Col.objects.filter(point__altitude=928.3).exists(), 'the col made for it is gone again')
 
 
+class BothParentsLowerTests(TestCase):
+    """A summit re-measured above both its parents: neither can be let go of alone, both can at once."""
+
+    @classmethod
+    def setUpTestData(cls):
+        get_user_model().objects.create_superuser('admin', 'admin@example.invalid', 'x')
+        cls.top = make_summit('Eysturtindur', 715.0, 62.2, -6.9, key_col=make_col(None, 300.0, 62.1, -6.9))
+        cls.child = make_summit('Árnafjall', 700.0, 62.21, -6.91, key_col=make_col(None, 500.0, 62.205, -6.905),
+                                prominence_parent=cls.top)
+        # OSM's height puts it above both (written past the invariants, as a re-measure leaves it)
+        Summit.objects.filter(pk=cls.child.pk).update(line_parent=cls.top, line_cutoff=100.0,
+                                                      line_source=Source.objects.get_or_create(name='GEDTM30')[0])
+        NamedPoint.objects.filter(pk=cls.child.point.pk).update(altitude=722.0)
+
+    def link(self, **extra):
+        return dict(sources=dict(lidar='GEDTM30', names='OpenStreetMap'), relinks=[dict(
+            summit_at=dict(lat=62.21, lon=-6.91), summit_name='Árnafjall',
+            key_col=dict(at=dict(lat=62.205, lon=-6.905)), parent=None, **extra)])
+
+    def test_alone_refused(self):
+        self.assertIn('Not relinked', ApplyTests.run_it(self, self.link()))
+        self.child.refresh_from_db()
+        self.assertEqual(self.child.prominence_parent, self.top)
+
+    def test_with_the_line_parent_both_go(self):
+        ApplyTests.run_it(self, self.link(line_parent=None))
+        self.child.refresh_from_db()
+        self.assertIsNone(self.child.prominence_parent)
+        self.assertIsNone(self.child.line_parent)
+
+
 class TwinSwapTests(TestCase):
     """Two tops a centimetre apart: the higher one, found by position, takes over the key col."""
 

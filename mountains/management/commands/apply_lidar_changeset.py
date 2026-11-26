@@ -470,6 +470,8 @@ class Command(BaseCommand):
         New key cols and parents for a group of summits at once. A key col belongs to one
         summit, so cols trading places are let go of first and then handed out.
 
+        A link may carry `line_parent: null`: the line parent let go of in the same save (a summit
+        whose parents both became lower than it can drop neither alone, each refused for the other).
         A link may carry the summit's new isolation too (`isolation`: parent, nhp, and a
         `source` if not the lidar), checked together with the rest: two summits trading places
         in height can change neither their parents nor their isolations one at a time, since
@@ -518,25 +520,26 @@ class Command(BaseCommand):
                 if (summit.isolation_parent_id == iso['parent'].pk and summit.nearest_higher_point is not None
                         and summit.nearest_higher_point.distance(iso['nhp']) < 1e-7):
                     iso = None                       # it has it already
+            drop_line = 'line_parent' in link and link['line_parent'] is None and summit.line_parent_id is not None
             if col.pk and summit.key_col_id == col.pk and summit.prominence_parent_id == (parent and parent.pk) \
-                    and not iso:
+                    and not iso and not drop_line:
                 self.counts['skipped'] += 1
                 continue
             if not col.pk:
                 col = Col.objects.create(point=self.point(k['new'], f'the new key col of {summit.point}'))
                 created.append(col)
-            todo.append((summit, col, parent, iso))
+            todo.append((summit, col, parent, iso, drop_line))
         # Each summit's own col, to give back if its relink is refused: the cols are let go of
         # all at once below, so a refused summit would otherwise be left with none.
-        before = {s.pk: s.key_col_id for s, _, _, _ in todo}
-        Summit.objects.filter(pk__in=[s.pk for s, _, _, _ in todo]).update(key_col=None)
+        before = {s.pk: s.key_col_id for s, *_ in todo}
+        Summit.objects.filter(pk__in=[s.pk for s, *_ in todo]).update(key_col=None)
         refused = []
-        for summit, col, parent, iso in todo:
+        for summit, col, parent, iso, drop_line in todo:
             summit.refresh_from_db()
             if parent is not None:
                 # It may itself have been relinked a moment ago: check cycles against that.
                 parent.refresh_from_db()
-            if before.get(summit.pk) != col.pk:
+            if before.get(summit.pk) != col.pk or drop_line:
                 # A line parent was found across the key col it had: no longer this one.
                 summit.line_parent = summit.line_cutoff = summit.line_source = None
             summit.key_col, summit.prominence_parent = col, parent
