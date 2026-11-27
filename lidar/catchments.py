@@ -1511,9 +1511,10 @@ FABDEM = path('fabdem', 'zip', env='TREELINE_FABDEM')
 ARC = 3600                     # cells a degree: FABDEM (and Copernicus GLO-30) at 1″
 
 
-#: The 1″ model `world` reads (and `burn_match.py` checks against): FABDEM, or with TREELINE_MODEL=gedtm30
-#: GEDTM30 v1.2 (OpenGeoHub, CC BY 4.0) from the tiles `gedtm30.py fetch` wrote, laid out as FABDEM's.
-MODEL = os.environ.get('TREELINE_MODEL', 'fabdem')
+#: The 1″ model `world` reads (and `burn_match.py` checks against): GEDTM30 v1.2 (OpenGeoHub, CC BY 4.0) from the
+#: tiles `gedtm30.py fetch` wrote, laid out as FABDEM's; TREELINE_MODEL=fabdem for FABDEM (non-commercial: dropped,
+#: its download deleted 2026-11-27).
+MODEL = os.environ.get('TREELINE_MODEL', 'gedtm30')
 
 
 def model_tile(lat, lon):

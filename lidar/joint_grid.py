@@ -60,9 +60,8 @@ def name(root, kind, i, j):
 def source_folders():
     """ Each source's whole dataset folder — the one directly under a `treeline` folder (ALS_AT,
     not just ALS_AT/tiles) — as given and with symlinks resolved. """
-    from catchments import FABDEM
     out = set()
-    for f in (os.path.dirname(joint.SK), joint.CZ, joint.PL, joint.PLE, joint.AT, FABDEM):
+    for f in (os.path.dirname(joint.SK), joint.CZ, joint.PL, joint.PLE, joint.AT, joint.model_root()):
         for p in (os.path.abspath(f), os.path.realpath(f)):
             q = p
             while os.path.dirname(q) != q and os.path.basename(os.path.dirname(q)) != 'treeline':
@@ -83,7 +82,7 @@ def code_fingerprint():
     parts = [inspect.getsource(f) for f in (joint.reader, joint.files, joint._warp, joint.correction,
                                             joint.drop_islands, joint._state, catchments.despike,
                                             catchments.heights, compact.quantize, _block)]
-    parts += [repr(v) for v in (joint.ORDER, joint.HEIGHTS, joint.ISLAND, joint.CRS, catchments.SPIKE,
+    parts += [repr(v) for v in (joint.ORDER, joint.HEIGHTS, joint.ISLAND, joint.CRS, catchments.SPIKE, catchments.MODEL,
                                 BLOCK, UNIT, rasterio.__gdal_version__, pyproj.proj_version_str)]
     return hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:16]
 
@@ -92,9 +91,8 @@ def data_fingerprint(source):
     """ The files a source has now (names, sizes, modification times), hashed: a source still
     downloading or replaced since a build changes it. """
     import hashlib
-    from catchments import FABDEM
     root = {'SK': joint.SK, 'CZ': joint.CZ, 'PL': joint.PL, 'PLE': joint.PLE, 'AT': joint.AT,
-            'FABDEM': FABDEM}[source]
+            'FABDEM': joint.model_root()}[source]
     h = hashlib.sha256()
     if os.path.isfile(root):
         paths = [root]

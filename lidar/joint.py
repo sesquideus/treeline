@@ -1,7 +1,8 @@
 """
 Slovakia, Czechia, Poland and Austria as one terrain for the catchment engine: each country's lidar
-on one grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), FABDEM wherever none of them
-has data (beyond the four, and Polish sheets not yet downloaded).
+on one grid (ETRS89-LAEA, EPSG:3035), in one height system (EGM2008), the 1″ model (GEDTM30; FABDEM
+with TREELINE_MODEL=fabdem) wherever none of them has data (beyond the four, and Polish sheets not yet
+downloaded). The model keeps the key `FABDEM` in --sources.
 
     cd lidar && uv run --project .. --group lidar python joint.py S,N,W,E OUT.json [--res 1] [--threshold 30]
         [--jobs 12] [--tile 5000] [--line-cutoff 100] [--sources SK,CZ,PLE,PL,AT,FABDEM] [--grid DIR]
@@ -31,7 +32,7 @@ Sources, the first with data wins a cell:
             1 m in 10 km tiles (EPSG:2180)
   Austria   BEV ALS-DGM, 1 m, 50 km tiles in EPSG:3035 (edition 2025-09-15, CC BY 4.0), EVRF2000
             Austria heights (EPSG:9274); from `ALS_AT/download.sh`
-  FABDEM    1″ (about 30 m), EGM2008, bilinear: what a top resting on it reports is flagged
+  GEDTM30   1″ (about 30 m), EGM2008, bilinear: what a top resting on it reports is flagged
 
 The lidar is resampled by its nearest cell, so a summit keeps its height. Each country's heights are
 carried to EGM2008 through its PROJ geoid grid (the ones CLAUDE.md lists), the correction sampled
@@ -50,8 +51,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from data import path  # noqa: E402
-from catchments import (ARC, THRESHOLD, despike, fabdem_tile, heights, run_store, walk, walk_line,  # noqa: E402
-                        walk_settled)
+from catchments import (ARC, MODEL, THRESHOLD, despike, heights, model_name, model_tile, run_store,  # noqa: E402
+                        walk, walk_line, walk_settled)
 
 CRS = 'EPSG:3035'
 SK = path('intcm', 'SK', 'dmr5_etrs89.tif', env='TREELINE_DMR5')     # compact.py copies: int cm
@@ -63,7 +64,9 @@ AT = path('intcm', 'AT', env='TREELINE_ALS_AT')
 HEIGHTS = {'SK': 'EPSG:4937', 'CZ': 'EPSG:4258+8357', 'PL': 'EPSG:4258+9650',   # PL: Baltic 1986 (KRON86)
            'PLE': 'EPSG:4258+9651',                                               # PLE: EVRF2007-PL
            'AT': 'EPSG:4258+9274'}                                                # AT: EVRF2000 Austria
-NAMES = {0: 'no data', 1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: 'FABDEM', 5: 'NMT EVRF2007 (PL)',
+#: code 4 is the 1″ model beyond the lidar (its key stays 'FABDEM' in --sources and ORDER, whichever model it is)
+MODEL_LABEL = 'GEDTM30' if MODEL == 'gedtm30' else 'FABDEM'
+NAMES = {0: 'no data', 1: 'DMR 5.0 (SK)', 2: 'DMR 5G (CZ)', 3: 'NMT KRON86 (PL)', 4: MODEL_LABEL, 5: 'NMT EVRF2007 (PL)',
          6: 'ALS-DGM (AT)'}
 AT_TILE = 50000
 ALL_SOURCES = ('SK', 'CZ', 'PLE', 'PL', 'AT', 'FABDEM')
@@ -72,6 +75,15 @@ SOURCES = set(ALL_SOURCES)      # what the reader uses (set by main before the w
 #: which without FABDEM around them would each be a top of its own. A window is read this many
 #: cells wider all round to judge them, so every window decides each island alike.
 ISLAND = 200
+
+
+def model_root():
+    """ The folder of the 1″ model's tiles the reader opens beyond the lidar. """
+    if MODEL == 'gedtm30':
+        from gedtm30 import DIR
+        return DIR
+    from catchments import FABDEM
+    return FABDEM
 
 
 def at_name(e, n):
@@ -241,11 +253,12 @@ def files(st, source, bounds):
                 if os.path.exists(f):
                     out.append((f, None))
     elif source == 'FABDEM':
-        # 1° tiles in 10° zips; a degree of sea has none (the reader skips what fails to open)
+        # the 1″ model's 1° tiles (GEDTM30 in int cm, or FABDEM in 10° zips); a degree of sea has none
+        # (the reader skips what fails to open)
         lon, lat = st['to_ll'].transform(xs, ys)
         for la in range(math.floor(min(lat)), math.floor(max(lat)) + 1):
             for lo in range(math.floor(min(lon)), math.floor(max(lon)) + 1):
-                out.append((fabdem_tile(la, lo), -9999))
+                out.append((model_tile(la, lo), None if MODEL == 'gedtm30' else -9999))
     return out
 
 
@@ -551,7 +564,8 @@ def main():
               settled=int((~rec['border']).sum()), parent_proven=int(proven.sum()), store=a.store, box=a.bbox,
               line_cutoff=a.line_cutoff, crs=CRS, res=a.res,
               sources=sorted(SOURCES), grid=a.grid,
-              source='DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), FABDEM V1-2 beyond them; heights EGM2008')
+              source=f'DMR 5.0 (SK), DMR 5G (CZ), NMT (PL), ALS-DGM (AT, BEV), {model_name()} beyond them; '
+                     'heights EGM2008')
     with open(a.out, 'w') as f:
         json.dump(dict(stats=st, summits=res), f)
     if a.grid:

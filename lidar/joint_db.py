@@ -29,7 +29,7 @@ COUNTRIES = os.environ.get('COUNTRIES', 'sk,cz,at').split(',')
 P_NEW = float(os.environ.get('P_NEW', 30))
 SAME, FAR, SAME_H = 30, 600, 3
 COUNTRY_OF = {'DMR 5.0 (SK)': 'sk', 'DMR 5G (CZ)': 'cz', 'ALS-DGM (AT)': 'at', 'NMT EVRF2007 (PL)': 'pl',
-              'NMT KRON86 (PL)': 'pl', 'FABDEM': 'fabdem'}
+              'NMT KRON86 (PL)': 'pl', 'FABDEM': 'fabdem', 'GEDTM30': 'fabdem'}   # 'fabdem': the 1″ model
 
 
 def dist(a, b):
